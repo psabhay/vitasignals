@@ -6,6 +6,7 @@ struct DashboardView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \BPReading.timestamp, order: .reverse) private var readings: [BPReading]
     @State private var showingAddReading = false
+    @State private var showingImport = false
 
     private var todayReadings: [BPReading] {
         readings.filter { Calendar.current.isDateInToday($0.timestamp) }
@@ -53,8 +54,17 @@ struct DashboardView: View {
             .navigationTitle("BP Logger")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        showingAddReading = true
+                    Menu {
+                        Button {
+                            showingAddReading = true
+                        } label: {
+                            Label("Add Manually", systemImage: "plus")
+                        }
+                        Button {
+                            showingImport = true
+                        } label: {
+                            Label("Import from Health", systemImage: "heart.circle")
+                        }
                     } label: {
                         Image(systemName: "plus.circle.fill")
                             .font(.title2)
@@ -63,6 +73,9 @@ struct DashboardView: View {
             }
             .sheet(isPresented: $showingAddReading) {
                 AddReadingView()
+            }
+            .sheet(isPresented: $showingImport) {
+                HealthImportView()
             }
         }
     }
@@ -275,8 +288,15 @@ struct ReadingRow: View {
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text(reading.formattedReading)
-                    .font(.headline.monospacedDigit())
+                HStack(spacing: 6) {
+                    Text(reading.formattedReading)
+                        .font(.headline.monospacedDigit())
+                    if reading.isFromHealthKit {
+                        Image(systemName: "heart.circle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.pink)
+                    }
+                }
                 HStack(spacing: 8) {
                     Label("\(reading.pulse)", systemImage: "heart.fill")
                         .font(.caption)

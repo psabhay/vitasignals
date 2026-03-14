@@ -10,8 +10,11 @@
 		36C548AF4A895A64C4F531A1 /* ExportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83FC1FC0A95B7A6081A4F081 /* ExportView.swift */; };
 		4501C5D17ED1E434663577E4 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 062B7643D2094A222A5227D8 /* Assets.xcassets */; };
 		472FE4107338F81C957399A4 /* AddReadingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3997474A0410C07CB79BC887 /* AddReadingView.swift */; };
+		4B4E1BEB021FF0CBD27D7E00 /* EditReadingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EF749357B4D8B9F38FF3284 /* EditReadingView.swift */; };
 		675541EBB9668D149F04A9A9 /* PDFGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD9745F66CBA1CA61ECA7752 /* PDFGenerator.swift */; };
 		7814E1F8D6BF9B63607CB441 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C620839AC508290919835944 /* DashboardView.swift */; };
+		79BEFEF0579F4A42C56B656B /* HealthKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E055E38EE6B845685AA7C48 /* HealthKitManager.swift */; };
+		95D4595913EDEC3B2EA848E1 /* HealthImportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D52982D82C742A21A1E766D /* HealthImportView.swift */; };
 		A41155556FBC46E2D5DBCC3D /* ChartsContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D28FF2120272D7D0AAF06B5 /* ChartsContainerView.swift */; };
 		A65A29A3902C5541BD9847C7 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2645E4543997ABFFF2095ACE /* ContentView.swift */; };
 		C0A23E138AC96305AD6FB86A /* ReadingsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE2BFB22FAA108BA3630FEF1 /* ReadingsListView.swift */; };
@@ -24,12 +27,16 @@
 		062B7643D2094A222A5227D8 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		2645E4543997ABFFF2095ACE /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		3997474A0410C07CB79BC887 /* AddReadingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddReadingView.swift; sourceTree = "<group>"; };
+		7EF749357B4D8B9F38FF3284 /* EditReadingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditReadingView.swift; sourceTree = "<group>"; };
 		827D48A9787CF5EA780A3F07 /* BPLoggerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BPLoggerApp.swift; sourceTree = "<group>"; };
 		83FC1FC0A95B7A6081A4F081 /* ExportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportView.swift; sourceTree = "<group>"; };
 		9D28FF2120272D7D0AAF06B5 /* ChartsContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartsContainerView.swift; sourceTree = "<group>"; };
+		9D52982D82C742A21A1E766D /* HealthImportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthImportView.swift; sourceTree = "<group>"; };
+		9E055E38EE6B845685AA7C48 /* HealthKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitManager.swift; sourceTree = "<group>"; };
 		C1E51C74876071725EECBA49 /* BPReading.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BPReading.swift; sourceTree = "<group>"; };
 		C620839AC508290919835944 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		DD9745F66CBA1CA61ECA7752 /* PDFGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFGenerator.swift; sourceTree = "<group>"; };
+		E642BE933880BE3C181520B5 /* BPLogger.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BPLogger.entitlements; sourceTree = "<group>"; };
 		EE2BFB22FAA108BA3630FEF1 /* ReadingsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadingsListView.swift; sourceTree = "<group>"; };
 		F950500DD9E0F5B30A6602F6 /* BPLogger.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = BPLogger.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -54,6 +61,7 @@
 		3A25F371B7DB944F42F5C5E7 /* Helpers */ = {
 			isa = PBXGroup;
 			children = (
+				9E055E38EE6B845685AA7C48 /* HealthKitManager.swift */,
 				DD9745F66CBA1CA61ECA7752 /* PDFGenerator.swift */,
 			);
 			path = Helpers;
@@ -74,7 +82,9 @@
 				9D28FF2120272D7D0AAF06B5 /* ChartsContainerView.swift */,
 				2645E4543997ABFFF2095ACE /* ContentView.swift */,
 				C620839AC508290919835944 /* DashboardView.swift */,
+				7EF749357B4D8B9F38FF3284 /* EditReadingView.swift */,
 				83FC1FC0A95B7A6081A4F081 /* ExportView.swift */,
+				9D52982D82C742A21A1E766D /* HealthImportView.swift */,
 				EE2BFB22FAA108BA3630FEF1 /* ReadingsListView.swift */,
 			);
 			path = Views;
@@ -91,6 +101,7 @@
 		D85D7681AFF9627F3A6A8A48 /* BPLogger */ = {
 			isa = PBXGroup;
 			children = (
+				E642BE933880BE3C181520B5 /* BPLogger.entitlements */,
 				00A3DB21E8532CC7EC569510 /* Info.plist */,
 				7A4DA5EFBCC2EAB159024547 /* App */,
 				3A25F371B7DB944F42F5C5E7 /* Helpers */,
@@ -186,7 +197,10 @@
 				A41155556FBC46E2D5DBCC3D /* ChartsContainerView.swift in Sources */,
 				A65A29A3902C5541BD9847C7 /* ContentView.swift in Sources */,
 				7814E1F8D6BF9B63607CB441 /* DashboardView.swift in Sources */,
+				4B4E1BEB021FF0CBD27D7E00 /* EditReadingView.swift in Sources */,
 				36C548AF4A895A64C4F531A1 /* ExportView.swift in Sources */,
+				95D4595913EDEC3B2EA848E1 /* HealthImportView.swift in Sources */,
+				79BEFEF0579F4A42C56B656B /* HealthKitManager.swift in Sources */,
 				675541EBB9668D149F04A9A9 /* PDFGenerator.swift in Sources */,
 				C0A23E138AC96305AD6FB86A /* ReadingsListView.swift in Sources */,
 			);
@@ -199,6 +213,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = BPLogger/BPLogger.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -277,6 +292,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = BPLogger/BPLogger.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;

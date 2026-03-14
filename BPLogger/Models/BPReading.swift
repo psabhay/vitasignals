@@ -71,6 +71,7 @@ final class BPReading {
     var timestamp: Date
     var activityContext: ActivityContext
     var notes: String
+    var healthKitID: String?
 
     init(
         systolic: Int,
@@ -78,7 +79,8 @@ final class BPReading {
         pulse: Int,
         timestamp: Date = .now,
         activityContext: ActivityContext,
-        notes: String = ""
+        notes: String = "",
+        healthKitID: String? = nil
     ) {
         self.id = UUID()
         self.systolic = systolic
@@ -87,6 +89,11 @@ final class BPReading {
         self.timestamp = timestamp
         self.activityContext = activityContext
         self.notes = notes
+        self.healthKitID = healthKitID
+    }
+
+    var isFromHealthKit: Bool {
+        healthKitID != nil
     }
 
     var category: BPCategory {

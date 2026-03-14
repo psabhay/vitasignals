@@ -23,3 +23,9 @@ targets:
       CODE_SIGN_STYLE: Automatic
       TARGETED_DEVICE_FAMILY: "1"
       SUPPORTS_XR_DESIGNED_FOR: NO
+    entitlements:
+      path: BPLogger/BPLogger.entitlements
+      properties:
+        com.apple.developer.healthkit: true
+        com.apple.developer.healthkit.access:
+          - health-records

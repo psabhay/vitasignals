@@ -5,8 +5,8 @@ struct ReadingsListView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \BPReading.timestamp, order: .reverse) private var readings: [BPReading]
     @State private var showingAddReading = false
+    @State private var showingImport = false
     @State private var selectedReading: BPReading?
-    @State private var searchText = ""
     @State private var filterContext: ActivityContext?
 
     private var groupedReadings: [(String, [BPReading])] {
@@ -56,9 +56,21 @@ struct ReadingsListView: View {
                                         ReadingRow(reading: reading)
                                     }
                                     .tint(.primary)
-                                }
-                                .onDelete { indexSet in
-                                    deleteReadings(dayReadings: dayReadings, at: indexSet)
+                                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                        Button(role: .destructive) {
+                                            modelContext.delete(reading)
+                                        } label: {
+                                            Label("Delete", systemImage: "trash")
+                                        }
+                                    }
+                                    .swipeActions(edge: .leading) {
+                                        Button {
+                                            selectedReading = reading
+                                        } label: {
+                                            Label("Edit", systemImage: "pencil")
+                                        }
+                                        .tint(.orange)
+                                    }
                                 }
                             }
                         }
@@ -68,8 +80,17 @@ struct ReadingsListView: View {
             .navigationTitle("History")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        showingAddReading = true
+                    Menu {
+                        Button {
+                            showingAddReading = true
+                        } label: {
+                            Label("Add Manually", systemImage: "plus")
+                        }
+                        Button {
+                            showingImport = true
+                        } label: {
+                            Label("Import from Health", systemImage: "heart.circle")
+                        }
                     } label: {
                         Image(systemName: "plus.circle.fill")
                             .font(.title2)
@@ -94,22 +115,22 @@ struct ReadingsListView: View {
             .sheet(isPresented: $showingAddReading) {
                 AddReadingView()
             }
+            .sheet(isPresented: $showingImport) {
+                HealthImportView()
+            }
             .sheet(item: $selectedReading) { reading in
                 ReadingDetailView(reading: reading)
             }
-        }
-    }
-
-    private func deleteReadings(dayReadings: [BPReading], at offsets: IndexSet) {
-        for index in offsets {
-            modelContext.delete(dayReadings[index])
         }
     }
 }
 
 struct ReadingDetailView: View {
     let reading: BPReading
+    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @State private var showEditSheet = false
+    @State private var showDeleteConfirmation = false
 
     var body: some View {
         NavigationStack {
@@ -121,6 +142,12 @@ struct ReadingDetailView: View {
                         Text("mmHg")
                             .foregroundStyle(.secondary)
                         CategoryBadge(category: reading.category)
+                        if reading.isFromHealthKit {
+                            Label("Imported from Apple Health", systemImage: "heart.circle")
+                                .font(.caption)
+                                .foregroundStyle(.pink)
+                                .padding(.top, 4)
+                        }
                     }
                     .frame(maxWidth: .infinity)
                     .listRowBackground(Color.clear)
@@ -156,6 +183,20 @@ struct ReadingDetailView: View {
                         Text(reading.notes)
                     }
                 }
+
+                Section {
+                    Button {
+                        showEditSheet = true
+                    } label: {
+                        Label("Edit Reading", systemImage: "pencil")
+                    }
+
+                    Button(role: .destructive) {
+                        showDeleteConfirmation = true
+                    } label: {
+                        Label("Delete Reading", systemImage: "trash")
+                    }
+                }
             }
             .navigationTitle("Reading Details")
             .navigationBarTitleDisplayMode(.inline)
@@ -163,6 +204,18 @@ struct ReadingDetailView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
                 }
+            }
+            .sheet(isPresented: $showEditSheet) {
+                EditReadingView(reading: reading)
+            }
+            .confirmationDialog("Delete this reading?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
+                Button("Delete", role: .destructive) {
+                    modelContext.delete(reading)
+                    dismiss()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("\(reading.formattedReading) mmHg on \(reading.formattedDate)")
             }
         }
     }
