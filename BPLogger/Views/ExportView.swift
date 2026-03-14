@@ -15,7 +15,7 @@ struct ExportView: View {
             VStack(spacing: 20) {
                 Image(systemName: "doc.richtext")
                     .font(.system(size: 60))
-                    .foregroundStyle(.accent)
+                    .foregroundStyle(Color.accentColor)
 
                 Text("Export BP Report")
                     .font(.title2.bold())
@@ -55,7 +55,7 @@ struct ExportView: View {
                             .font(.headline)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(.accent, in: RoundedRectangle(cornerRadius: 14))
+                            .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 14))
                             .foregroundStyle(.white)
                     }
                     .padding(.horizontal)
@@ -74,7 +74,7 @@ struct ExportView: View {
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(.accent, in: RoundedRectangle(cornerRadius: 14))
+                        .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 14))
                         .foregroundStyle(.white)
                     }
                     .disabled(isGenerating)

@@ -197,11 +197,11 @@ struct CategoryDistributionChart: View {
 
     private var distribution: [(BPCategory, Int)] {
         let grouped = Dictionary(grouping: readings) { $0.category }
-        return [.normal, .elevated, .highStage1, .highStage2, .crisis]
-            .compactMap { cat in
-                guard let count = grouped[cat]?.count, count > 0 else { return nil }
-                return (cat, count)
-            }
+        let categories: [BPCategory] = [.normal, .elevated, .highStage1, .highStage2, .crisis]
+        return categories.compactMap { cat in
+            guard let count = grouped[cat]?.count, count > 0 else { return nil }
+            return (cat, count)
+        }
     }
 
     private func categoryColor(_ cat: BPCategory) -> Color {

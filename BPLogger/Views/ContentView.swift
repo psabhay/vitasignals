@@ -24,6 +24,6 @@ struct ContentView: View {
                 }
                 .tag(2)
         }
-        .tint(.accent)
+        .tint(Color.accentColor)
     }
 }

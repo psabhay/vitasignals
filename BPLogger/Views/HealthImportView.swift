@@ -126,7 +126,7 @@ struct HealthImportView: View {
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(.accent, in: RoundedRectangle(cornerRadius: 14))
+                    .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 14))
                     .foregroundStyle(.white)
             }
             .padding(.horizontal)
@@ -178,7 +178,7 @@ struct HealthImportView: View {
                         } label: {
                             HStack {
                                 Image(systemName: selectedIDs.contains(reading.id) ? "checkmark.circle.fill" : "circle")
-                                    .foregroundStyle(selectedIDs.contains(reading.id) ? .accent : .secondary)
+                                    .foregroundStyle(selectedIDs.contains(reading.id) ? Color.accentColor : .secondary)
                                     .font(.title3)
 
                                 VStack(alignment: .leading, spacing: 4) {
@@ -223,7 +223,7 @@ struct HealthImportView: View {
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(selectedIDs.isEmpty ? .gray : .accent, in: RoundedRectangle(cornerRadius: 14))
+                    .background(selectedIDs.isEmpty ? .gray : Color.accentColor, in: RoundedRectangle(cornerRadius: 14))
                     .foregroundStyle(.white)
             }
             .disabled(selectedIDs.isEmpty)

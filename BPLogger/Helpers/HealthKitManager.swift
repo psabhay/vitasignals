@@ -135,7 +135,7 @@ final class HealthKitManager: ObservableObject {
                 limit: HKObjectQueryNoLimit,
                 sortDescriptors: [sortDescriptor]
             ) { _, results, _ in
-                let rates = (results as? [HKQuantitySample])?.map { sample in
+                let rates: [(Date, Int)] = (results as? [HKQuantitySample])?.map { sample in
                     let bpm = Int(sample.quantity.doubleValue(for: HKUnit.count().unitDivided(by: .minute())))
                     return (sample.startDate, bpm)
                 } ?? []
