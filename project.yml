@@ -1,0 +1,25 @@
+name: BPLogger
+options:
+  bundleIdPrefix: com.bplogger
+  deploymentTarget:
+    iOS: "17.0"
+  xcodeVersion: "16.0"
+  generateEmptyDirectories: true
+settings:
+  SWIFT_VERSION: "5.9"
+  DEVELOPMENT_TEAM: ""
+targets:
+  BPLogger:
+    type: application
+    platform: iOS
+    sources:
+      - BPLogger
+    settings:
+      INFOPLIST_FILE: BPLogger/Info.plist
+      PRODUCT_BUNDLE_IDENTIFIER: com.bplogger.app
+      MARKETING_VERSION: "1.0.0"
+      CURRENT_PROJECT_VERSION: 1
+      DEVELOPMENT_TEAM: ""
+      CODE_SIGN_STYLE: Automatic
+      TARGETED_DEVICE_FAMILY: "1"
+      SUPPORTS_XR_DESIGNED_FOR: NO

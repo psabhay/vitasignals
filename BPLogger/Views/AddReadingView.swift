@@ -1,0 +1,150 @@
+import SwiftUI
+import SwiftData
+
+struct AddReadingView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var systolic: Int = 120
+    @State private var diastolic: Int = 80
+    @State private var pulse: Int = 72
+    @State private var timestamp: Date = .now
+    @State private var selectedContext: ActivityContext = .atRest
+    @State private var notes: String = ""
+    @State private var showTimePicker = false
+
+    private var previewCategory: BPCategory {
+        let temp = BPReading(systolic: systolic, diastolic: diastolic, pulse: pulse, activityContext: selectedContext)
+        return temp.category
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    VStack(spacing: 8) {
+                        Text("\(systolic)/\(diastolic)")
+                            .font(.system(size: 44, weight: .bold, design: .rounded))
+                            .frame(maxWidth: .infinity)
+                        CategoryBadge(category: previewCategory)
+                    }
+                    .listRowBackground(Color.clear)
+                    .padding(.vertical, 8)
+                }
+
+                Section("Blood Pressure") {
+                    Stepper(value: $systolic, in: 60...300) {
+                        HStack {
+                            Text("Systolic")
+                            Spacer()
+                            Text("\(systolic)")
+                                .font(.headline.monospacedDigit())
+                                .foregroundStyle(.red)
+                        }
+                    }
+
+                    Stepper(value: $diastolic, in: 30...200) {
+                        HStack {
+                            Text("Diastolic")
+                            Spacer()
+                            Text("\(diastolic)")
+                                .font(.headline.monospacedDigit())
+                                .foregroundStyle(.blue)
+                        }
+                    }
+
+                    Stepper(value: $pulse, in: 30...220) {
+                        HStack {
+                            Text("Pulse")
+                            Spacer()
+                            Text("\(pulse)")
+                                .font(.headline.monospacedDigit())
+                                .foregroundStyle(.pink)
+                        }
+                    }
+                }
+
+                Section("When") {
+                    DatePicker("Date & Time", selection: $timestamp)
+                }
+
+                Section("Context") {
+                    LazyVGrid(columns: [
+                        GridItem(.flexible()),
+                        GridItem(.flexible())
+                    ], spacing: 10) {
+                        ForEach(ActivityContext.allCases) { context in
+                            Button {
+                                selectedContext = context
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: context.icon)
+                                        .font(.caption)
+                                    Text(context.rawValue)
+                                        .font(.caption)
+                                        .lineLimit(1)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                                .padding(.horizontal, 8)
+                                .background(
+                                    selectedContext == context
+                                        ? Color.accentColor.opacity(0.15)
+                                        : Color(.systemGray6)
+                                )
+                                .foregroundStyle(
+                                    selectedContext == context
+                                        ? Color.accentColor
+                                        : .primary
+                                )
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .strokeBorder(
+                                            selectedContext == context
+                                                ? Color.accentColor
+                                                : .clear,
+                                            lineWidth: 1.5
+                                        )
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+
+                Section("Notes (Optional)") {
+                    TextField("Any additional details...", text: $notes, axis: .vertical)
+                        .lineLimit(3...6)
+                }
+            }
+            .navigationTitle("New Reading")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        saveReading()
+                    }
+                    .bold()
+                }
+            }
+        }
+    }
+
+    private func saveReading() {
+        let reading = BPReading(
+            systolic: systolic,
+            diastolic: diastolic,
+            pulse: pulse,
+            timestamp: timestamp,
+            activityContext: selectedContext,
+            notes: notes
+        )
+        modelContext.insert(reading)
+        dismiss()
+    }
+}
