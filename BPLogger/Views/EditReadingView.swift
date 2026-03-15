@@ -23,8 +23,7 @@ struct EditReadingView: View {
     }
 
     private var previewCategory: BPCategory {
-        let temp = BPReading(systolic: systolic, diastolic: diastolic, pulse: pulse, activityContext: selectedContext)
-        return temp.category
+        BPReading.classify(systolic: systolic, diastolic: diastolic)
     }
 
     var body: some View {

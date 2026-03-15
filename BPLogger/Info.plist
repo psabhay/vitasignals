@@ -34,7 +34,7 @@
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
 	<key>NSHealthShareUsageDescription</key>
-	<string>BP Logger reads your blood pressure and heart rate data from Apple Health to import readings from your Wellue BP monitor via ViHealth.</string>
+	<string>BP Logger reads your blood pressure, heart rate, activity, sleep, fitness, and body measurement data from Apple Health to generate comprehensive health reports for your healthcare provider.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>processing</string>

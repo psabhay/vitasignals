@@ -58,6 +58,9 @@ struct ReadingsListView: View {
                                     .tint(.primary)
                                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                         Button(role: .destructive) {
+                                            if let hkID = reading.healthKitID {
+                                                modelContext.insert(DismissedHealthKitID(healthKitID: hkID))
+                                            }
                                             modelContext.delete(reading)
                                         } label: {
                                             Label("Delete", systemImage: "trash")
@@ -210,6 +213,9 @@ struct ReadingDetailView: View {
             }
             .confirmationDialog("Delete this reading?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
                 Button("Delete", role: .destructive) {
+                    if let hkID = reading.healthKitID {
+                        modelContext.insert(DismissedHealthKitID(healthKitID: hkID))
+                    }
                     modelContext.delete(reading)
                     dismiss()
                 }

@@ -5,6 +5,7 @@ struct HealthImportView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Query private var existingReadings: [BPReading]
+    @Query private var dismissedIDs: [DismissedHealthKitID]
 
     @StateObject private var hkManager = HealthKitManager()
     @State private var importSince: Date = Calendar.current.date(byAdding: .day, value: -7, to: .now)!
@@ -13,8 +14,10 @@ struct HealthImportView: View {
     @State private var importedCount = 0
     @State private var showImportDone = false
 
-    private var existingHealthKitIDs: Set<String> {
-        Set(existingReadings.compactMap(\.healthKitID))
+    private var excludedHealthKitIDs: Set<String> {
+        var ids = Set(existingReadings.compactMap(\.healthKitID))
+        for d in dismissedIDs { ids.insert(d.healthKitID) }
+        return ids
     }
 
     var body: some View {
@@ -118,7 +121,7 @@ struct HealthImportView: View {
 
             Button {
                 Task {
-                    await hkManager.fetchReadings(since: importSince, existingHealthKitIDs: existingHealthKitIDs)
+                    await hkManager.fetchReadings(since: importSince, excludedHealthKitIDs: excludedHealthKitIDs)
                     selectedIDs = Set(hkManager.fetchedReadings.map(\.id))
                 }
             } label: {

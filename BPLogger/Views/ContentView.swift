@@ -3,6 +3,7 @@ import SwiftData
 
 struct ContentView: View {
     @State private var selectedTab = 0
+    @State private var hasRequestedPermissions = false
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -23,7 +24,19 @@ struct ContentView: View {
                     Label("Charts", systemImage: "chart.xyaxis.line")
                 }
                 .tag(2)
+
+            ProfileView()
+                .tabItem {
+                    Label("Profile", systemImage: "person.crop.circle")
+                }
+                .tag(3)
         }
         .tint(Color.accentColor)
+        .task {
+            guard !hasRequestedPermissions else { return }
+            hasRequestedPermissions = true
+            let manager = HealthKitManager()
+            await manager.requestExpandedAuthorization()
+        }
     }
 }

@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-enum BPCategory: String, Codable {
+enum BPCategory: String, Codable, Hashable {
     case normal = "Normal"
     case elevated = "Elevated"
     case highStage1 = "High Stage 1"
@@ -19,7 +19,7 @@ enum BPCategory: String, Codable {
     }
 }
 
-enum ActivityContext: String, Codable, CaseIterable, Identifiable {
+enum ActivityContext: String, Codable, CaseIterable, Identifiable, Hashable {
     case justWokeUp = "Just Woke Up"
     case beforeBreakfast = "Before Breakfast"
     case afterBreakfast = "After Breakfast"
@@ -63,6 +63,15 @@ enum ActivityContext: String, Codable, CaseIterable, Identifiable {
 }
 
 @Model
+final class DismissedHealthKitID {
+    var healthKitID: String
+
+    init(healthKitID: String) {
+        self.healthKitID = healthKitID
+    }
+}
+
+@Model
 final class BPReading {
     var id: UUID
     var systolic: Int
@@ -97,6 +106,10 @@ final class BPReading {
     }
 
     var category: BPCategory {
+        Self.classify(systolic: systolic, diastolic: diastolic)
+    }
+
+    static func classify(systolic: Int, diastolic: Int) -> BPCategory {
         if systolic > 180 || diastolic > 120 {
             return .crisis
         } else if systolic >= 140 || diastolic >= 90 {

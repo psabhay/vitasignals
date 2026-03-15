@@ -20,6 +20,13 @@
 		C0A23E138AC96305AD6FB86A /* ReadingsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE2BFB22FAA108BA3630FEF1 /* ReadingsListView.swift */; };
 		E3CC19DA6ECC8FA8AB1632F7 /* BPLoggerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 827D48A9787CF5EA780A3F07 /* BPLoggerApp.swift */; };
 		E9307115C0AF56B39E9BC10B /* BPReading.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1E51C74876071725EECBA49 /* BPReading.swift */; };
+		F1A1A1A1A1A1A1A1A1A1A1A1 /* UserProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2B2B2B2B2B2B2B2B2B2B2B2 /* UserProfile.swift */; };
+		F3C3C3C3C3C3C3C3C3C3C3C3 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4D4D4D4D4D4D4D4D4D4D4D4 /* ProfileView.swift */; };
+		F5E5E5E5E5E5E5E5E5E5E5E5 /* HealthContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6A6A6A6A6A6A6A6A6A6A6A6 /* HealthContext.swift */; };
+		AA11AA11AA11AA11AA11AA11 /* BPReadingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA22AA22AA22AA22AA22AA22 /* BPReadingTests.swift */; };
+		AA33AA33AA33AA33AA33AA33 /* UserProfileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA44AA44AA44AA44AA44AA44 /* UserProfileTests.swift */; };
+		AA55AA55AA55AA55AA55AA55 /* HealthContextTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA66AA66AA66AA66AA66AA66 /* HealthContextTests.swift */; };
+		AA77AA77AA77AA77AA77AA77 /* PDFGeneratorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA88AA88AA88AA88AA88AA88 /* PDFGeneratorTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -38,7 +45,15 @@
 		DD9745F66CBA1CA61ECA7752 /* PDFGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFGenerator.swift; sourceTree = "<group>"; };
 		E642BE933880BE3C181520B5 /* BPLogger.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BPLogger.entitlements; sourceTree = "<group>"; };
 		EE2BFB22FAA108BA3630FEF1 /* ReadingsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadingsListView.swift; sourceTree = "<group>"; };
-		F950500DD9E0F5B30A6602F6 /* BPLogger.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = BPLogger.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F2B2B2B2B2B2B2B2B2B2B2B2 /* UserProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfile.swift; sourceTree = "<group>"; };
+		F6A6A6A6A6A6A6A6A6A6A6A6 /* HealthContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthContext.swift; sourceTree = "<group>"; };
+		AA22AA22AA22AA22AA22AA22 /* BPReadingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BPReadingTests.swift; sourceTree = "<group>"; };
+		AA44AA44AA44AA44AA44AA44 /* UserProfileTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfileTests.swift; sourceTree = "<group>"; };
+		AA66AA66AA66AA66AA66AA66 /* HealthContextTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthContextTests.swift; sourceTree = "<group>"; };
+		AA88AA88AA88AA88AA88AA88 /* PDFGeneratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFGeneratorTests.swift; sourceTree = "<group>"; };
+		AABB0011AABB0011AABB0011 /* BPLoggerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BPLoggerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F4D4D4D4D4D4D4D4D4D4D4D4 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		F950500DD9E0F5B30A6602F6 /* BPLogger.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BPLogger.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -46,6 +61,7 @@
 			isa = PBXGroup;
 			children = (
 				F950500DD9E0F5B30A6602F6 /* BPLogger.app */,
+				AABB0011AABB0011AABB0011 /* BPLoggerTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -54,6 +70,7 @@
 			isa = PBXGroup;
 			children = (
 				D85D7681AFF9627F3A6A8A48 /* BPLogger */,
+				AACC0011AACC0011AACC0011 /* BPLoggerTests */,
 				058B13CC25144E60D2374D6C /* Products */,
 			);
 			sourceTree = "<group>";
@@ -85,6 +102,7 @@
 				7EF749357B4D8B9F38FF3284 /* EditReadingView.swift */,
 				83FC1FC0A95B7A6081A4F081 /* ExportView.swift */,
 				9D52982D82C742A21A1E766D /* HealthImportView.swift */,
+				F4D4D4D4D4D4D4D4D4D4D4D4 /* ProfileView.swift */,
 				EE2BFB22FAA108BA3630FEF1 /* ReadingsListView.swift */,
 			);
 			path = Views;
@@ -116,8 +134,21 @@
 			isa = PBXGroup;
 			children = (
 				C1E51C74876071725EECBA49 /* BPReading.swift */,
+				F6A6A6A6A6A6A6A6A6A6A6A6 /* HealthContext.swift */,
+				F2B2B2B2B2B2B2B2B2B2B2B2 /* UserProfile.swift */,
 			);
 			path = Models;
+			sourceTree = "<group>";
+		};
+		AACC0011AACC0011AACC0011 /* BPLoggerTests */ = {
+			isa = PBXGroup;
+			children = (
+				AA22AA22AA22AA22AA22AA22 /* BPReadingTests.swift */,
+				AA44AA44AA44AA44AA44AA44 /* UserProfileTests.swift */,
+				AA66AA66AA66AA66AA66AA66 /* HealthContextTests.swift */,
+				AA88AA88AA88AA88AA88AA88 /* PDFGeneratorTests.swift */,
+			);
+			path = BPLoggerTests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -141,6 +172,22 @@
 			productReference = F950500DD9E0F5B30A6602F6 /* BPLogger.app */;
 			productType = "com.apple.product-type.application";
 		};
+		AADD0011AADD0011AADD0011 /* BPLoggerTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AAEE0011AAEE0011AAEE0011 /* Build configuration list for PBXNativeTarget "BPLoggerTests" */;
+			buildPhases = (
+				AAFF0011AAFF0011AAFF0011 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AABB0022AABB0022AABB0022 /* PBXTargetDependency */,
+			);
+			name = BPLoggerTests;
+			productName = BPLoggerTests;
+			productReference = AABB0011AABB0011AABB0011 /* BPLoggerTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -148,11 +195,14 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1600;
+				LastUpgradeCheck = 2630;
 				TargetAttributes = {
 					3F352DF1D7428E1A065F37A4 = {
-						DevelopmentTeam = "";
-						ProvisioningStyle = Automatic;
+						SystemCapabilities = {
+							com.apple.HealthKit = {
+								enabled = 1;
+							};
+						};
 					};
 				};
 			};
@@ -171,6 +221,7 @@
 			projectRoot = "";
 			targets = (
 				3F352DF1D7428E1A065F37A4 /* BPLogger */,
+				AADD0011AADD0011AADD0011 /* BPLoggerTests */,
 			);
 		};
 /* End PBXProject section */
@@ -194,6 +245,9 @@
 				472FE4107338F81C957399A4 /* AddReadingView.swift in Sources */,
 				E3CC19DA6ECC8FA8AB1632F7 /* BPLoggerApp.swift in Sources */,
 				E9307115C0AF56B39E9BC10B /* BPReading.swift in Sources */,
+				F1A1A1A1A1A1A1A1A1A1A1A1 /* UserProfile.swift in Sources */,
+				F5E5E5E5E5E5E5E5E5E5E5E5 /* HealthContext.swift in Sources */,
+				F3C3C3C3C3C3C3C3C3C3C3C3 /* ProfileView.swift in Sources */,
 				A41155556FBC46E2D5DBCC3D /* ChartsContainerView.swift in Sources */,
 				A65A29A3902C5541BD9847C7 /* ContentView.swift in Sources */,
 				7814E1F8D6BF9B63607CB441 /* DashboardView.swift in Sources */,
@@ -206,7 +260,36 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AAFF0011AAFF0011AAFF0011 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA11AA11AA11AA11AA11AA11 /* BPReadingTests.swift in Sources */,
+				AA33AA33AA33AA33AA33AA33 /* UserProfileTests.swift in Sources */,
+				AA55AA55AA55AA55AA55AA55 /* HealthContextTests.swift in Sources */,
+				AA77AA77AA77AA77AA77AA77 /* PDFGeneratorTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		AABB0022AABB0022AABB0022 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3F352DF1D7428E1A065F37A4 /* BPLogger */;
+			targetProxy = AABB0033AABB0033AABB0033 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXContainerItemProxy section */
+		AABB0033AABB0033AABB0033 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 3457DAA7AACA97D64D27391F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3F352DF1D7428E1A065F37A4;
+			remoteInfo = BPLogger;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin XCBuildConfiguration section */
 		398D223EDBF0569032EA37C9 /* Release */ = {
@@ -214,17 +297,18 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = BPLogger/BPLogger.entitlements;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = U433W77Z44;
 				INFOPLIST_FILE = BPLogger/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.bplogger.app;
+				PRODUCT_BUNDLE_IDENTIFIER = com.abhaysingh.bplogger;
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
 				SUPPORTS_XR_DESIGNED_FOR = NO;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -266,9 +350,10 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = U433W77Z44;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -282,6 +367,7 @@
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.9;
@@ -293,17 +379,18 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = BPLogger/BPLogger.entitlements;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = U433W77Z44;
 				INFOPLIST_FILE = BPLogger/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.bplogger.app;
+				PRODUCT_BUNDLE_IDENTIFIER = com.abhaysingh.bplogger;
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
 				SUPPORTS_XR_DESIGNED_FOR = NO;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -345,9 +432,10 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = U433W77Z44;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -368,11 +456,52 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.9;
 			};
 			name = Debug;
+		};
+		AACC0022AACC0022AACC0022 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = U433W77Z44;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.abhaysingh.bplogger.tests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BPLogger.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/BPLogger";
+			};
+			name = Debug;
+		};
+		AACC0033AACC0033AACC0033 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = U433W77Z44;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.abhaysingh.bplogger.tests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BPLogger.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/BPLogger";
+			};
+			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
@@ -391,6 +520,15 @@
 			buildConfigurations = (
 				B6412BF0635A22B817A075D2 /* Debug */,
 				7CAE75D35FF1A9307D8323AF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		AAEE0011AAEE0011AAEE0011 /* Build configuration list for PBXNativeTarget "BPLoggerTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AACC0022AACC0022AACC0022 /* Debug */,
+				AACC0033AACC0033AACC0033 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
