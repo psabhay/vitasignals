@@ -4,7 +4,12 @@ import SwiftData
 @main
 struct BPLoggerApp: App {
     var sharedModelContainer: ModelContainer = {
-        let schema = Schema([BPReading.self, DismissedHealthKitID.self, UserProfile.self])
+        let schema = Schema([
+            HealthRecord.self,
+            DismissedHealthKitRecord.self,
+            UserProfile.self,
+            SyncState.self,
+        ])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {
             return try ModelContainer(for: schema, configurations: [config])

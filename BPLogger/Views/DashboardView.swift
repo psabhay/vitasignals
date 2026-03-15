@@ -4,175 +4,246 @@ import Charts
 
 struct DashboardView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \BPReading.timestamp, order: .reverse) private var readings: [BPReading]
-    @State private var showingAddReading = false
-    @State private var showingImport = false
+    @Query(sort: \HealthRecord.timestamp, order: .reverse) private var allRecords: [HealthRecord]
+    @ObservedObject var syncManager: HealthSyncManager
+    @State private var activeSheet: DashboardSheet?
+    @State private var addMetricType: String = MetricType.bloodPressure
 
-    private var todayReadings: [BPReading] {
-        readings.filter { Calendar.current.isDateInToday($0.timestamp) }
+    private enum DashboardSheet: Identifiable {
+        case metricPicker
+        case addForm(String)
+        var id: String {
+            switch self {
+            case .metricPicker: return "picker"
+            case .addForm(let type): return "add-\(type)"
+            }
+        }
     }
 
-    private var last7DaysReadings: [BPReading] {
+    private var bpRecords: [HealthRecord] {
+        allRecords.filter { $0.metricType == MetricType.bloodPressure }
+    }
+
+    private var latestBP: HealthRecord? {
+        bpRecords.first
+    }
+
+    private var todayBPReadings: [HealthRecord] {
+        bpRecords.filter { Calendar.current.isDateInToday($0.timestamp) }
+    }
+
+    private var last7DaysBP: [HealthRecord] {
         let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: .now)!
-        return readings.filter { $0.timestamp >= sevenDaysAgo }
+        return bpRecords.filter { $0.timestamp >= sevenDaysAgo }
     }
 
     private var averageSystolic: Int? {
-        guard !last7DaysReadings.isEmpty else { return nil }
-        return last7DaysReadings.map(\.systolic).reduce(0, +) / last7DaysReadings.count
+        guard !last7DaysBP.isEmpty else { return nil }
+        return last7DaysBP.map(\.systolic).reduce(0, +) / last7DaysBP.count
     }
 
     private var averageDiastolic: Int? {
-        guard !last7DaysReadings.isEmpty else { return nil }
-        return last7DaysReadings.map(\.diastolic).reduce(0, +) / last7DaysReadings.count
+        guard !last7DaysBP.isEmpty else { return nil }
+        return last7DaysBP.map(\.diastolic).reduce(0, +) / last7DaysBP.count
     }
 
     private var averagePulse: Int? {
-        guard !last7DaysReadings.isEmpty else { return nil }
-        return last7DaysReadings.map(\.pulse).reduce(0, +) / last7DaysReadings.count
+        guard !last7DaysBP.isEmpty else { return nil }
+        return last7DaysBP.map(\.pulse).reduce(0, +) / last7DaysBP.count
+    }
+
+    private var nonBPMetricTypes: [String] {
+        let types = Set(allRecords.map(\.metricType))
+        return MetricRegistry.all.map(\.type).filter { types.contains($0) && $0 != MetricType.bloodPressure }
+    }
+
+    // Pre-compute card data once instead of per-card
+    private struct CardData: Identifiable {
+        let id: String
+        let latestValue: String
+        let unit: String
+        let sparkline: [(Date, Double)]
+    }
+
+    private var cardDataList: [CardData] {
+        let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: .now)!
+        return nonBPMetricTypes.map { type in
+            let records = allRecords.filter { $0.metricType == type }
+            let def = MetricRegistry.definition(for: type)
+            let latest = records.first
+            let recent = records.filter { $0.timestamp >= sevenDaysAgo }
+                .sorted { $0.timestamp < $1.timestamp }
+                .prefix(30)
+                .map { ($0.timestamp, $0.primaryValue) }
+            return CardData(
+                id: type,
+                latestValue: latest?.formattedPrimaryValue ?? "–",
+                unit: def?.unit ?? "",
+                sparkline: recent
+            )
+        }
     }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
-                    if let latest = readings.first {
-                        latestReadingCard(latest)
-                    } else {
-                        emptyStateView
+                    if syncManager.isSyncing {
+                        HStack(spacing: 8) {
+                            ProgressView().scaleEffect(0.8)
+                            Text(syncManager.syncProgress)
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        .padding(.horizontal)
                     }
 
-                    if !last7DaysReadings.isEmpty {
+                    if let latest = latestBP {
+                        latestBPCard(latest)
+                    }
+
+                    if !cardDataList.isEmpty {
+                        metricCardsGrid
+                    }
+
+                    if !last7DaysBP.isEmpty {
                         weekAverageCard
                         miniChartCard
                     }
 
-                    todaySection
+                    todayBPSection
+
+                    if allRecords.isEmpty {
+                        emptyStateView
+                    }
                 }
                 .padding()
             }
-            .navigationTitle("BP Logger")
+            .navigationTitle("Health Dashboard")
+            .withProfileButton()
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    Menu {
-                        Button {
-                            showingAddReading = true
-                        } label: {
-                            Label("Add Manually", systemImage: "plus")
-                        }
-                        Button {
-                            showingImport = true
-                        } label: {
-                            Label("Import from Health", systemImage: "heart.circle")
-                        }
+                    Button {
+                        activeSheet = .metricPicker
                     } label: {
                         Image(systemName: "plus.circle.fill")
                             .font(.title2)
                     }
                 }
             }
-            .sheet(isPresented: $showingAddReading) {
-                AddReadingView()
+            .sheet(item: $activeSheet) { sheet in
+                switch sheet {
+                case .metricPicker:
+                    AddRecordPickerSheet { selectedType in
+                        activeSheet = nil
+                        addMetricType = selectedType
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                            activeSheet = .addForm(selectedType)
+                        }
+                    }
+                case .addForm(let type):
+                    AddHealthRecordView(metricType: type)
+                }
             }
-            .sheet(isPresented: $showingImport) {
-                HealthImportView()
+            .navigationDestination(for: String.self) { metricType in
+                MetricDetailView(metricType: metricType)
             }
         }
     }
 
+    // MARK: - Empty State
+
     private var emptyStateView: some View {
         VStack(spacing: 12) {
             Image(systemName: "heart.text.square")
-                .font(.system(size: 60))
-                .foregroundStyle(.secondary)
-            Text("No Readings Yet")
-                .font(.title2.bold())
-            Text("Tap + to log your first blood pressure reading")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+                .font(.system(size: 60)).foregroundStyle(.secondary)
+            Text("No Health Data Yet").font(.title2.bold())
+            Text("Tap + to log data or sync from Apple Health")
+                .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 60)
     }
 
-    private func latestReadingCard(_ reading: BPReading) -> some View {
+    // MARK: - Latest BP Card
+
+    private func latestBPCard(_ record: HealthRecord) -> some View {
         VStack(spacing: 12) {
             HStack {
-                Text("Latest Reading")
-                    .font(.subheadline.bold())
-                    .foregroundStyle(.secondary)
+                Text("Latest Blood Pressure").font(.subheadline.bold()).foregroundStyle(.secondary)
                 Spacer()
-                Text(reading.formattedDate)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text(record.formattedDate).font(.caption).foregroundStyle(.secondary)
             }
 
             HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text("\(reading.systolic)")
+                Text("\(record.systolic)")
                     .font(.system(size: 48, weight: .bold, design: .rounded))
-                Text("/")
-                    .font(.system(size: 30, weight: .light))
-                    .foregroundStyle(.secondary)
-                Text("\(reading.diastolic)")
+                Text("/").font(.system(size: 30, weight: .light)).foregroundStyle(.secondary)
+                Text("\(record.diastolic)")
                     .font(.system(size: 48, weight: .bold, design: .rounded))
-                Text("mmHg")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.leading, 4)
+                Text("mmHg").font(.caption).foregroundStyle(.secondary).padding(.leading, 4)
             }
 
             HStack(spacing: 16) {
-                Label("\(reading.pulse) bpm", systemImage: "heart.fill")
-                    .font(.subheadline)
-                    .foregroundStyle(.pink)
-
-                Label(reading.activityContext.rawValue, systemImage: reading.activityContext.icon)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                Label("\(record.pulse) bpm", systemImage: "heart.fill")
+                    .font(.subheadline).foregroundStyle(.pink)
+                if let ctx = record.bpActivityContext {
+                    Label(ctx.rawValue, systemImage: ctx.icon)
+                        .font(.subheadline).foregroundStyle(.secondary)
+                }
             }
 
-            CategoryBadge(category: reading.category)
+            CategoryBadge(category: record.bpCategory)
         }
         .frame(maxWidth: .infinity)
         .padding()
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
     }
+
+    // MARK: - Metric Cards Grid
+
+    private var metricCardsGrid: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Health Overview").font(.subheadline.bold()).foregroundStyle(.secondary)
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                ForEach(cardDataList) { card in
+                    NavigationLink(value: card.id) {
+                        MetricCardView(
+                            metricType: card.id,
+                            latestValue: card.latestValue,
+                            unit: card.unit,
+                            sparklineData: card.sparkline
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    // MARK: - Week Average
 
     private var weekAverageCard: some View {
         VStack(spacing: 12) {
             HStack {
-                Text("7-Day Average")
-                    .font(.subheadline.bold())
-                    .foregroundStyle(.secondary)
+                Text("7-Day Average").font(.subheadline.bold()).foregroundStyle(.secondary)
                 Spacer()
-                Text("\(last7DaysReadings.count) readings")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text("\(last7DaysBP.count) readings").font(.caption).foregroundStyle(.secondary)
             }
-
             HStack(spacing: 24) {
                 if let sys = averageSystolic, let dia = averageDiastolic {
                     VStack {
-                        Text("\(sys)/\(dia)")
-                            .font(.system(size: 28, weight: .bold, design: .rounded))
-                        Text("mmHg")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        Text("\(sys)/\(dia)").font(.system(size: 28, weight: .bold, design: .rounded))
+                        Text("mmHg").font(.caption).foregroundStyle(.secondary)
                     }
                 }
-
                 if let pulse = averagePulse {
                     VStack {
                         HStack(spacing: 4) {
-                            Image(systemName: "heart.fill")
-                                .foregroundStyle(.pink)
-                            Text("\(pulse)")
-                                .font(.system(size: 28, weight: .bold, design: .rounded))
+                            Image(systemName: "heart.fill").foregroundStyle(.pink)
+                            Text("\(pulse)").font(.system(size: 28, weight: .bold, design: .rounded))
                         }
-                        Text("bpm")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        Text("bpm").font(.caption).foregroundStyle(.secondary)
                     }
                 }
             }
@@ -182,52 +253,31 @@ struct DashboardView: View {
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
     }
 
+    // MARK: - Mini Chart
+
     private var miniChartCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Last 7 Days")
-                .font(.subheadline.bold())
-                .foregroundStyle(.secondary)
+            Text("Last 7 Days").font(.subheadline.bold()).foregroundStyle(.secondary)
 
             Chart {
-                ForEach(last7DaysReadings.reversed()) { reading in
-                    LineMark(
-                        x: .value("Time", reading.timestamp),
-                        y: .value("Systolic", reading.systolic)
-                    )
-                    .foregroundStyle(.red)
-                    .symbol(.circle)
-
-                    LineMark(
-                        x: .value("Time", reading.timestamp),
-                        y: .value("Diastolic", reading.diastolic)
-                    )
-                    .foregroundStyle(.blue)
-                    .symbol(.diamond)
+                ForEach(last7DaysBP.reversed()) { record in
+                    LineMark(x: .value("Time", record.timestamp), y: .value("Systolic", record.systolic))
+                        .foregroundStyle(.red).symbol(.circle)
+                    LineMark(x: .value("Time", record.timestamp), y: .value("Diastolic", record.diastolic))
+                        .foregroundStyle(.blue).symbol(.diamond)
                 }
-
                 RuleMark(y: .value("Normal Systolic", 120))
-                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 3]))
-                    .foregroundStyle(.green.opacity(0.5))
-
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 3])).foregroundStyle(.green.opacity(0.5))
                 RuleMark(y: .value("Normal Diastolic", 80))
-                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 3]))
-                    .foregroundStyle(.green.opacity(0.3))
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 3])).foregroundStyle(.green.opacity(0.3))
             }
             .frame(height: 180)
-            .chartYAxis {
-                AxisMarks(position: .leading)
-            }
+            .chartYAxis { AxisMarks(position: .leading) }
 
             HStack(spacing: 16) {
-                Label("Systolic", systemImage: "circle.fill")
-                    .font(.caption2)
-                    .foregroundStyle(.red)
-                Label("Diastolic", systemImage: "diamond.fill")
-                    .font(.caption2)
-                    .foregroundStyle(.blue)
-                Label("Normal", systemImage: "line.diagonal")
-                    .font(.caption2)
-                    .foregroundStyle(.green)
+                Label("Systolic", systemImage: "circle.fill").font(.caption2).foregroundStyle(.red)
+                Label("Diastolic", systemImage: "diamond.fill").font(.caption2).foregroundStyle(.blue)
+                Label("Normal", systemImage: "line.diagonal").font(.caption2).foregroundStyle(.green)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -235,21 +285,17 @@ struct DashboardView: View {
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
     }
 
-    private var todaySection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Today")
-                .font(.subheadline.bold())
-                .foregroundStyle(.secondary)
+    // MARK: - Today Section
 
-            if todayReadings.isEmpty {
-                Text("No readings today")
-                    .font(.subheadline)
-                    .foregroundStyle(.tertiary)
-                    .frame(maxWidth: .infinity)
-                    .padding()
+    private var todayBPSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Today").font(.subheadline.bold()).foregroundStyle(.secondary)
+            if todayBPReadings.isEmpty {
+                Text("No readings today").font(.subheadline).foregroundStyle(.tertiary)
+                    .frame(maxWidth: .infinity).padding()
             } else {
-                ForEach(todayReadings) { reading in
-                    ReadingRow(reading: reading)
+                ForEach(todayBPReadings) { record in
+                    BPReadingRow(record: record)
                 }
             }
         }
@@ -259,9 +305,10 @@ struct DashboardView: View {
     }
 }
 
+// MARK: - Category Badge
+
 struct CategoryBadge: View {
     let category: BPCategory
-
     var badgeColor: Color {
         switch category {
         case .normal: return .green
@@ -271,47 +318,39 @@ struct CategoryBadge: View {
         case .crisis: return .purple
         }
     }
-
     var body: some View {
         Text(category.rawValue)
             .font(.caption.bold())
-            .padding(.horizontal, 12)
-            .padding(.vertical, 4)
+            .padding(.horizontal, 12).padding(.vertical, 4)
             .background(badgeColor.opacity(0.15), in: Capsule())
             .foregroundStyle(badgeColor)
     }
 }
 
-struct ReadingRow: View {
-    let reading: BPReading
+// MARK: - BP Reading Row
 
+struct BPReadingRow: View {
+    let record: HealthRecord
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
-                    Text(reading.formattedReading)
-                        .font(.headline.monospacedDigit())
-                    if reading.isFromHealthKit {
-                        Image(systemName: "heart.circle.fill")
-                            .font(.caption)
-                            .foregroundStyle(.pink)
+                    Text(record.formattedPrimaryValue).font(.headline.monospacedDigit())
+                    if record.isFromHealthKit {
+                        Image(systemName: "heart.circle.fill").font(.caption).foregroundStyle(.pink)
                     }
                 }
                 HStack(spacing: 8) {
-                    Label("\(reading.pulse)", systemImage: "heart.fill")
-                        .font(.caption)
-                        .foregroundStyle(.pink)
-                    Label(reading.activityContext.rawValue, systemImage: reading.activityContext.icon)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    Label("\(record.pulse)", systemImage: "heart.fill").font(.caption).foregroundStyle(.pink)
+                    if let ctx = record.bpActivityContext {
+                        Label(ctx.rawValue, systemImage: ctx.icon).font(.caption).foregroundStyle(.secondary)
+                    }
                 }
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 4) {
-                Text(reading.formattedTimeOnly)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                CategoryBadge(category: reading.category)
+                Text(record.formattedTimeOnly).font(.caption).foregroundStyle(.secondary)
+                CategoryBadge(category: record.bpCategory)
             }
         }
         .padding(.vertical, 4)

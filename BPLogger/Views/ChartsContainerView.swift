@@ -23,30 +23,29 @@ enum ChartTimeRange: String, CaseIterable, Identifiable {
 }
 
 struct ChartsContainerView: View {
-    @Query(sort: \BPReading.timestamp, order: .reverse) private var allReadings: [BPReading]
+    @Query(sort: \HealthRecord.timestamp, order: .reverse) private var allRecords: [HealthRecord]
     @State private var timeRange: ChartTimeRange = .week
-    @State private var filterContext: ActivityContext?
-    @State private var showExport = false
+    @State private var selectedMetricType: String = MetricType.bloodPressure
 
-    private var readings: [BPReading] {
-        var result = allReadings
-
+    private var filteredRecords: [HealthRecord] {
+        var result = allRecords.filter { $0.metricType == selectedMetricType }
         if let days = timeRange.days {
             let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: .now)!
             result = result.filter { $0.timestamp >= cutoff }
         }
-
-        if let context = filterContext {
-            result = result.filter { $0.activityContext == context }
-        }
-
         return result
+    }
+
+    private var availableMetricTypes: [String] {
+        let types = Set(allRecords.map(\.metricType))
+        return MetricRegistry.all.map(\.type).filter { types.contains($0) }
     }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
+                    // Time range picker
                     Picker("Time Range", selection: $timeRange) {
                         ForEach(ChartTimeRange.allCases) { range in
                             Text(range.rawValue).tag(range)
@@ -55,90 +54,156 @@ struct ChartsContainerView: View {
                     .pickerStyle(.segmented)
                     .padding(.horizontal)
 
-                    if let context = filterContext {
-                        HStack {
-                            Label(context.rawValue, systemImage: context.icon)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            Button("Clear Filter") {
-                                filterContext = nil
-                            }
-                            .font(.subheadline)
-                        }
-                        .padding(.horizontal)
+                    // Metric type picker
+                    if availableMetricTypes.count > 1 {
+                        metricPicker
                     }
 
-                    if readings.isEmpty {
+                    if filteredRecords.isEmpty {
                         ContentUnavailableView(
                             "No Data",
                             systemImage: "chart.xyaxis.line",
-                            description: Text(filterContext != nil
-                                ? "No readings for \"\(filterContext!.rawValue)\" in this time range"
-                                : "Add readings to see charts")
+                            description: Text("No \(MetricRegistry.definition(for: selectedMetricType)?.name ?? "records") in this time range")
                         )
                         .padding(.top, 60)
+                    } else if selectedMetricType == MetricType.bloodPressure {
+                        bpCharts
                     } else {
-                        BPTrendChart(readings: readings)
-                        PulseChart(readings: readings)
-                        BPSummaryCard(readings: readings)
-                        WeeklyAveragesChart(readings: readings)
-                        MorningVsEveningChart(readings: readings)
-                        MAPTrendChart(readings: readings)
-                        HealthDataChartsSection(timeRange: timeRange)
+                        genericChart
                     }
                 }
                 .padding(.bottom)
             }
             .navigationTitle("Charts")
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Menu {
-                        Button {
-                            filterContext = nil
-                        } label: {
-                            Label("All Readings", systemImage: "chart.xyaxis.line")
-                        }
+            .withProfileButton()
+        }
+    }
 
-                        Divider()
+    // MARK: - Metric Picker
 
-                        ForEach(ActivityContext.allCases) { context in
-                            Button {
-                                filterContext = context
-                            } label: {
-                                Label(context.rawValue, systemImage: context.icon)
-                            }
+    private var metricPicker: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(availableMetricTypes, id: \.self) { type in
+                    if let def = MetricRegistry.definition(for: type) {
+                        FilterChip(
+                            title: def.name,
+                            icon: def.icon,
+                            color: def.color,
+                            isSelected: selectedMetricType == type
+                        ) {
+                            selectedMetricType = type
                         }
-                    } label: {
-                        Image(systemName: filterContext != nil
-                            ? "line.3.horizontal.decrease.circle.fill"
-                            : "line.3.horizontal.decrease.circle")
                     }
                 }
+            }
+            .padding(.horizontal)
+        }
+    }
 
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        showExport = true
-                    } label: {
-                        Image(systemName: "square.and.arrow.up")
-                    }
-                    .disabled(readings.isEmpty)
-                }
-            }
-            .sheet(isPresented: $showExport) {
-                ExportView()
-            }
+    // MARK: - BP Charts
+
+    @ViewBuilder
+    private var bpCharts: some View {
+        let sorted = filteredRecords.sorted { $0.timestamp < $1.timestamp }
+
+        BPTrendChart(records: sorted)
+        PulseChart(records: sorted)
+        BPSummaryCard(records: sorted)
+        WeeklyAveragesChart(records: sorted)
+        MorningVsEveningChart(records: sorted)
+        MAPTrendChart(records: sorted)
+    }
+
+    // MARK: - Generic Metric Chart
+
+    @ViewBuilder
+    private var genericChart: some View {
+        let sorted = filteredRecords.sorted { $0.timestamp < $1.timestamp }
+        if let def = MetricRegistry.definition(for: selectedMetricType) {
+            GenericMetricChart(records: sorted, definition: def)
         }
     }
 }
 
-// MARK: - BP Trend Line Chart
-struct BPTrendChart: View {
-    let readings: [BPReading]
+// MARK: - Generic Metric Chart Card
 
-    private var sortedReadings: [BPReading] {
-        readings.sorted { $0.timestamp < $1.timestamp }
+struct GenericMetricChart: View {
+    let records: [HealthRecord]
+    let definition: MetricDefinition
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(definition.name)
+                .font(.headline)
+            if let refMin = definition.referenceMin, let refMax = definition.referenceMax {
+                Text("Normal: \(definition.formatValue(refMin))–\(definition.formatValue(refMax)) \(definition.unit)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Chart {
+                ForEach(records) { record in
+                    if definition.chartStyle == .bar {
+                        BarMark(
+                            x: .value("Date", record.timestamp, unit: .day),
+                            y: .value(definition.unit, record.primaryValue)
+                        )
+                        .foregroundStyle(definition.color.opacity(0.7))
+                    } else {
+                        LineMark(
+                            x: .value("Date", record.timestamp),
+                            y: .value(definition.unit, record.primaryValue)
+                        )
+                        .foregroundStyle(definition.color)
+                        .interpolationMethod(.catmullRom)
+
+                        PointMark(
+                            x: .value("Date", record.timestamp),
+                            y: .value(definition.unit, record.primaryValue)
+                        )
+                        .foregroundStyle(definition.color)
+                        .symbolSize(records.count > 30 ? 10 : 20)
+                    }
+                }
+
+                if let refMin = definition.referenceMin {
+                    RuleMark(y: .value("Ref Min", refMin))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 3]))
+                        .foregroundStyle(.green.opacity(0.5))
+                }
+                if let refMax = definition.referenceMax {
+                    RuleMark(y: .value("Ref Max", refMax))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 3]))
+                        .foregroundStyle(.green.opacity(0.5))
+                }
+            }
+            .frame(height: 220)
+            .chartYAxis { AxisMarks(position: .leading) }
+
+            if !records.isEmpty {
+                let avg = records.map(\.primaryValue).reduce(0, +) / Double(records.count)
+                let minV = records.map(\.primaryValue).min() ?? 0
+                let maxV = records.map(\.primaryValue).max() ?? 0
+                HStack {
+                    Text("Avg: \(definition.formatValue(avg)) \(definition.unit)")
+                    Spacer()
+                    Text("Range: \(definition.formatValue(minV)) – \(definition.formatValue(maxV))")
+                }
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+            }
+        }
+        .padding()
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .padding(.horizontal)
     }
+}
+
+// MARK: - BP Trend Line Chart
+
+struct BPTrendChart: View {
+    let records: [HealthRecord]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -146,10 +211,10 @@ struct BPTrendChart: View {
                 .font(.headline)
 
             Chart {
-                ForEach(sortedReadings) { reading in
+                ForEach(records) { record in
                     LineMark(
-                        x: .value("Date", reading.timestamp),
-                        y: .value("mmHg", reading.systolic),
+                        x: .value("Date", record.timestamp),
+                        y: .value("mmHg", record.systolic),
                         series: .value("Type", "Systolic")
                     )
                     .foregroundStyle(.red)
@@ -157,8 +222,8 @@ struct BPTrendChart: View {
                     .interpolationMethod(.catmullRom)
 
                     LineMark(
-                        x: .value("Date", reading.timestamp),
-                        y: .value("mmHg", reading.diastolic),
+                        x: .value("Date", record.timestamp),
+                        y: .value("mmHg", record.diastolic),
                         series: .value("Type", "Diastolic")
                     )
                     .foregroundStyle(.blue)
@@ -172,7 +237,6 @@ struct BPTrendChart: View {
                     .annotation(position: .trailing, alignment: .leading) {
                         Text("120").font(.caption2).foregroundStyle(.green)
                     }
-
                 RuleMark(y: .value("Target Dia", 80))
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 3]))
                     .foregroundStyle(.green.opacity(0.3))
@@ -181,9 +245,7 @@ struct BPTrendChart: View {
                     }
             }
             .frame(height: 220)
-            .chartYAxis {
-                AxisMarks(position: .leading)
-            }
+            .chartYAxis { AxisMarks(position: .leading) }
             .chartLegend(position: .bottom)
 
             HStack(spacing: 16) {
@@ -202,12 +264,9 @@ struct BPTrendChart: View {
 }
 
 // MARK: - Pulse Chart
-struct PulseChart: View {
-    let readings: [BPReading]
 
-    private var sortedReadings: [BPReading] {
-        readings.sorted { $0.timestamp < $1.timestamp }
-    }
+struct PulseChart: View {
+    let records: [HealthRecord]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -215,17 +274,17 @@ struct PulseChart: View {
                 .font(.headline)
 
             Chart {
-                ForEach(sortedReadings) { reading in
+                ForEach(records) { record in
                     AreaMark(
-                        x: .value("Date", reading.timestamp),
-                        y: .value("BPM", reading.pulse)
+                        x: .value("Date", record.timestamp),
+                        y: .value("BPM", record.pulse)
                     )
                     .foregroundStyle(.pink.opacity(0.15))
                     .interpolationMethod(.catmullRom)
 
                     LineMark(
-                        x: .value("Date", reading.timestamp),
-                        y: .value("BPM", reading.pulse)
+                        x: .value("Date", record.timestamp),
+                        y: .value("BPM", record.pulse)
                     )
                     .foregroundStyle(.pink)
                     .symbol(.circle)
@@ -233,9 +292,7 @@ struct PulseChart: View {
                 }
             }
             .frame(height: 160)
-            .chartYAxis {
-                AxisMarks(position: .leading)
-            }
+            .chartYAxis { AxisMarks(position: .leading) }
         }
         .padding()
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
@@ -244,39 +301,29 @@ struct PulseChart: View {
 }
 
 // MARK: - Clinical Summary Card
+
 struct BPSummaryCard: View {
-    let readings: [BPReading]
+    let records: [HealthRecord]
 
     private var avgSystolic: Int {
-        guard !readings.isEmpty else { return 0 }
-        return readings.map(\.systolic).reduce(0, +) / readings.count
+        guard !records.isEmpty else { return 0 }
+        return records.map(\.systolic).reduce(0, +) / records.count
     }
     private var avgDiastolic: Int {
-        guard !readings.isEmpty else { return 0 }
-        return readings.map(\.diastolic).reduce(0, +) / readings.count
+        guard !records.isEmpty else { return 0 }
+        return records.map(\.diastolic).reduce(0, +) / records.count
     }
     private var avgPulse: Int {
-        guard !readings.isEmpty else { return 0 }
-        return readings.map(\.pulse).reduce(0, +) / readings.count
+        guard !records.isEmpty else { return 0 }
+        return records.map(\.pulse).reduce(0, +) / records.count
     }
     private var avgCategory: BPCategory {
-        BPReading.classify(systolic: avgSystolic, diastolic: avgDiastolic)
+        BPCategory.classify(systolic: avgSystolic, diastolic: avgDiastolic)
     }
-    private var minSystolic: Int { readings.map(\.systolic).min() ?? 0 }
-    private var maxSystolic: Int { readings.map(\.systolic).max() ?? 0 }
-    private var minDiastolic: Int { readings.map(\.diastolic).min() ?? 0 }
-    private var maxDiastolic: Int { readings.map(\.diastolic).max() ?? 0 }
-
     private var percentNormal: Int {
-        guard !readings.isEmpty else { return 0 }
-        let normal = readings.filter { $0.category == .normal }.count
-        return Int(Double(normal) / Double(readings.count) * 100)
-    }
-
-    private var percentElevatedOrHigher: Int {
-        guard !readings.isEmpty else { return 0 }
-        let elevated = readings.filter { $0.category != .normal }.count
-        return Int(Double(elevated) / Double(readings.count) * 100)
+        guard !records.isEmpty else { return 0 }
+        let normal = records.filter { $0.bpCategory == .normal }.count
+        return Int(Double(normal) / Double(records.count) * 100)
     }
 
     private func categoryColor(_ cat: BPCategory) -> Color {
@@ -295,17 +342,14 @@ struct BPSummaryCard: View {
                 Text("Summary")
                     .font(.headline)
                 Spacer()
-                Text("\(readings.count) readings")
+                Text("\(records.count) readings")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
             HStack(spacing: 0) {
-                // Average BP
                 VStack(spacing: 4) {
-                    Text("Average BP")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    Text("Average BP").font(.caption).foregroundStyle(.secondary)
                     Text("\(avgSystolic)/\(avgDiastolic)")
                         .font(.title2.bold().monospacedDigit())
                     Text(avgCategory.rawValue)
@@ -316,59 +360,44 @@ struct BPSummaryCard: View {
 
                 Divider().frame(height: 50)
 
-                // Average Pulse
                 VStack(spacing: 4) {
-                    Text("Avg Pulse")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    Text("Avg Pulse").font(.caption).foregroundStyle(.secondary)
                     HStack(spacing: 4) {
-                        Image(systemName: "heart.fill")
-                            .foregroundStyle(.pink)
-                            .font(.caption)
-                        Text("\(avgPulse)")
-                            .font(.title2.bold().monospacedDigit())
+                        Image(systemName: "heart.fill").foregroundStyle(.pink).font(.caption)
+                        Text("\(avgPulse)").font(.title2.bold().monospacedDigit())
                     }
-                    Text("bpm")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                    Text("bpm").font(.caption2).foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity)
 
                 Divider().frame(height: 50)
 
-                // % in range
                 VStack(spacing: 4) {
-                    Text("In Range")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    Text("In Range").font(.caption).foregroundStyle(.secondary)
                     Text("\(percentNormal)%")
                         .font(.title2.bold().monospacedDigit())
                         .foregroundStyle(percentNormal >= 50 ? .green : .orange)
-                    Text("normal")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                    Text("normal").font(.caption2).foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity)
             }
 
             Divider()
 
-            // Range rows
+            let minS = records.map(\.systolic).min() ?? 0
+            let maxS = records.map(\.systolic).max() ?? 0
+            let minD = records.map(\.diastolic).min() ?? 0
+            let maxD = records.map(\.diastolic).max() ?? 0
+
             HStack {
-                Text("Systolic range")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text("Systolic range").font(.caption).foregroundStyle(.secondary)
                 Spacer()
-                Text("\(minSystolic) – \(maxSystolic) mmHg")
-                    .font(.caption.monospacedDigit())
+                Text("\(minS) – \(maxS) mmHg").font(.caption.monospacedDigit())
             }
             HStack {
-                Text("Diastolic range")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text("Diastolic range").font(.caption).foregroundStyle(.secondary)
                 Spacer()
-                Text("\(minDiastolic) – \(maxDiastolic) mmHg")
-                    .font(.caption.monospacedDigit())
+                Text("\(minD) – \(maxD) mmHg").font(.caption.monospacedDigit())
             }
         }
         .padding()
@@ -378,8 +407,9 @@ struct BPSummaryCard: View {
 }
 
 // MARK: - Weekly Averages Chart
+
 struct WeeklyAveragesChart: View {
-    let readings: [BPReading]
+    let records: [HealthRecord]
 
     private struct WeekData: Identifiable {
         let id = UUID()
@@ -387,36 +417,28 @@ struct WeeklyAveragesChart: View {
         let avgSystolic: Double
         let avgDiastolic: Double
         let count: Int
-
-        var label: String {
-            weekStart.formatted(.dateTime.month(.abbreviated).day())
-        }
+        var label: String { weekStart.formatted(.dateTime.month(.abbreviated).day()) }
     }
 
     private var weeklyData: [WeekData] {
         let calendar = Calendar.current
-        let grouped = Dictionary(grouping: readings) { reading in
-            calendar.dateInterval(of: .weekOfYear, for: reading.timestamp)?.start ?? reading.timestamp
+        let grouped = Dictionary(grouping: records) { record in
+            calendar.dateInterval(of: .weekOfYear, for: record.timestamp)?.start ?? record.timestamp
         }
-        return grouped.map { weekStart, weekReadings in
+        return grouped.map { weekStart, weekRecords in
             WeekData(
                 weekStart: weekStart,
-                avgSystolic: Double(weekReadings.map(\.systolic).reduce(0, +)) / Double(weekReadings.count),
-                avgDiastolic: Double(weekReadings.map(\.diastolic).reduce(0, +)) / Double(weekReadings.count),
-                count: weekReadings.count
+                avgSystolic: Double(weekRecords.map(\.systolic).reduce(0, +)) / Double(weekRecords.count),
+                avgDiastolic: Double(weekRecords.map(\.diastolic).reduce(0, +)) / Double(weekRecords.count),
+                count: weekRecords.count
             )
-        }
-        .sorted { $0.weekStart < $1.weekStart }
+        }.sorted { $0.weekStart < $1.weekStart }
     }
 
     var body: some View {
         if weeklyData.count >= 2 {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Weekly Averages")
-                    .font(.headline)
-                Text("Track progress over weeks")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text("Weekly Averages").font(.headline)
 
                 Chart {
                     ForEach(weeklyData) { week in
@@ -426,44 +448,18 @@ struct WeeklyAveragesChart: View {
                             yEnd: .value("Systolic", week.avgSystolic)
                         )
                         .foregroundStyle(
-                            .linearGradient(
-                                colors: [.blue.opacity(0.7), .red.opacity(0.7)],
-                                startPoint: .bottom, endPoint: .top
-                            )
+                            .linearGradient(colors: [.blue.opacity(0.7), .red.opacity(0.7)], startPoint: .bottom, endPoint: .top)
                         )
-                        .annotation(position: .top, spacing: 2) {
-                            Text("\(Int(week.avgSystolic))")
-                                .font(.system(size: 9).monospacedDigit())
-                                .foregroundStyle(.red)
-                        }
-                        .annotation(position: .bottom, spacing: 2) {
-                            Text("\(Int(week.avgDiastolic))")
-                                .font(.system(size: 9).monospacedDigit())
-                                .foregroundStyle(.blue)
-                        }
                     }
-
                     RuleMark(y: .value("Target Sys", 120))
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 3]))
                         .foregroundStyle(.green.opacity(0.5))
-
                     RuleMark(y: .value("Target Dia", 80))
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 3]))
                         .foregroundStyle(.green.opacity(0.3))
                 }
                 .frame(height: 220)
-                .chartYAxis {
-                    AxisMarks(position: .leading)
-                }
-
-                HStack(spacing: 16) {
-                    Label("Systolic avg", systemImage: "square.fill")
-                        .font(.caption2).foregroundStyle(.red)
-                    Label("Diastolic avg", systemImage: "square.fill")
-                        .font(.caption2).foregroundStyle(.blue)
-                    Label("Target", systemImage: "line.diagonal")
-                        .font(.caption2).foregroundStyle(.green)
-                }
+                .chartYAxis { AxisMarks(position: .leading) }
             }
             .padding()
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
@@ -473,8 +469,9 @@ struct WeeklyAveragesChart: View {
 }
 
 // MARK: - Morning vs Evening
+
 struct MorningVsEveningChart: View {
-    let readings: [BPReading]
+    let records: [HealthRecord]
 
     private struct PeriodStats: Identifiable {
         let id = UUID()
@@ -488,18 +485,9 @@ struct MorningVsEveningChart: View {
 
     private var periodData: [PeriodStats] {
         let calendar = Calendar.current
-        let morning = readings.filter {
-            let h = calendar.component(.hour, from: $0.timestamp)
-            return h >= 5 && h < 12
-        }
-        let afternoon = readings.filter {
-            let h = calendar.component(.hour, from: $0.timestamp)
-            return h >= 12 && h < 17
-        }
-        let evening = readings.filter {
-            let h = calendar.component(.hour, from: $0.timestamp)
-            return h >= 17 || h < 5
-        }
+        let morning = records.filter { let h = calendar.component(.hour, from: $0.timestamp); return h >= 5 && h < 12 }
+        let afternoon = records.filter { let h = calendar.component(.hour, from: $0.timestamp); return h >= 12 && h < 17 }
+        let evening = records.filter { let h = calendar.component(.hour, from: $0.timestamp); return h >= 17 || h < 5 }
 
         var result: [PeriodStats] = []
         for (name, icon, group) in [
@@ -509,8 +497,7 @@ struct MorningVsEveningChart: View {
         ] {
             if !group.isEmpty {
                 result.append(PeriodStats(
-                    name: name,
-                    icon: icon,
+                    name: name, icon: icon,
                     avgSystolic: Double(group.map(\.systolic).reduce(0, +)) / Double(group.count),
                     avgDiastolic: Double(group.map(\.diastolic).reduce(0, +)) / Double(group.count),
                     avgPulse: Double(group.map(\.pulse).reduce(0, +)) / Double(group.count),
@@ -524,38 +511,20 @@ struct MorningVsEveningChart: View {
     var body: some View {
         if periodData.count >= 2 {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Time of Day Comparison")
-                    .font(.headline)
-                Text("Average BP by time period")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text("Time of Day Comparison").font(.headline)
 
                 HStack(spacing: 12) {
                     ForEach(periodData) { period in
                         VStack(spacing: 8) {
-                            Image(systemName: period.icon)
-                                .font(.title3)
-                                .foregroundStyle(.secondary)
-
+                            Image(systemName: period.icon).font(.title3).foregroundStyle(.secondary)
                             Text("\(Int(period.avgSystolic))/\(Int(period.avgDiastolic))")
                                 .font(.headline.monospacedDigit())
-
                             HStack(spacing: 2) {
-                                Image(systemName: "heart.fill")
-                                    .font(.system(size: 8))
-                                    .foregroundStyle(.pink)
-                                Text("\(Int(period.avgPulse))")
-                                    .font(.caption.monospacedDigit())
+                                Image(systemName: "heart.fill").font(.system(size: 8)).foregroundStyle(.pink)
+                                Text("\(Int(period.avgPulse))").font(.caption.monospacedDigit())
                             }
-
-                            Text(period.name)
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.center)
-
-                            Text("\(period.count) readings")
-                                .font(.system(size: 9))
-                                .foregroundStyle(.tertiary)
+                            Text(period.name).font(.caption2).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                            Text("\(period.count) readings").font(.system(size: 9)).foregroundStyle(.tertiary)
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
@@ -570,45 +539,37 @@ struct MorningVsEveningChart: View {
     }
 }
 
-// MARK: - MAP (Mean Arterial Pressure) Trend
+// MARK: - MAP Trend
+
 struct MAPTrendChart: View {
-    let readings: [BPReading]
+    let records: [HealthRecord]
 
-    private var sortedReadings: [BPReading] {
-        readings.sorted { $0.timestamp < $1.timestamp }
-    }
-
-    /// MAP = Diastolic + 1/3 * (Systolic - Diastolic)
-    private func mapValue(_ r: BPReading) -> Double {
+    private func mapValue(_ r: HealthRecord) -> Double {
         Double(r.diastolic) + Double(r.systolic - r.diastolic) / 3.0
     }
-
-    /// Pulse Pressure = Systolic - Diastolic
-    private func pulsePressure(_ r: BPReading) -> Int {
+    private func pulsePressure(_ r: HealthRecord) -> Int {
         r.systolic - r.diastolic
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Mean Arterial Pressure")
-                .font(.headline)
+            Text("Mean Arterial Pressure").font(.headline)
             Text("MAP = diastolic + \u{2153}(systolic \u{2212} diastolic). Normal: 70\u{2013}100 mmHg")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(.caption).foregroundStyle(.secondary)
 
             Chart {
-                ForEach(sortedReadings) { reading in
+                ForEach(records) { record in
                     LineMark(
-                        x: .value("Date", reading.timestamp),
-                        y: .value("MAP", mapValue(reading))
+                        x: .value("Date", record.timestamp),
+                        y: .value("MAP", mapValue(record))
                     )
                     .foregroundStyle(.purple)
                     .symbol(.circle)
                     .interpolationMethod(.catmullRom)
 
                     LineMark(
-                        x: .value("Date", reading.timestamp),
-                        y: .value("PP", pulsePressure(reading)),
+                        x: .value("Date", record.timestamp),
+                        y: .value("PP", pulsePressure(record)),
                         series: .value("Type", "Pulse Pressure")
                     )
                     .foregroundStyle(.orange)
@@ -616,7 +577,6 @@ struct MAPTrendChart: View {
                     .interpolationMethod(.catmullRom)
                 }
 
-                // Normal MAP range
                 RuleMark(y: .value("MAP High", 100))
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 3]))
                     .foregroundStyle(.green.opacity(0.4))
@@ -625,257 +585,26 @@ struct MAPTrendChart: View {
                     .foregroundStyle(.green.opacity(0.4))
             }
             .frame(height: 200)
-            .chartYAxis {
-                AxisMarks(position: .leading)
-            }
+            .chartYAxis { AxisMarks(position: .leading) }
 
             HStack(spacing: 16) {
-                Label("MAP", systemImage: "circle.fill")
-                    .font(.caption2).foregroundStyle(.purple)
-                Label("Pulse Pressure", systemImage: "diamond.fill")
-                    .font(.caption2).foregroundStyle(.orange)
-                Label("Normal range", systemImage: "line.diagonal")
-                    .font(.caption2).foregroundStyle(.green)
+                Label("MAP", systemImage: "circle.fill").font(.caption2).foregroundStyle(.purple)
+                Label("Pulse Pressure", systemImage: "diamond.fill").font(.caption2).foregroundStyle(.orange)
+                Label("Normal range", systemImage: "line.diagonal").font(.caption2).foregroundStyle(.green)
             }
 
-            if !readings.isEmpty {
-                let avgMAP = sortedReadings.map { mapValue($0) }.reduce(0, +) / Double(sortedReadings.count)
-                let avgPP = sortedReadings.map { pulsePressure($0) }.reduce(0, +) / sortedReadings.count
+            if !records.isEmpty {
+                let avgMAP = records.map { mapValue($0) }.reduce(0, +) / Double(records.count)
+                let avgPP = records.map { pulsePressure($0) }.reduce(0, +) / records.count
                 HStack {
-                    Text("Avg MAP: \(Int(avgMAP)) mmHg")
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.purple)
+                    Text("Avg MAP: \(Int(avgMAP)) mmHg").font(.caption.monospacedDigit()).foregroundStyle(.purple)
                     Spacer()
-                    Text("Avg Pulse Pressure: \(avgPP) mmHg")
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.orange)
+                    Text("Avg Pulse Pressure: \(avgPP) mmHg").font(.caption.monospacedDigit()).foregroundStyle(.orange)
                 }
             }
         }
         .padding()
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
         .padding(.horizontal)
-    }
-}
-
-// MARK: - Health Data Charts (fetched on-demand from HealthKit)
-struct HealthDataChartsSection: View {
-    let timeRange: ChartTimeRange
-    @StateObject private var hkManager = HealthKitManager()
-    @State private var healthContext: HealthContext?
-    @State private var isLoading = false
-    @State private var hasFetched = false
-
-    private var since: Date {
-        guard let days = timeRange.days else {
-            return Calendar.current.date(byAdding: .year, value: -1, to: .now)!
-        }
-        return Calendar.current.date(byAdding: .day, value: -days, to: .now)!
-    }
-
-    var body: some View {
-        Group {
-            if let ctx = healthContext, ctx.hasAnyData {
-                if !ctx.restingHeartRates.isEmpty {
-                    HealthDailyChart(
-                        title: "Resting Heart Rate",
-                        subtitle: "From Apple Watch. Normal: 60–100 bpm",
-                        values: ctx.restingHeartRates,
-                        unit: "bpm",
-                        color: .red,
-                        refLine: nil
-                    )
-                }
-
-                if !ctx.hrvValues.isEmpty {
-                    HealthDailyChart(
-                        title: "Heart Rate Variability",
-                        subtitle: "SDNN from Apple Watch. Higher is better",
-                        values: ctx.hrvValues,
-                        unit: "ms",
-                        color: .purple,
-                        refLine: (50, "Low threshold")
-                    )
-                }
-
-                if !ctx.stepCounts.isEmpty {
-                    HealthDailyChart(
-                        title: "Daily Steps",
-                        subtitle: "Recommended: 7,000+ steps/day",
-                        values: ctx.stepCounts,
-                        unit: "steps",
-                        color: .green,
-                        refLine: (7000, "Target")
-                    )
-                }
-
-                if !ctx.sleepEntries.isEmpty {
-                    HealthDailyChart(
-                        title: "Sleep Duration",
-                        subtitle: "Recommended: 7+ hours/night",
-                        values: ctx.sleepEntries.map {
-                            HealthContext.DailyValue(date: $0.date, value: $0.hours)
-                        },
-                        unit: "hours",
-                        color: .indigo,
-                        refLine: (7, "Target")
-                    )
-                }
-
-                if !ctx.vo2MaxValues.isEmpty {
-                    HealthDailyChart(
-                        title: "VO2 Max (Cardio Fitness)",
-                        subtitle: "From Apple Watch. Higher = better fitness",
-                        values: ctx.vo2MaxValues,
-                        unit: "mL/kg/min",
-                        color: .orange,
-                        refLine: nil
-                    )
-                }
-
-                if !ctx.oxygenSaturation.isEmpty {
-                    HealthDailyChart(
-                        title: "Blood Oxygen (SpO2)",
-                        subtitle: "From Apple Watch. Normal: 95–100%",
-                        values: ctx.oxygenSaturation,
-                        unit: "%",
-                        color: .cyan,
-                        refLine: (95, "Normal")
-                    )
-                }
-
-                if !ctx.respiratoryRates.isEmpty {
-                    HealthDailyChart(
-                        title: "Respiratory Rate",
-                        subtitle: "During sleep. Normal: 12–20 breaths/min",
-                        values: ctx.respiratoryRates,
-                        unit: "br/min",
-                        color: .teal,
-                        refLine: nil
-                    )
-                }
-
-                if !ctx.exerciseMinutes.isEmpty {
-                    HealthDailyChart(
-                        title: "Exercise Minutes",
-                        subtitle: "Target: 150 min/week (≈21 min/day)",
-                        values: ctx.exerciseMinutes,
-                        unit: "min",
-                        color: .mint,
-                        refLine: (21, "Daily avg target")
-                    )
-                }
-
-                if !ctx.bodyMassValues.isEmpty {
-                    HealthDailyChart(
-                        title: "Body Weight",
-                        subtitle: "Weight trend over time",
-                        values: ctx.bodyMassValues,
-                        unit: "kg",
-                        color: .brown,
-                        refLine: nil
-                    )
-                }
-            } else if isLoading {
-                VStack(spacing: 12) {
-                    ProgressView()
-                    Text("Loading Apple Health data...")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 30)
-            }
-        }
-        .onAppear {
-            if !hasFetched { fetchHealthData() }
-        }
-        .onChange(of: timeRange) {
-            fetchHealthData()
-        }
-    }
-
-    private func fetchHealthData() {
-        isLoading = true
-        Task {
-            await hkManager.requestExpandedAuthorization()
-            let ctx = await hkManager.fetchHealthContext(from: since, to: .now)
-            await MainActor.run {
-                healthContext = ctx
-                isLoading = false
-                hasFetched = true
-            }
-        }
-    }
-}
-
-// MARK: - Generic Health Daily Chart Card
-struct HealthDailyChart: View {
-    let title: String
-    let subtitle: String
-    let values: [HealthContext.DailyValue]
-    let unit: String
-    let color: Color
-    let refLine: (Double, String)?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(title)
-                .font(.headline)
-            Text(subtitle)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            Chart {
-                ForEach(values) { v in
-                    LineMark(
-                        x: .value("Date", v.date),
-                        y: .value(unit, v.value)
-                    )
-                    .foregroundStyle(color)
-                    .interpolationMethod(.catmullRom)
-
-                    PointMark(
-                        x: .value("Date", v.date),
-                        y: .value(unit, v.value)
-                    )
-                    .foregroundStyle(color)
-                    .symbolSize(values.count > 30 ? 10 : 20)
-                }
-
-                if let ref = refLine {
-                    RuleMark(y: .value("Ref", ref.0))
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 3]))
-                        .foregroundStyle(.green.opacity(0.5))
-                        .annotation(position: .trailing, alignment: .leading) {
-                            Text(ref.1).font(.caption2).foregroundStyle(.green)
-                        }
-                }
-            }
-            .frame(height: 160)
-            .chartYAxis {
-                AxisMarks(position: .leading)
-            }
-
-            if !values.isEmpty {
-                let avg = values.map(\.value).reduce(0, +) / Double(values.count)
-                let minV = values.map(\.value).min() ?? 0
-                let maxV = values.map(\.value).max() ?? 0
-                HStack {
-                    Text("Avg: \(formatValue(avg)) \(unit)")
-                    Spacer()
-                    Text("Range: \(formatValue(minV)) – \(formatValue(maxV))")
-                }
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
-            }
-        }
-        .padding()
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-        .padding(.horizontal)
-    }
-
-    private func formatValue(_ v: Double) -> String {
-        v >= 100 ? "\(Int(v))" : String(format: "%.1f", v)
     }
 }
