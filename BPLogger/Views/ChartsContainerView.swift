@@ -732,6 +732,50 @@ struct HealthDataChartsSection: View {
                         refLine: nil
                     )
                 }
+
+                if !ctx.oxygenSaturation.isEmpty {
+                    HealthDailyChart(
+                        title: "Blood Oxygen (SpO2)",
+                        subtitle: "From Apple Watch. Normal: 95–100%",
+                        values: ctx.oxygenSaturation,
+                        unit: "%",
+                        color: .cyan,
+                        refLine: (95, "Normal")
+                    )
+                }
+
+                if !ctx.respiratoryRates.isEmpty {
+                    HealthDailyChart(
+                        title: "Respiratory Rate",
+                        subtitle: "During sleep. Normal: 12–20 breaths/min",
+                        values: ctx.respiratoryRates,
+                        unit: "br/min",
+                        color: .teal,
+                        refLine: nil
+                    )
+                }
+
+                if !ctx.exerciseMinutes.isEmpty {
+                    HealthDailyChart(
+                        title: "Exercise Minutes",
+                        subtitle: "Target: 150 min/week (≈21 min/day)",
+                        values: ctx.exerciseMinutes,
+                        unit: "min",
+                        color: .mint,
+                        refLine: (21, "Daily avg target")
+                    )
+                }
+
+                if !ctx.bodyMassValues.isEmpty {
+                    HealthDailyChart(
+                        title: "Body Weight",
+                        subtitle: "Weight trend over time",
+                        values: ctx.bodyMassValues,
+                        unit: "kg",
+                        color: .brown,
+                        refLine: nil
+                    )
+                }
             } else if isLoading {
                 VStack(spacing: 12) {
                     ProgressView()
