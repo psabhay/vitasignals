@@ -55,6 +55,7 @@ struct ReportBuilderView: View {
     @State private var startDate: Date = Calendar.current.date(byAdding: .month, value: -1, to: .now)!
     @State private var endDate: Date = .now
     @State private var selectedMetrics: Set<String> = MetricRegistry.allKnownTypes
+    @State private var selectedStyle: ReportStyle = .classic
     @State private var renderedPDF: URL?
     @State private var isGenerating = false
     @State private var generationStatus = ""
@@ -82,6 +83,7 @@ struct ReportBuilderView: View {
 
     var body: some View {
         dateRangeSection
+        styleSection
         previewSection
         metricSelectionSection
         generateSection
@@ -98,6 +100,34 @@ struct ReportBuilderView: View {
                 .onChange(of: startDate) { _, _ in renderedPDF = nil }
             DatePicker("To", selection: $endDate, displayedComponents: .date)
                 .onChange(of: endDate) { _, _ in renderedPDF = nil }
+        }
+    }
+
+    private var styleSection: some View {
+        Section {
+            ForEach(ReportStyle.allCases) { style in
+                Button {
+                    selectedStyle = style
+                    renderedPDF = nil
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: selectedStyle.id == style.id ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(selectedStyle.id == style.id ? Color.accentColor : .secondary)
+                            .font(.title3)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(style.name)
+                                .font(.headline)
+                                .foregroundStyle(.primary)
+                            Text(style.previewDescription)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                    }
+                }
+            }
+        } header: {
+            Text("Report Style")
         }
     }
 
@@ -281,13 +311,15 @@ struct ReportBuilderView: View {
             )
         }
         let metrics = selectedAndAvailable
+        let style = selectedStyle
 
         Task.detached {
             let url = PDFGenerator.generate(
                 records: snapshots,
                 selectedMetrics: metrics,
                 periodLabel: periodLabel,
-                profile: profileData
+                profile: profileData,
+                style: style
             )
             await MainActor.run {
                 renderedPDF = url

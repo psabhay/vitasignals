@@ -8,6 +8,14 @@ options:
 settings:
   SWIFT_VERSION: "5.9"
   DEVELOPMENT_TEAM: U433W77Z44
+schemes:
+  BPLogger:
+    build:
+      targets:
+        BPLogger: all
+    test:
+      targets:
+        - BPLoggerTests
 targets:
   BPLogger:
     type: application
@@ -27,3 +35,12 @@ targets:
       path: BPLogger/BPLogger.entitlements
       properties:
         com.apple.developer.healthkit: true
+  BPLoggerTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - BPLoggerTests
+    settings:
+      GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: BPLogger
