@@ -3,6 +3,7 @@ import SwiftData
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var dataStore: HealthDataStore
     @Query private var profiles: [UserProfile]
     @State private var selectedTab = 0
     @State private var showProfile = false
@@ -35,7 +36,6 @@ struct ContentView: View {
         .tint(Color.accentColor)
         .toolbar {
             ToolbarItem(placement: .bottomBar) {
-                // invisible — profile is handled via sheet modifier below
                 EmptyView()
             }
         }
@@ -46,14 +46,14 @@ struct ContentView: View {
             OnboardingView {
                 hasCompletedOnboarding = true
                 Task {
-                    await syncManager.syncAll(context: modelContext)
+                    await syncManager.syncAll(container: modelContext.container, dataStore: dataStore)
                 }
             }
         }
         .task {
             guard hasProfile else { return }
             hasCompletedOnboarding = true
-            await syncManager.syncAll(context: modelContext)
+            await syncManager.syncAll(container: modelContext.container, dataStore: dataStore)
         }
         .environment(\.showProfile, $showProfile)
     }
@@ -280,8 +280,8 @@ struct OnboardingView: View {
 
 struct ProfileSection: View {
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var dataStore: HealthDataStore
     @Query private var profiles: [UserProfile]
-    @Query(sort: \HealthRecord.timestamp, order: .reverse) private var records: [HealthRecord]
     @FocusState private var focusedField: Field?
 
     @State private var name = ""
@@ -487,9 +487,9 @@ struct ProfileSection: View {
             Button(role: .destructive) {
                 showDeleteAllConfirmation = true
             } label: {
-                Label("Delete All Records (\(records.count))", systemImage: "trash")
+                Label("Delete All Records (\(dataStore.recordCount))", systemImage: "trash")
             }
-            .disabled(records.isEmpty)
+            .disabled(dataStore.recordCount == 0)
 
             Button(role: .destructive) {
                 showResetDismissedConfirmation = true
@@ -502,12 +502,18 @@ struct ProfileSection: View {
             Text("\"Delete All Records\" removes all health data. \"Reset Import History\" allows all Health records to be reimported.")
         }
         .confirmationDialog("Delete All Records?", isPresented: $showDeleteAllConfirmation, titleVisibility: .visible) {
-            Button("Delete All \(records.count) Records", role: .destructive) {
-                for record in records {
-                    if let hkID = record.healthKitUUID {
-                        modelContext.insert(DismissedHealthKitRecord(metricType: record.metricType, healthKitUUID: hkID))
+            Button("Delete All \(dataStore.recordCount) Records", role: .destructive) {
+                // Fetch managed objects to delete them
+                let descriptor = FetchDescriptor<HealthRecord>()
+                if let records = try? modelContext.fetch(descriptor) {
+                    for record in records {
+                        if let hkID = record.healthKitUUID {
+                            modelContext.insert(DismissedHealthKitRecord(metricType: record.metricType, healthKitUUID: hkID))
+                        }
+                        modelContext.delete(record)
                     }
-                    modelContext.delete(record)
+                    try? modelContext.save()
+                    dataStore.refresh()
                 }
             }
             Button("Cancel", role: .cancel) {}

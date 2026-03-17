@@ -3,7 +3,7 @@ import SwiftData
 
 struct DataBrowserView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \HealthRecord.timestamp, order: .reverse) private var allRecords: [HealthRecord]
+    @EnvironmentObject var dataStore: HealthDataStore
     @State private var selectedCategory: MetricCategory?
     @State private var selectedMetricType: String?
     @State private var selectedRecord: HealthRecord?
@@ -23,28 +23,39 @@ struct DataBrowserView: View {
         }
     }
 
+    private static let displayLimit = 200
+
     private var filteredRecords: [HealthRecord] {
-        var records = allRecords
         if let metricType = selectedMetricType {
-            records = records.filter { $0.metricType == metricType }
+            return dataStore.records(for: metricType)
         } else if let category = selectedCategory {
-            let types = MetricRegistry.definitions(for: category).map(\.type)
-            records = records.filter { types.contains($0.metricType) }
+            let types = Set(MetricRegistry.definitions(for: category).map(\.type))
+            return dataStore.allRecords.filter { types.contains($0.metricType) }
         }
-        return records
+        return dataStore.allRecords
+    }
+
+    private var displayRecords: [HealthRecord] {
+        Array(filteredRecords.prefix(Self.displayLimit))
+    }
+
+    private var hasMoreRecords: Bool {
+        filteredRecords.count > Self.displayLimit
     }
 
     private var groupedRecords: [(String, [HealthRecord])] {
-        let grouped = Dictionary(grouping: filteredRecords) { $0.formattedDateOnly }
-        return grouped.sorted { lhs, rhs in
-            guard let lDate = lhs.value.first?.timestamp,
-                  let rDate = rhs.value.first?.timestamp else { return false }
-            return lDate > rDate
+        let calendar = Calendar.current
+        let grouped = Dictionary(grouping: displayRecords) { record in
+            calendar.startOfDay(for: record.timestamp)
         }
+        return grouped.sorted { $0.key > $1.key }
+            .map { (date, records) in
+                (date.formatted(date: .abbreviated, time: .omitted), records)
+            }
     }
 
     private var availableMetricTypes: [String] {
-        Array(Set(allRecords.map(\.metricType))).sorted()
+        Array(dataStore.availableMetricTypes).sorted()
     }
 
     var body: some View {
@@ -87,6 +98,15 @@ struct DataBrowserView: View {
                                             .tint(.orange)
                                         }
                                     }
+                                }
+                            }
+
+                            if hasMoreRecords {
+                                Section {
+                                    Text("Showing \(Self.displayLimit) of \(filteredRecords.count) records. Use filters to narrow results.")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .frame(maxWidth: .infinity)
                                 }
                             }
                         }
@@ -137,7 +157,7 @@ struct DataBrowserView: View {
 
                 ForEach(MetricCategory.allCases) { category in
                     let hasData = !MetricRegistry.definitions(for: category)
-                        .filter { def in allRecords.contains { $0.metricType == def.type } }
+                        .filter { def in dataStore.availableMetricTypes.contains(def.type) }
                         .isEmpty
 
                     if hasData {
@@ -165,7 +185,7 @@ struct DataBrowserView: View {
         // Metric type filter (when a category is selected)
         if let category = selectedCategory {
             let metricDefs = MetricRegistry.definitions(for: category)
-                .filter { def in allRecords.contains { $0.metricType == def.type } }
+                .filter { def in dataStore.availableMetricTypes.contains(def.type) }
 
             if metricDefs.count > 1 {
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -196,6 +216,8 @@ struct DataBrowserView: View {
             modelContext.insert(DismissedHealthKitRecord(metricType: record.metricType, healthKitUUID: hkID))
         }
         modelContext.delete(record)
+        try? modelContext.save()
+        dataStore.refresh()
     }
 }
 

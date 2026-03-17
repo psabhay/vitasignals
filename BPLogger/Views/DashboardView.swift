@@ -4,7 +4,7 @@ import Charts
 
 struct DashboardView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \HealthRecord.timestamp, order: .reverse) private var allRecords: [HealthRecord]
+    @EnvironmentObject var dataStore: HealthDataStore
     @ObservedObject var syncManager: HealthSyncManager
     @State private var activeSheet: DashboardSheet?
     @State private var addMetricType: String = MetricType.bloodPressure
@@ -21,7 +21,7 @@ struct DashboardView: View {
     }
 
     private var bpRecords: [HealthRecord] {
-        allRecords.filter { $0.metricType == MetricType.bloodPressure }
+        dataStore.records(for: MetricType.bloodPressure)
     }
 
     private var latestBP: HealthRecord? {
@@ -53,7 +53,7 @@ struct DashboardView: View {
     }
 
     private var nonBPMetricTypes: [String] {
-        let types = Set(allRecords.map(\.metricType))
+        let types = dataStore.availableMetricTypes
         return MetricRegistry.all.map(\.type).filter { types.contains($0) && $0 != MetricType.bloodPressure }
     }
 
@@ -68,10 +68,10 @@ struct DashboardView: View {
     private var cardDataList: [CardData] {
         let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: .now)!
         return nonBPMetricTypes.map { type in
-            let records = allRecords.filter { $0.metricType == type }
+            let records = dataStore.records(for: type)
             let def = MetricRegistry.definition(for: type)
             let latest = records.first
-            let recent = records.filter { $0.timestamp >= sevenDaysAgo }
+            let recent = records.lazy.filter { $0.timestamp >= sevenDaysAgo }
                 .sorted { $0.timestamp < $1.timestamp }
                 .prefix(30)
                 .map { ($0.timestamp, $0.primaryValue) }
@@ -79,7 +79,7 @@ struct DashboardView: View {
                 id: type,
                 latestValue: latest?.formattedPrimaryValue ?? "–",
                 unit: def?.unit ?? "",
-                sparkline: recent
+                sparkline: Array(recent)
             )
         }
     }
@@ -112,7 +112,7 @@ struct DashboardView: View {
 
                     todayBPSection
 
-                    if allRecords.isEmpty {
+                    if dataStore.recordCount == 0 {
                         emptyStateView
                     }
                 }

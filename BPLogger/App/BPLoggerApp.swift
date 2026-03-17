@@ -16,6 +16,7 @@ struct BPLoggerApp: App {
         } catch {
             // If migration fails, delete the store and retry
             let url = config.url
+            print("⚠️ ModelContainer creation failed: \(error). Deleting store at \(url) and retrying.")
             try? FileManager.default.removeItem(at: url)
             do {
                 return try ModelContainer(for: schema, configurations: [config])
@@ -25,9 +26,15 @@ struct BPLoggerApp: App {
         }
     }()
 
+    @StateObject private var dataStore = HealthDataStore()
+
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(dataStore)
+                .onAppear {
+                    dataStore.setup(container: sharedModelContainer)
+                }
         }
         .modelContainer(sharedModelContainer)
     }

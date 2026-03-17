@@ -16,6 +16,8 @@
 		F1A1A1A1A1A1A1A1A1A1A1A1 /* UserProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2B2B2B2B2B2B2B2B2B2B2B2 /* UserProfile.swift */; };
 		BB01BB01BB01BB01BB01BB01 /* HealthRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB02BB02BB02BB02BB02BB02 /* HealthRecord.swift */; };
 		BB03BB03BB03BB03BB03BB03 /* MetricRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB04BB04BB04BB04BB04BB04 /* MetricRegistry.swift */; };
+		HK01HK01HK01HK01HK01HK01 /* HealthKitCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = HK02HK02HK02HK02HK02HK02 /* HealthKitCatalog.swift */; };
+		DS01DS01DS01DS01DS01DS01 /* HealthDataStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DS02DS02DS02DS02DS02DS02 /* HealthDataStore.swift */; };
 		BB05BB05BB05BB05BB05BB05 /* DismissedHealthKitRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB06BB06BB06BB06BB06BB06 /* DismissedHealthKitRecord.swift */; };
 		BB07BB07BB07BB07BB07BB07 /* SyncState.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB08BB08BB08BB08BB08BB08 /* SyncState.swift */; };
 		BB09BB09BB09BB09BB09BB09 /* MigrationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB10BB10BB10BB10BB10BB10 /* MigrationManager.swift */; };
@@ -46,9 +48,11 @@
 		F2B2B2B2B2B2B2B2B2B2B2B2 /* UserProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfile.swift; sourceTree = "<group>"; };
 		BB02BB02BB02BB02BB02BB02 /* HealthRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthRecord.swift; sourceTree = "<group>"; };
 		BB04BB04BB04BB04BB04BB04 /* MetricRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricRegistry.swift; sourceTree = "<group>"; };
+		HK02HK02HK02HK02HK02HK02 /* HealthKitCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitCatalog.swift; sourceTree = "<group>"; };
 		BB06BB06BB06BB06BB06BB06 /* DismissedHealthKitRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DismissedHealthKitRecord.swift; sourceTree = "<group>"; };
 		BB08BB08BB08BB08BB08BB08 /* SyncState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncState.swift; sourceTree = "<group>"; };
 		BB10BB10BB10BB10BB10BB10 /* MigrationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MigrationManager.swift; sourceTree = "<group>"; };
+		DS02DS02DS02DS02DS02DS02 /* HealthDataStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthDataStore.swift; sourceTree = "<group>"; };
 		BB12BB12BB12BB12BB12BB12 /* HealthSyncManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthSyncManager.swift; sourceTree = "<group>"; };
 		BB14BB14BB14BB14BB14BB14 /* AddHealthRecordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddHealthRecordView.swift; sourceTree = "<group>"; };
 		BB16BB16BB16BB16BB16BB16 /* EditHealthRecordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditHealthRecordView.swift; sourceTree = "<group>"; };
@@ -88,6 +92,7 @@
 		3A25F371B7DB944F42F5C5E7 /* Helpers */ = {
 			isa = PBXGroup;
 			children = (
+				DS02DS02DS02DS02DS02DS02 /* HealthDataStore.swift */,
 				BB12BB12BB12BB12BB12BB12 /* HealthSyncManager.swift */,
 				BB10BB10BB10BB10BB10BB10 /* MigrationManager.swift */,
 				DD9745F66CBA1CA61ECA7752 /* PDFGenerator.swift */,
@@ -147,6 +152,7 @@
 			isa = PBXGroup;
 			children = (
 				BB06BB06BB06BB06BB06BB06 /* DismissedHealthKitRecord.swift */,
+				HK02HK02HK02HK02HK02HK02 /* HealthKitCatalog.swift */,
 				BB02BB02BB02BB02BB02BB02 /* HealthRecord.swift */,
 				BB04BB04BB04BB04BB04BB04 /* MetricRegistry.swift */,
 				BB08BB08BB08BB08BB08BB08 /* SyncState.swift */,
@@ -265,10 +271,12 @@
 				F1A1A1A1A1A1A1A1A1A1A1A1 /* UserProfile.swift in Sources */,
 				BB01BB01BB01BB01BB01BB01 /* HealthRecord.swift in Sources */,
 				BB03BB03BB03BB03BB03BB03 /* MetricRegistry.swift in Sources */,
+				HK01HK01HK01HK01HK01HK01 /* HealthKitCatalog.swift in Sources */,
 				BB05BB05BB05BB05BB05BB05 /* DismissedHealthKitRecord.swift in Sources */,
 				BB07BB07BB07BB07BB07BB07 /* SyncState.swift in Sources */,
 				BB09BB09BB09BB09BB09BB09 /* MigrationManager.swift in Sources */,
 				BB11BB11BB11BB11BB11BB11 /* HealthSyncManager.swift in Sources */,
+				DS01DS01DS01DS01DS01DS01 /* HealthDataStore.swift in Sources */,
 				BB13BB13BB13BB13BB13BB13 /* AddHealthRecordView.swift in Sources */,
 				BB15BB15BB15BB15BB15BB15 /* EditHealthRecordView.swift in Sources */,
 				BB17BB17BB17BB17BB17BB17 /* DataBrowserView.swift in Sources */,

@@ -4,6 +4,7 @@ import SwiftData
 struct AddHealthRecordView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var dataStore: HealthDataStore
 
     let metricType: String
 
@@ -244,6 +245,8 @@ struct AddHealthRecordView: View {
             )
         }
         modelContext.insert(record)
+        try? modelContext.save()
+        dataStore.refresh()
         dismiss()
     }
 }

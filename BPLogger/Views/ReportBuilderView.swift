@@ -1,8 +1,55 @@
 import SwiftUI
 import SwiftData
+import PDFKit
+
+// MARK: - PDF Preview View
+
+struct PDFPreviewView: View {
+    let url: URL
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            PDFKitView(url: url)
+                .navigationTitle("Report Preview")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Done") { dismiss() }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        ShareLink(item: url) {
+                            Label("Share", systemImage: "square.and.arrow.up")
+                        }
+                    }
+                }
+        }
+    }
+}
+
+private struct PDFKitView: UIViewRepresentable {
+    let url: URL
+
+    func makeUIView(context: Context) -> PDFView {
+        let view = PDFView()
+        view.autoScales = true
+        view.displayMode = .singlePageContinuous
+        view.displayDirection = .vertical
+        view.document = PDFDocument(url: url)
+        return view
+    }
+
+    func updateUIView(_ uiView: PDFView, context: Context) {
+        if uiView.document?.documentURL != url {
+            uiView.document = PDFDocument(url: url)
+        }
+    }
+}
+
+// MARK: - Report Builder
 
 struct ReportBuilderView: View {
-    @Query(sort: \HealthRecord.timestamp, order: .reverse) private var allRecords: [HealthRecord]
+    @EnvironmentObject var dataStore: HealthDataStore
     @Query private var profiles: [UserProfile]
 
     @State private var startDate: Date = Calendar.current.date(byAdding: .month, value: -1, to: .now)!
@@ -11,19 +58,26 @@ struct ReportBuilderView: View {
     @State private var renderedPDF: URL?
     @State private var isGenerating = false
     @State private var generationStatus = ""
+    @State private var showPreview = false
 
     private var filteredRecords: [HealthRecord] {
         let start = Calendar.current.startOfDay(for: startDate)
         let end = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: endDate))!
-        return allRecords.filter { $0.timestamp >= start && $0.timestamp < end }
+        return dataStore.allRecords.filter { $0.timestamp >= start && $0.timestamp < end }
     }
 
     private var availableMetricTypes: Set<String> {
-        Set(filteredRecords.map(\.metricType))
+        dataStore.availableMetricTypes
     }
 
     private var selectedAndAvailable: Set<String> {
         selectedMetrics.intersection(availableMetricTypes)
+    }
+
+    private var filteredRecordCount: Int {
+        let start = Calendar.current.startOfDay(for: startDate)
+        let end = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: endDate))!
+        return dataStore.allRecords.lazy.filter { $0.timestamp >= start && $0.timestamp < end }.count
     }
 
     var body: some View {
@@ -47,9 +101,9 @@ struct ReportBuilderView: View {
     private var previewSection: some View {
         Section {
             LabeledContent("Records in range") {
-                Text("\(filteredRecords.count)")
+                Text("\(filteredRecordCount)")
                     .bold()
-                    .foregroundStyle(filteredRecords.isEmpty ? .red : .primary)
+                    .foregroundStyle(filteredRecordCount == 0 ? .red : .primary)
             }
             LabeledContent("Metric types") {
                 Text("\(selectedAndAvailable.count)")
@@ -132,11 +186,27 @@ struct ReportBuilderView: View {
     private var generateSection: some View {
         Section {
             if let pdfURL = renderedPDF {
+                Button {
+                    showPreview = true
+                } label: {
+                    HStack {
+                        Spacer()
+                        Label("Preview Report", systemImage: "doc.text.magnifyingglass")
+                            .font(.headline)
+                        Spacer()
+                    }
+                }
+                .fullScreenCover(isPresented: $showPreview) {
+                    if let url = renderedPDF {
+                        PDFPreviewView(url: url)
+                    }
+                }
+
                 ShareLink(item: pdfURL) {
                     HStack {
                         Spacer()
                         Label("Share PDF Report", systemImage: "square.and.arrow.up")
-                            .font(.headline)
+                            .font(.subheadline)
                         Spacer()
                     }
                 }
@@ -172,7 +242,7 @@ struct ReportBuilderView: View {
                         Spacer()
                     }
                 }
-                .disabled(isGenerating || filteredRecords.isEmpty || selectedAndAvailable.isEmpty)
+                .disabled(isGenerating || filteredRecordCount == 0 || selectedAndAvailable.isEmpty)
             }
         }
     }

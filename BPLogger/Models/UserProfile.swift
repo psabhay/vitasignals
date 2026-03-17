@@ -15,7 +15,6 @@ final class UserProfile {
         name: String = "",
         age: Int = 0,
         heightCm: Double = 0,
-        heightFeet: Int? = nil,
         weightKg: Double = 0,
         gender: String = "",
         doctorName: String = "",

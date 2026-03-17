@@ -3,6 +3,12 @@ import HealthKit
 import SwiftData
 import Combine
 
+// MARK: - HealthSyncManager (UI layer — @MainActor)
+//
+// Only @Published properties and the public API live here.
+// All heavy work (HealthKit queries, SwiftData inserts) runs on
+// a background ModelContext via SyncWorker to keep the UI responsive.
+
 @MainActor
 final class HealthSyncManager: ObservableObject {
     @Published var isSyncing = false
@@ -11,7 +17,7 @@ final class HealthSyncManager: ObservableObject {
     @Published var lastSyncDate: Date?
 
     private let store = HKHealthStore()
-    private let overlapInterval: TimeInterval = 3600 // 1 hour overlap for dedup
+    private let worker = SyncWorker()
 
     static var isAvailable: Bool {
         HKHealthStore.isHealthDataAvailable()
@@ -19,30 +25,23 @@ final class HealthSyncManager: ObservableObject {
 
     // MARK: - Authorization
 
-    private var allReadTypes: Set<HKObjectType> {
+    private static let allReadTypes: Set<HKObjectType> = {
         var types = Set<HKObjectType>()
+        for identifier in HealthKitCatalog.allIdentifiers {
+            types.insert(HKQuantityType(identifier))
+        }
         types.insert(HKQuantityType(.bloodPressureSystolic))
         types.insert(HKQuantityType(.bloodPressureDiastolic))
         types.insert(HKQuantityType(.heartRate))
-        types.insert(HKQuantityType(.restingHeartRate))
-        types.insert(HKQuantityType(.heartRateVariabilitySDNN))
-        types.insert(HKQuantityType(.vo2Max))
-        types.insert(HKQuantityType(.walkingHeartRateAverage))
-        types.insert(HKQuantityType(.stepCount))
-        types.insert(HKQuantityType(.appleExerciseTime))
-        types.insert(HKQuantityType(.activeEnergyBurned))
-        types.insert(HKQuantityType(.bodyMass))
-        types.insert(HKQuantityType(.respiratoryRate))
-        types.insert(HKQuantityType(.oxygenSaturation))
         types.insert(HKCategoryType(.sleepAnalysis))
         types.insert(HKSampleType.workoutType())
         return types
-    }
+    }()
 
     func requestAuthorization() async {
         guard Self.isAvailable else { return }
         do {
-            try await store.requestAuthorization(toShare: [], read: allReadTypes)
+            try await store.requestAuthorization(toShare: [], read: Self.allReadTypes)
         } catch {
             print("HealthKit auth error: \(error)")
         }
@@ -50,65 +49,98 @@ final class HealthSyncManager: ObservableObject {
 
     // MARK: - Discovery + Sync
 
-    func syncAll(context: ModelContext) async {
-        guard Self.isAvailable else { return }
+    func syncAll(container: ModelContainer, dataStore: HealthDataStore) async {
+        guard Self.isAvailable, !isSyncing else { return }
         isSyncing = true
-        syncProgress = "Checking available data..."
+        syncProgress = "Requesting authorization..."
 
         await requestAuthorization()
 
-        // Discovery: check which metrics have data
-        await discoverAvailableMetrics()
+        syncProgress = "Discovering metrics..."
+        let discovered = await worker.discoverAvailableMetrics(store: store)
+        availableMetrics = discovered
 
-        // Incremental sync for each available metric
-        let metricsToSync = MetricRegistry.syncableMetrics.filter { availableMetrics.contains($0.type) }
+        // Build list of quantity defs to sync
+        let quantityDefs = discovered.compactMap { type -> MetricDefinition? in
+            guard type != MetricType.bloodPressure && type != MetricType.sleepDuration else { return nil }
+            return MetricRegistry.definition(for: type)
+        }.filter { $0.hkQuantityType != nil }
 
-        for (index, def) in metricsToSync.enumerated() {
-            syncProgress = "Syncing \(def.name)... (\(index + 1)/\(metricsToSync.count))"
-            await syncMetric(def, context: context)
+        // Run all sync work on background context
+        let total = quantityDefs.count
+            + (discovered.contains(MetricType.bloodPressure) ? 1 : 0)
+            + (discovered.contains(MetricType.sleepDuration) ? 1 : 0)
+        var completed = 0
+
+        for def in quantityDefs {
+            syncProgress = "Syncing \(def.name)... (\(completed + 1)/\(total))"
+            await worker.syncMetric(def, store: store, container: container)
+            completed += 1
         }
 
-        // Also sync blood pressure (special case - correlation query)
-        if availableMetrics.contains(MetricType.bloodPressure) {
-            syncProgress = "Syncing Blood Pressure..."
-            await syncBloodPressure(context: context)
+        if discovered.contains(MetricType.bloodPressure) {
+            syncProgress = "Syncing Blood Pressure... (\(completed + 1)/\(total))"
+            await worker.syncBloodPressure(store: store, container: container)
+            completed += 1
         }
+
+        if discovered.contains(MetricType.sleepDuration) {
+            syncProgress = "Syncing Sleep... (\(completed + 1)/\(total))"
+            await worker.syncSleep(store: store, container: container)
+            completed += 1
+        }
+
+        // Refresh the shared data store once — all views update from this single source
+        syncProgress = "Updating..."
+        dataStore.refresh()
 
         lastSyncDate = .now
         syncProgress = ""
         isSyncing = false
     }
+}
+
+// MARK: - SyncWorker (background — NOT @MainActor)
+//
+// All HealthKit fetching and SwiftData operations happen here,
+// on a background ModelContext that does NOT trigger SwiftUI @Query updates
+// until saved. Each method creates its own context so work is fully off main thread.
+
+private final class SyncWorker: Sendable {
+    private let overlapInterval: TimeInterval = 3600
 
     // MARK: - Discovery
 
-    private func discoverAvailableMetrics() async {
-        var available = Set<String>()
-
-        // Check quantity types
-        for def in MetricRegistry.syncableMetrics {
-            guard let hkType = def.hkQuantityType else { continue }
-            let quantityType = HKQuantityType(hkType)
-            if await hasData(for: quantityType) {
-                available.insert(def.type)
+    func discoverAvailableMetrics(store: HKHealthStore) async -> Set<String> {
+        await withTaskGroup(of: String?.self) { group in
+            for entry in HealthKitCatalog.entries {
+                let identifier = entry.identifier
+                let metricType = entry.metricType
+                group.addTask {
+                    let has = await Self.hasData(store: store, sampleType: HKQuantityType(identifier))
+                    return has ? metricType : nil
+                }
             }
-        }
 
-        // Check BP
-        let bpType = HKCorrelationType(.bloodPressure)
-        if await hasCorrelationData(for: bpType) {
-            available.insert(MetricType.bloodPressure)
-        }
+            group.addTask {
+                let has = await Self.hasData(store: store, sampleType: HKCorrelationType(.bloodPressure))
+                return has ? MetricType.bloodPressure : nil
+            }
 
-        // Check sleep
-        let sleepType = HKCategoryType(.sleepAnalysis)
-        if await hasCategoryData(for: sleepType) {
-            available.insert(MetricType.sleepDuration)
-        }
+            group.addTask {
+                let has = await Self.hasData(store: store, sampleType: HKCategoryType(.sleepAnalysis))
+                return has ? MetricType.sleepDuration : nil
+            }
 
-        availableMetrics = available
+            var results = Set<String>()
+            for await metricType in group {
+                if let type = metricType { results.insert(type) }
+            }
+            return results
+        }
     }
 
-    private func hasData(for sampleType: HKSampleType) async -> Bool {
+    private static func hasData(store: HKHealthStore, sampleType: HKSampleType) async -> Bool {
         await withCheckedContinuation { continuation in
             let query = HKSampleQuery(
                 sampleType: sampleType,
@@ -122,112 +154,74 @@ final class HealthSyncManager: ObservableObject {
         }
     }
 
-    private func hasCorrelationData(for type: HKCorrelationType) async -> Bool {
-        await withCheckedContinuation { continuation in
-            let query = HKSampleQuery(
-                sampleType: type,
-                predicate: nil,
-                limit: 1,
-                sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)]
-            ) { _, results, _ in
-                continuation.resume(returning: (results?.count ?? 0) > 0)
-            }
-            store.execute(query)
-        }
-    }
+    // MARK: - Quantity Metric Sync
 
-    private func hasCategoryData(for type: HKCategoryType) async -> Bool {
-        await withCheckedContinuation { continuation in
-            let query = HKSampleQuery(
-                sampleType: type,
-                predicate: nil,
-                limit: 1,
-                sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)]
-            ) { _, results, _ in
-                continuation.resume(returning: (results?.count ?? 0) > 0)
-            }
-            store.execute(query)
-        }
-    }
-
-    // MARK: - Incremental Sync for Quantity Metrics
-
-    private func syncMetric(_ def: MetricDefinition, context: ModelContext) async {
+    func syncMetric(_ def: MetricDefinition, store: HKHealthStore, container: ModelContainer) async {
         guard let hkType = def.hkQuantityType, let hkUnit = def.hkUnit?() else { return }
 
-        // Get last sync date for this metric
+        // Background context — all SwiftData work stays off main thread
+        let context = ModelContext(container)
+        context.autosaveEnabled = false
+
         let syncState = getOrCreateSyncState(for: def.type, context: context)
         let startDate = syncState.lastSyncDate.map {
             $0.addingTimeInterval(-overlapInterval)
         } ?? Calendar.current.date(byAdding: .year, value: -1, to: .now)!
         let endDate = Date.now
 
-        // Get existing UUIDs + dismissed UUIDs for dedup
-        let existingUUIDs = existingHealthKitUUIDs(for: def.type, context: context)
-        let dismissedUUIDs = dismissedHealthKitUUIDs(for: def.type, context: context)
-        let excludedUUIDs = existingUUIDs.union(dismissedUUIDs)
+        let excludedUUIDs = existingHealthKitUUIDs(for: def.type, context: context)
+            .union(dismissedHealthKitUUIDs(for: def.type, context: context))
 
         if def.isCumulative {
-            // Cumulative metrics: daily sums
-            let dailyValues = await fetchDailyStatistics(hkType, unit: hkUnit, from: startDate, to: endDate)
+            let dailyValues = await Self.fetchDailyStatistics(store: store, hkType, unit: hkUnit, from: startDate, to: endDate)
             for dv in dailyValues {
-                // Check if we already have a record for this day
                 let dayStart = Calendar.current.startOfDay(for: dv.date)
                 let dayEnd = Calendar.current.date(byAdding: .day, value: 1, to: dayStart)!
                 let existing = existingRecords(for: def.type, from: dayStart, to: dayEnd, context: context)
-                if existing.isEmpty {
-                    let record = HealthRecord(
-                        metricType: def.type,
-                        timestamp: dv.date,
-                        primaryValue: dv.value,
-                        source: "Apple Health",
-                        isManualEntry: false
-                    )
-                    context.insert(record)
+                if let existingRecord = existing.first(where: { !$0.isManualEntry }) {
+                    if existingRecord.primaryValue != dv.value {
+                        existingRecord.primaryValue = dv.value
+                    }
+                } else if existing.isEmpty {
+                    context.insert(HealthRecord(
+                        metricType: def.type, timestamp: dv.date,
+                        primaryValue: dv.value, source: "Apple Health", isManualEntry: false
+                    ))
                 }
             }
         } else {
-            // Discrete metrics: individual samples
-            let samples = await fetchQuantitySamples(hkType, unit: hkUnit, from: startDate, to: endDate)
+            let samples = await Self.fetchQuantitySamples(store: store, hkType, unit: hkUnit, from: startDate, to: endDate)
             for sample in samples {
-                let uuid = sample.uuid
-                guard !excludedUUIDs.contains(uuid) else { continue }
-
+                guard !excludedUUIDs.contains(sample.uuid) else { continue }
                 var value = sample.value
-                // SpO2 comes as 0-1, convert to 0-100
-                if def.type == MetricType.oxygenSaturation {
-                    value *= 100
-                }
-
-                let record = HealthRecord(
-                    metricType: def.type,
-                    timestamp: sample.date,
-                    primaryValue: value,
-                    healthKitUUID: uuid,
-                    source: sample.source,
-                    isManualEntry: false
-                )
-                context.insert(record)
+                if hkUnit == HKUnit.percent() { value *= 100 }
+                context.insert(HealthRecord(
+                    metricType: def.type, timestamp: sample.date,
+                    primaryValue: value, healthKitUUID: sample.uuid,
+                    source: sample.source, isManualEntry: false
+                ))
             }
         }
 
-        // Update sync state
         syncState.lastSyncDate = endDate
         syncState.isAvailable = true
+        try? context.save()
     }
 
-    // MARK: - Blood Pressure Sync (Special Case)
+    // MARK: - Blood Pressure Sync
 
-    private func syncBloodPressure(context: ModelContext) async {
+    func syncBloodPressure(store: HKHealthStore, container: ModelContainer) async {
+        let context = ModelContext(container)
+        context.autosaveEnabled = false
+
         let syncState = getOrCreateSyncState(for: MetricType.bloodPressure, context: context)
         let startDate = syncState.lastSyncDate.map {
             $0.addingTimeInterval(-overlapInterval)
         } ?? Calendar.current.date(byAdding: .year, value: -1, to: .now)!
         let endDate = Date.now
 
-        let existingUUIDs = existingHealthKitUUIDs(for: MetricType.bloodPressure, context: context)
-        let dismissedUUIDs = dismissedHealthKitUUIDs(for: MetricType.bloodPressure, context: context)
-        let excludedUUIDs = existingUUIDs.union(dismissedUUIDs)
+        let excludedUUIDs = existingHealthKitUUIDs(for: MetricType.bloodPressure, context: context)
+            .union(dismissedHealthKitUUIDs(for: MetricType.bloodPressure, context: context))
 
         let bpType = HKCorrelationType(.bloodPressure)
         let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: [])
@@ -235,17 +229,16 @@ final class HealthSyncManager: ObservableObject {
 
         let samples: [HKCorrelation] = await withCheckedContinuation { continuation in
             let query = HKSampleQuery(
-                sampleType: bpType,
-                predicate: predicate,
-                limit: HKObjectQueryNoLimit,
-                sortDescriptors: [sortDescriptor]
+                sampleType: bpType, predicate: predicate,
+                limit: HKObjectQueryNoLimit, sortDescriptors: [sortDescriptor]
             ) { _, results, _ in
                 continuation.resume(returning: (results as? [HKCorrelation]) ?? [])
             }
             store.execute(query)
         }
 
-        let heartRates = await fetchHeartRates(since: startDate)
+        // Limit heart rate fetch to BP time window (not entire year)
+        let heartRates = await Self.fetchHeartRates(store: store, since: startDate, until: endDate)
 
         for sample in samples {
             let uuid = sample.uuid.uuidString
@@ -259,31 +252,31 @@ final class HealthSyncManager: ObservableObject {
             let mmHg = HKUnit.millimeterOfMercury()
             let systolic = sysSample.quantity.doubleValue(for: mmHg)
             let diastolic = diaSample.quantity.doubleValue(for: mmHg)
-            let pulse = findClosestHeartRate(to: sample.startDate, in: heartRates)
+            let pulse = Self.findClosestHeartRate(to: sample.startDate, in: heartRates)
             let source = sample.sourceRevision.source.name
 
-            let record = HealthRecord(
+            context.insert(HealthRecord(
                 metricType: MetricType.bloodPressure,
                 timestamp: sample.startDate,
-                primaryValue: systolic,
-                secondaryValue: diastolic,
+                primaryValue: systolic, secondaryValue: diastolic,
                 tertiaryValue: pulse.map { Double($0) },
-                healthKitUUID: uuid,
-                source: source,
-                isManualEntry: false,
+                healthKitUUID: uuid, source: source, isManualEntry: false,
                 activityContext: ActivityContext.atRest.rawValue,
                 notes: "Imported from Apple Health (via \(source))"
-            )
-            context.insert(record)
+            ))
         }
 
         syncState.lastSyncDate = endDate
         syncState.isAvailable = true
+        try? context.save()
     }
 
     // MARK: - Sleep Sync
 
-    private func syncSleep(context: ModelContext) async {
+    func syncSleep(store: HKHealthStore, container: ModelContainer) async {
+        let context = ModelContext(container)
+        context.autosaveEnabled = false
+
         let syncState = getOrCreateSyncState(for: MetricType.sleepDuration, context: context)
         let startDate = syncState.lastSyncDate.map {
             $0.addingTimeInterval(-overlapInterval)
@@ -296,10 +289,8 @@ final class HealthSyncManager: ObservableObject {
 
         let samples: [HKCategorySample] = await withCheckedContinuation { continuation in
             let query = HKSampleQuery(
-                sampleType: sleepType,
-                predicate: predicate,
-                limit: HKObjectQueryNoLimit,
-                sortDescriptors: [sortDescriptor]
+                sampleType: sleepType, predicate: predicate,
+                limit: HKObjectQueryNoLimit, sortDescriptors: [sortDescriptor]
             ) { _, results, _ in
                 continuation.resume(returning: (results as? [HKCategorySample]) ?? [])
             }
@@ -328,21 +319,17 @@ final class HealthSyncManager: ObservableObject {
             let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart)!
             let existing = existingRecords(for: MetricType.sleepDuration, from: dayStart, to: dayEnd, context: context)
             if existing.isEmpty {
-                let hours = duration / 3600
-                let record = HealthRecord(
+                context.insert(HealthRecord(
                     metricType: MetricType.sleepDuration,
-                    timestamp: date,
-                    primaryValue: hours,
-                    durationSeconds: duration,
-                    source: "Apple Health",
-                    isManualEntry: false
-                )
-                context.insert(record)
+                    timestamp: date, primaryValue: duration / 3600,
+                    durationSeconds: duration, source: "Apple Health", isManualEntry: false
+                ))
             }
         }
 
         syncState.lastSyncDate = endDate
         syncState.isAvailable = true
+        try? context.save()
     }
 
     // MARK: - HealthKit Query Helpers
@@ -359,7 +346,8 @@ final class HealthSyncManager: ObservableObject {
         let value: Double
     }
 
-    private func fetchQuantitySamples(
+    private static func fetchQuantitySamples(
+        store: HKHealthStore,
         _ identifier: HKQuantityTypeIdentifier,
         unit: HKUnit,
         from startDate: Date,
@@ -371,10 +359,8 @@ final class HealthSyncManager: ObservableObject {
 
         let samples: [HKQuantitySample] = await withCheckedContinuation { continuation in
             let query = HKSampleQuery(
-                sampleType: quantityType,
-                predicate: predicate,
-                limit: HKObjectQueryNoLimit,
-                sortDescriptors: [sortDescriptor]
+                sampleType: quantityType, predicate: predicate,
+                limit: HKObjectQueryNoLimit, sortDescriptors: [sortDescriptor]
             ) { _, results, _ in
                 continuation.resume(returning: (results as? [HKQuantitySample]) ?? [])
             }
@@ -391,7 +377,8 @@ final class HealthSyncManager: ObservableObject {
         }
     }
 
-    private func fetchDailyStatistics(
+    private static func fetchDailyStatistics(
+        store: HKHealthStore,
         _ identifier: HKQuantityTypeIdentifier,
         unit: HKUnit,
         from startDate: Date,
@@ -428,18 +415,15 @@ final class HealthSyncManager: ObservableObject {
         }
     }
 
-    private func fetchHeartRates(since: Date) async -> [(Date, Int)] {
+    private static func fetchHeartRates(store: HKHealthStore, since startDate: Date, until endDate: Date) async -> [(Date, Int)] {
         let hrType = HKQuantityType(.heartRate)
-        let endDate = Calendar.current.date(byAdding: .day, value: 1, to: .now)!
-        let predicate = HKQuery.predicateForSamples(withStart: since, end: endDate, options: [])
+        let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: [])
         let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
 
         return await withCheckedContinuation { continuation in
             let query = HKSampleQuery(
-                sampleType: hrType,
-                predicate: predicate,
-                limit: HKObjectQueryNoLimit,
-                sortDescriptors: [sortDescriptor]
+                sampleType: hrType, predicate: predicate,
+                limit: HKObjectQueryNoLimit, sortDescriptors: [sortDescriptor]
             ) { _, results, _ in
                 let rates: [(Date, Int)] = (results as? [HKQuantitySample])?.map { sample in
                     let bpm = Int(sample.quantity.doubleValue(for: HKUnit.count().unitDivided(by: .minute())))
@@ -451,7 +435,7 @@ final class HealthSyncManager: ObservableObject {
         }
     }
 
-    private func findClosestHeartRate(to date: Date, in rates: [(Date, Int)]) -> Int? {
+    private static func findClosestHeartRate(to date: Date, in rates: [(Date, Int)]) -> Int? {
         let maxInterval: TimeInterval = 5 * 60
         var closest: (TimeInterval, Int)?
         for (rateDate, bpm) in rates {

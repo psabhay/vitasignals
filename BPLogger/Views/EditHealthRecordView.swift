@@ -3,7 +3,9 @@ import SwiftData
 
 struct EditHealthRecordView: View {
     @Bindable var record: HealthRecord
+    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var dataStore: HealthDataStore
 
     @State private var timestamp: Date
     @State private var notes: String
@@ -244,6 +246,8 @@ struct EditHealthRecordView: View {
         } else {
             record.primaryValue = primaryValue
         }
+        try? modelContext.save()
+        dataStore.refresh()
         dismiss()
     }
 }

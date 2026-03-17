@@ -5,6 +5,7 @@ struct RecordDetailView: View {
     let record: HealthRecord
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var dataStore: HealthDataStore
     @State private var showEditSheet = false
     @State private var showDeleteConfirmation = false
 
@@ -47,6 +48,8 @@ struct RecordDetailView: View {
                         modelContext.insert(DismissedHealthKitRecord(metricType: record.metricType, healthKitUUID: hkID))
                     }
                     modelContext.delete(record)
+                    try? modelContext.save()
+                    dataStore.refresh()
                     dismiss()
                 }
                 Button("Cancel", role: .cancel) {}

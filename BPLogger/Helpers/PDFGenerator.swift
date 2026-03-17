@@ -154,70 +154,93 @@ struct PDFGenerator {
         }
         footer(s)
 
-        // ── BP Charts Page ──
-        if metrics.contains(MetricType.bloodPressure) && bpRecords.count >= 2 {
-            newPage(s)
-            section(s, "BLOOD PRESSURE TREND")
-            drawBPChart(s, records: bpRecords)
-            s.y += 16
-            section(s, "HEART RATE TREND")
-            drawPulseChart(s, records: bpRecords)
-            footer(s)
-        }
+        // ── BLOOD PRESSURE SECTION ──
+        if metrics.contains(MetricType.bloodPressure) && !bpRecords.isEmpty {
 
-        // ── Metric-specific chart pages ──
-        for metricType in nonBPMetrics.sorted() {
-            let metricRecords = sorted.filter { $0.metricType == metricType }
-            guard metricRecords.count >= 2, let def = MetricRegistry.definition(for: metricType) else { continue }
-
-            newPage(s)
-            let color = metricColor(metricType)
-            text(s, def.name.uppercased(), font: f14b, color: accent)
-            s.y += 4
-            hline(s, color: accent, width: 1.5)
-            s.y += 12
-
-            section(s, "\(def.name.uppercased()) TREND")
-
-            let values = metricRecords.map { DailyValue(date: $0.timestamp, value: $0.primaryValue) }
-            var refLines: [(Double, String, UIColor)] = []
-            if let refMin = def.referenceMin { refLines.append((refMin, "Min \(def.formatValue(refMin))", green)) }
-            if let refMax = def.referenceMax { refLines.append((refMax, "Max \(def.formatValue(refMax))", green)) }
-
-            let zoneRange: (Double, Double, UIColor)? = {
-                if let lo = def.referenceMin, let hi = def.referenceMax { return (lo, hi, green) }
-                return nil
-            }()
-
-            if def.chartStyle == .bar {
-                drawDailyBarChart(s, values: values, color: color, unit: def.unit,
-                                  targetLine: def.referenceMin, targetLabel: def.referenceMin != nil ? "Target" : "")
-            } else {
-                drawDailyChart(s, values: values, color: color, unit: def.unit,
-                               refLines: refLines, zoneRange: zoneRange)
+            // BP Charts Page
+            if bpRecords.count >= 2 {
+                newPage(s)
+                drawSectionHeader(s, title: "BLOOD PRESSURE", subtitle: "Trends & Heart Rate")
+                section(s, "BLOOD PRESSURE TREND")
+                drawBPChart(s, records: bpRecords)
+                s.y += 16
+                section(s, "HEART RATE TREND")
+                drawPulseChart(s, records: bpRecords)
+                footer(s)
             }
 
-            // Stats
-            let avg = values.map(\.value).reduce(0, +) / Double(values.count)
-            text(s, String(format: "Average: %@ %@  |  %d data points", def.formatValue(avg), def.unit, values.count), font: f9, color: dark)
-            s.y += 16
-
-            footer(s)
+            // BP Time-of-Day Analysis
+            if bpRecords.count >= 3 {
+                drawTimeOfDayPage(s, records: bpRecords)
+            }
         }
 
-        // ── BP Data Table ──
+        // ── Other Health Metrics (grouped by category, flowing layout) ──
+        let drawableMetrics = nonBPMetrics.sorted().compactMap { type -> (MetricDefinition, [HealthRecord])? in
+            let recs = sorted.filter { $0.metricType == type }
+            guard recs.count >= 2, let def = MetricRegistry.definition(for: type) else { return nil }
+            return (def, recs)
+        }
+        if !drawableMetrics.isEmpty {
+            let chartBlockHeight: CGFloat = 200
+            // Group by category, preserving MetricCategory.allCases order
+            let byCategory = Dictionary(grouping: drawableMetrics) { $0.0.category }
+            let orderedCategories = MetricCategory.allCases.filter { byCategory[$0] != nil }
+
+            for category in orderedCategories {
+                guard let categoryMetrics = byCategory[category] else { continue }
+
+                // Each category starts a new page with its own section header
+                newPage(s)
+                drawSectionHeader(s, title: category.rawValue.uppercased(), subtitle: "\(categoryMetrics.count) metric\(categoryMetrics.count == 1 ? "" : "s") with trend data")
+
+                for (def, metricRecords) in categoryMetrics {
+                    pageBreak(s, chartBlockHeight)
+
+                    let color = metricColor(def.type)
+                    section(s, "\(def.name.uppercased()) TREND")
+
+                    let values = metricRecords.map { DailyValue(date: $0.timestamp, value: $0.primaryValue) }
+                    var refLines: [(Double, String, UIColor)] = []
+                    if let refMin = def.referenceMin { refLines.append((refMin, "Min \(def.formatValue(refMin))", green)) }
+                    if let refMax = def.referenceMax { refLines.append((refMax, "Max \(def.formatValue(refMax))", green)) }
+
+                    let zoneRange: (Double, Double, UIColor)? = {
+                        if let lo = def.referenceMin, let hi = def.referenceMax { return (lo, hi, green) }
+                        return nil
+                    }()
+
+                    if def.chartStyle == .bar {
+                        drawDailyBarChart(s, values: values, color: color, unit: def.unit,
+                                          targetLine: def.referenceMin, targetLabel: def.referenceMin != nil ? "Target" : "")
+                    } else {
+                        drawDailyChart(s, values: values, color: color, unit: def.unit,
+                                       refLines: refLines, zoneRange: zoneRange)
+                    }
+
+                    let avg = values.map(\.value).reduce(0, +) / Double(values.count)
+                    text(s, String(format: "Average: %@ %@  |  %d data points", def.formatValue(avg), def.unit, values.count), font: f9, color: dark)
+                    s.y += 20
+                }
+                footer(s)
+            }
+        }
+
+        // Disclaimer
+        pageBreak(s, 32)
+        s.y += 12
+        hline(s, color: border)
+        s.y += 6
+        text(s, "Disclaimer: This report is generated from self-recorded data and data imported from Apple Health. It is intended as a supplementary reference for healthcare providers and should not be used for self-diagnosis or treatment decisions.", font: f8, color: mid, w: cw)
+
+        // ── ANNEXURE: BP Data Table (at the very end) ──
         if metrics.contains(MetricType.bloodPressure) && !bpRecords.isEmpty {
             newPage(s)
+            drawSectionHeader(s, title: "BLOOD PRESSURE", subtitle: "Annexure — Detailed Readings")
             section(s, "DETAILED BP READINGS  (\(bpRecords.count))")
             drawBPReadingsTable(s, records: bpRecords)
         }
 
-        // Disclaimer
-        s.y += 12
-        pageBreak(s, 32)
-        hline(s, color: border)
-        s.y += 6
-        text(s, "Disclaimer: This report is generated from self-recorded data and data imported from Apple Health. It is intended as a supplementary reference for healthcare providers and should not be used for self-diagnosis or treatment decisions.", font: f8, color: mid, w: cw)
         footer(s)
 
         UIGraphicsEndPDFContext()
@@ -244,6 +267,28 @@ struct PDFGenerator {
         let rt = "Page \(s.page)"
         let rs = (rt as NSString).size(withAttributes: la)
         (rt as NSString).draw(at: CGPoint(x: pw - m - rs.width, y: fy), withAttributes: la)
+    }
+
+    // MARK: - Section Page Header
+
+    private static func drawSectionHeader(_ s: State, title: String, subtitle: String) {
+        // Accent bar at top
+        s.ctx.setFillColor(accent.cgColor)
+        s.ctx.fill(CGRect(x: m, y: s.y, width: cw, height: 3))
+        s.y += 8
+
+        // Section heading
+        let titleA: [NSAttributedString.Key: Any] = [.font: f14b, .foregroundColor: accent]
+        (title as NSString).draw(at: CGPoint(x: m, y: s.y), withAttributes: titleA)
+        s.y += 18
+
+        // Subtitle
+        let subA: [NSAttributedString.Key: Any] = [.font: f11m, .foregroundColor: mid]
+        (subtitle as NSString).draw(at: CGPoint(x: m, y: s.y), withAttributes: subA)
+        s.y += 14
+
+        hline(s, color: accent.withAlphaComponent(0.3), width: 1)
+        s.y += 12
     }
 
     // MARK: - Header
@@ -511,6 +556,171 @@ struct PDFGenerator {
         drawIntLine(s, records: records, getValue: { $0.pulse }, xp: xp, yp: yp, color: pink)
         xLabelsFromRecords(s, records: records, xp: xp, baseY: cy + ch)
         s.y = cy + ch + 16
+    }
+
+    // MARK: - Time-of-Day BP Analysis
+
+    private enum TimePeriod: String, CaseIterable {
+        case morning = "Morning (5 AM – 12 PM)"
+        case afternoon = "Afternoon (12 PM – 5 PM)"
+        case evening = "Evening / Night (5 PM – 5 AM)"
+
+        var shortName: String {
+            switch self {
+            case .morning: return "Morning"
+            case .afternoon: return "Afternoon"
+            case .evening: return "Evening"
+            }
+        }
+
+        var hourRange: String {
+            switch self {
+            case .morning: return "5:00 – 11:59"
+            case .afternoon: return "12:00 – 16:59"
+            case .evening: return "17:00 – 4:59"
+            }
+        }
+
+        static func from(hour: Int) -> TimePeriod {
+            if hour >= 5 && hour < 12 { return .morning }
+            if hour >= 12 && hour < 17 { return .afternoon }
+            return .evening
+        }
+    }
+
+    private static func drawTimeOfDayPage(_ s: State, records: [HealthRecord]) {
+        let calendar = Calendar.current
+        let grouped = Dictionary(grouping: records) { TimePeriod.from(hour: calendar.component(.hour, from: $0.timestamp)) }
+
+        // Only draw if we have readings in at least 2 time periods
+        let populatedPeriods = TimePeriod.allCases.filter { (grouped[$0]?.count ?? 0) > 0 }
+        guard populatedPeriods.count >= 2 else { return }
+
+        newPage(s)
+        drawSectionHeader(s, title: "BLOOD PRESSURE", subtitle: "Time-of-Day Analysis")
+        text(s, "TIME-OF-DAY ANALYSIS", font: f14b, color: accent)
+        s.y += 4
+        hline(s, color: accent, width: 1.5)
+        s.y += 6
+        text(s, "Blood pressure readings grouped by time of day to help identify patterns such as morning hypertension or evening dipping.", font: f10, color: mid, w: cw)
+        s.y += 12
+
+        // Comparison summary table
+        drawTimePeriodSummary(s, grouped: grouped, periods: populatedPeriods, totalCount: records.count)
+        s.y += 8
+
+        // Individual mini charts per time period
+        for period in populatedPeriods {
+            guard let periodRecords = grouped[period], periodRecords.count >= 2 else { continue }
+            let sorted = periodRecords.sorted { $0.timestamp < $1.timestamp }
+            pageBreak(s, 140)
+            drawTimePeriodChart(s, records: sorted, period: period)
+            s.y += 8
+        }
+
+        footer(s)
+    }
+
+    private static func drawTimePeriodSummary(_ s: State, grouped: [TimePeriod: [HealthRecord]], periods: [TimePeriod], totalCount: Int) {
+        section(s, "COMPARISON BY TIME OF DAY")
+
+        // Table header
+        let colX: [CGFloat] = [m + 6, m + 110, m + 190, m + 260, m + 330, m + 400]
+        let headers = ["Time Period", "Avg BP", "Avg HR", "Classification", "Readings", "% of Total"]
+        let ha: [NSAttributedString.Key: Any] = [.font: f8b, .foregroundColor: mid]
+        for (t, x) in zip(headers, colX) {
+            (t as NSString).draw(at: CGPoint(x: x, y: s.y), withAttributes: ha)
+        }
+        s.y += 14
+        hline(s, color: border, width: 0.5)
+        s.y += 3
+
+        for (i, period) in periods.enumerated() {
+            guard let recs = grouped[period], !recs.isEmpty else { continue }
+
+            let avgSys = recs.map(\.systolic).reduce(0, +) / recs.count
+            let avgDia = recs.map(\.diastolic).reduce(0, +) / recs.count
+            let avgPulse = recs.map(\.pulse).reduce(0, +) / recs.count
+            let cat = BPCategory.classify(systolic: avgSys, diastolic: avgDia)
+            let pct = Int(Double(recs.count) / Double(totalCount) * 100)
+
+            if i % 2 == 0 { fillRect(s, x: m, w: cw, h: 16, color: stripe) }
+
+            let la: [NSAttributedString.Key: Any] = [.font: f10m, .foregroundColor: dark]
+            let va: [NSAttributedString.Key: Any] = [.font: f9b, .foregroundColor: black]
+            let ca: [NSAttributedString.Key: Any] = [.font: f9b, .foregroundColor: catColor(cat)]
+
+            (period.shortName as NSString).draw(at: CGPoint(x: colX[0], y: s.y + 1), withAttributes: la)
+            ("\(avgSys)/\(avgDia)" as NSString).draw(at: CGPoint(x: colX[1], y: s.y + 1), withAttributes: va)
+            ("\(avgPulse) bpm" as NSString).draw(at: CGPoint(x: colX[2], y: s.y + 1), withAttributes: va)
+            (cat.rawValue as NSString).draw(at: CGPoint(x: colX[3], y: s.y + 1), withAttributes: ca)
+            ("\(recs.count)" as NSString).draw(at: CGPoint(x: colX[4], y: s.y + 1), withAttributes: va)
+            ("\(pct)%" as NSString).draw(at: CGPoint(x: colX[5], y: s.y + 1), withAttributes: va)
+
+            s.y += 16
+        }
+
+        // Clinical note about morning hypertension
+        s.y += 6
+        let morningRecs = grouped[.morning] ?? []
+        let eveningRecs = grouped[.evening] ?? []
+        if !morningRecs.isEmpty && !eveningRecs.isEmpty {
+            let mornAvgSys = morningRecs.map(\.systolic).reduce(0, +) / morningRecs.count
+            let eveAvgSys = eveningRecs.map(\.systolic).reduce(0, +) / eveningRecs.count
+            let diff = mornAvgSys - eveAvgSys
+            if diff > 10 {
+                text(s, "⚠ Morning systolic average is \(diff) mmHg higher than evening — may indicate morning hypertension surge.", font: f10, color: orange, w: cw)
+            } else if diff < -10 {
+                text(s, "Note: Evening systolic average is \(abs(diff)) mmHg higher than morning — normal nocturnal dipping pattern may be reduced.", font: f10, color: dark, w: cw)
+            } else {
+                text(s, "Blood pressure appears relatively stable across time periods.", font: f10, color: dark, w: cw)
+            }
+        }
+        s.y += 6
+    }
+
+    private static func drawTimePeriodChart(_ s: State, records: [HealthRecord], period: TimePeriod) {
+        // Section title
+        let titleA: [NSAttributedString.Key: Any] = [.font: f11m, .foregroundColor: accent]
+        ("\(period.rawValue)  —  \(records.count) readings" as NSString).draw(at: CGPoint(x: m, y: s.y), withAttributes: titleA)
+        s.y += 14
+
+        let cx = m + 28, cw2 = cw - 36, ch: CGFloat = 90, cy = s.y
+        let vals = records.flatMap { [$0.systolic, $0.diastolic] }
+        let lo = max((vals.min() ?? 60) - 10, 40), hi = min((vals.max() ?? 180) + 10, 220)
+        let r = CGFloat(hi - lo)
+
+        func xp(_ i: Int) -> CGFloat { cx + CGFloat(i) / CGFloat(max(records.count - 1, 1)) * cw2 }
+        func yp(_ v: Int) -> CGFloat { cy + ch - CGFloat(v - lo) / r * ch }
+
+        grid(s, cx: cx, cy: cy, cw: cw2, ch: ch, lo: lo, hi: hi, step: 20)
+
+        // Normal range zone
+        s.ctx.setFillColor(green.withAlphaComponent(0.06).cgColor)
+        s.ctx.fill(CGRect(x: cx, y: yp(120), width: cw2, height: yp(80) - yp(120)))
+        dashedLine(s, from: CGPoint(x: cx, y: yp(120)), to: CGPoint(x: cx + cw2, y: yp(120)), color: green.withAlphaComponent(0.4))
+        dashedLine(s, from: CGPoint(x: cx, y: yp(80)), to: CGPoint(x: cx + cw2, y: yp(80)), color: green.withAlphaComponent(0.4))
+
+        // Draw systolic + diastolic lines
+        drawIntLine(s, records: records, getValue: { $0.systolic }, xp: xp, yp: yp, color: red)
+        drawIntLine(s, records: records, getValue: { $0.diastolic }, xp: xp, yp: yp, color: blue)
+
+        // X-axis labels (dates)
+        xLabelsFromRecords(s, records: records, xp: xp, baseY: cy + ch)
+
+        // Inline stats on the right
+        let avgSys = records.map(\.systolic).reduce(0, +) / records.count
+        let avgDia = records.map(\.diastolic).reduce(0, +) / records.count
+        let avgPulse = records.map(\.pulse).reduce(0, +) / records.count
+        let statsY = cy + 4
+        let statsX = cx + cw2 + 10
+        let sa: [NSAttributedString.Key: Any] = [.font: f8, .foregroundColor: dark]
+        let sb: [NSAttributedString.Key: Any] = [.font: f8b, .foregroundColor: black]
+        ("Avg:" as NSString).draw(at: CGPoint(x: statsX, y: statsY), withAttributes: sa)
+        ("\(avgSys)/\(avgDia)" as NSString).draw(at: CGPoint(x: statsX, y: statsY + 10), withAttributes: sb)
+        ("♡ \(avgPulse)" as NSString).draw(at: CGPoint(x: statsX, y: statsY + 22), withAttributes: [.font: f8, .foregroundColor: pink])
+
+        s.y = cy + ch + 18
     }
 
     // MARK: - Drawing Primitives

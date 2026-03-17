@@ -9,6 +9,7 @@ final class MetricRegistryTests: XCTestCase {
             MetricType.restingHeartRate,
             MetricType.heartRateVariability,
             MetricType.vo2Max,
+            MetricType.walkingHeartRate,
             MetricType.stepCount,
             MetricType.exerciseMinutes,
             MetricType.activeEnergy,
@@ -16,6 +17,7 @@ final class MetricRegistryTests: XCTestCase {
             MetricType.sleepDuration,
             MetricType.respiratoryRate,
             MetricType.oxygenSaturation,
+            MetricType.workout,
         ]
         for type in types {
             XCTAssertNotNil(MetricRegistry.definition(for: type), "Should have definition for \(type)")
@@ -75,6 +77,48 @@ final class MetricRegistryTests: XCTestCase {
     func testMetricDefinitionHasUnit() {
         for def in MetricRegistry.all {
             XCTAssertFalse(def.unit.isEmpty, "\(def.name) should have a unit")
+        }
+    }
+
+    // MARK: - HealthKit Catalog
+
+    func testCatalogCoversAllCuratedTypes() {
+        // Every curated type with hkQuantityType should exist in the catalog
+        for def in MetricRegistry.all {
+            guard def.hkQuantityType != nil else { continue }
+            XCTAssertNotNil(
+                HealthKitCatalog.entry(forMetricType: def.type),
+                "Catalog should have entry for curated type \(def.type)"
+            )
+        }
+    }
+
+    func testCatalogAutoGeneratesDefinitions() {
+        // A catalog-only type (not in curated list) should auto-generate a definition
+        let catalogOnlyType = "bloodGlucose"
+        let def = MetricRegistry.definition(for: catalogOnlyType)
+        XCTAssertNotNil(def, "Should auto-generate definition for \(catalogOnlyType)")
+        XCTAssertEqual(def?.name, "Blood Glucose")
+        XCTAssertEqual(def?.unit, "mg/dL")
+        XCTAssertEqual(def?.category, .vitals)
+    }
+
+    func testCuratedOverridesCatalog() {
+        // Curated definition should take precedence over catalog
+        let def = MetricRegistry.definition(for: MetricType.restingHeartRate)
+        XCTAssertNotNil(def)
+        // Curated has cardioFitness category, catalog has vitals
+        XCTAssertEqual(def?.category, .cardioFitness)
+    }
+
+    func testCatalogEntriesHaveUniqueMetricTypes() {
+        let types = HealthKitCatalog.entries.map(\.metricType)
+        XCTAssertEqual(types.count, Set(types).count, "Catalog should have unique metric types")
+    }
+
+    func testAllCategoriesHaveIconAndColor() {
+        for category in MetricCategory.allCases {
+            XCTAssertFalse(category.icon.isEmpty, "\(category.rawValue) should have an icon")
         }
     }
 }

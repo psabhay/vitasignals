@@ -10,6 +10,9 @@ enum MetricCategory: String, CaseIterable, Identifiable {
     case body = "Body"
     case sleepRecovery = "Sleep & Recovery"
     case respiratory = "Respiratory"
+    case nutrition = "Nutrition"
+    case mobility = "Mobility"
+    case other = "Other"
 
     var id: String { rawValue }
 
@@ -21,6 +24,9 @@ enum MetricCategory: String, CaseIterable, Identifiable {
         case .body: return "figure.arms.open"
         case .sleepRecovery: return "bed.double"
         case .respiratory: return "lungs"
+        case .nutrition: return "fork.knife"
+        case .mobility: return "figure.walk.motion"
+        case .other: return "ellipsis.circle"
         }
     }
 
@@ -32,6 +38,9 @@ enum MetricCategory: String, CaseIterable, Identifiable {
         case .body: return .orange
         case .sleepRecovery: return .indigo
         case .respiratory: return .teal
+        case .nutrition: return .brown
+        case .mobility: return .mint
+        case .other: return .gray
         }
     }
 }
@@ -54,7 +63,7 @@ enum AggregationType {
 
 // MARK: - Metric Definition
 
-struct MetricDefinition {
+struct MetricDefinition: @unchecked Sendable {
     let type: String
     let name: String
     let unit: String
@@ -274,6 +283,25 @@ struct MetricRegistry {
             hkUnit: nil,
             isCumulative: false
         ),
+        // Activity - Workout
+        MetricDefinition(
+            type: MetricType.workout,
+            name: "Workout",
+            unit: "min",
+            icon: "figure.strengthtraining.traditional",
+            color: .cyan,
+            category: .activity,
+            chartStyle: .bar,
+            aggregation: .sum,
+            referenceMin: nil,
+            referenceMax: nil,
+            inputMin: 0,
+            inputMax: 600,
+            inputStep: 1,
+            hkQuantityType: nil,
+            hkUnit: nil,
+            isCumulative: false
+        ),
         // Respiratory
         MetricDefinition(
             type: MetricType.respiratoryRate,
@@ -313,12 +341,39 @@ struct MetricRegistry {
         ),
     ]
 
-    static func definition(for metricType: String) -> MetricDefinition? {
-        all.first { $0.type == metricType }
-    }
+    private static let _definitionsByCategory: [MetricCategory: [MetricDefinition]] = {
+        var result: [MetricCategory: [MetricDefinition]] = [:]
+        for category in MetricCategory.allCases {
+            var defs = all.filter { $0.category == category }
+            let curatedTypes = Set(defs.map(\.type))
+            let catalogDefs = HealthKitCatalog.entries
+                .filter { $0.category == category && !curatedTypes.contains($0.metricType) }
+                .map { $0.toMetricDefinition() }
+            defs.append(contentsOf: catalogDefs)
+            result[category] = defs
+        }
+        return result
+    }()
 
     static func definitions(for category: MetricCategory) -> [MetricDefinition] {
-        all.filter { $0.category == category }
+        _definitionsByCategory[category] ?? []
+    }
+
+    private static let _definitionsByType: [String: MetricDefinition] = {
+        var result: [String: MetricDefinition] = [:]
+        // Curated first (higher priority)
+        for def in all {
+            result[def.type] = def
+        }
+        // Catalog for anything not curated
+        for entry in HealthKitCatalog.entries where result[entry.metricType] == nil {
+            result[entry.metricType] = entry.toMetricDefinition()
+        }
+        return result
+    }()
+
+    static func definition(for metricType: String) -> MetricDefinition? {
+        _definitionsByType[metricType]
     }
 
     static var syncableMetrics: [MetricDefinition] {

@@ -23,12 +23,12 @@ enum ChartTimeRange: String, CaseIterable, Identifiable {
 }
 
 struct ChartsContainerView: View {
-    @Query(sort: \HealthRecord.timestamp, order: .reverse) private var allRecords: [HealthRecord]
+    @EnvironmentObject var dataStore: HealthDataStore
     @State private var timeRange: ChartTimeRange = .week
     @State private var selectedMetricType: String = MetricType.bloodPressure
 
     private var filteredRecords: [HealthRecord] {
-        var result = allRecords.filter { $0.metricType == selectedMetricType }
+        var result = dataStore.records(for: selectedMetricType)
         if let days = timeRange.days {
             let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: .now)!
             result = result.filter { $0.timestamp >= cutoff }
@@ -37,7 +37,7 @@ struct ChartsContainerView: View {
     }
 
     private var availableMetricTypes: [String] {
-        let types = Set(allRecords.map(\.metricType))
+        let types = dataStore.availableMetricTypes
         return MetricRegistry.all.map(\.type).filter { types.contains($0) }
     }
 
