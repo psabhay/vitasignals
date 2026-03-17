@@ -54,7 +54,7 @@ struct ReportBuilderView: View {
 
     @State private var startDate: Date = Calendar.current.date(byAdding: .month, value: -1, to: .now)!
     @State private var endDate: Date = .now
-    @State private var selectedMetrics: Set<String> = Set(MetricRegistry.all.map(\.type))
+    @State private var selectedMetrics: Set<String> = MetricRegistry.allKnownTypes
     @State private var renderedPDF: URL?
     @State private var isGenerating = false
     @State private var generationStatus = ""
@@ -85,6 +85,9 @@ struct ReportBuilderView: View {
         previewSection
         metricSelectionSection
         generateSection
+            .onAppear {
+                selectedMetrics.formUnion(dataStore.availableMetricTypes)
+            }
     }
 
     // MARK: - Sections

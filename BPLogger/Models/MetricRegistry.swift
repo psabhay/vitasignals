@@ -376,6 +376,10 @@ struct MetricRegistry {
         _definitionsByType[metricType]
     }
 
+    static var allKnownTypes: Set<String> {
+        Set(_definitionsByType.keys)
+    }
+
     static var syncableMetrics: [MetricDefinition] {
         all.filter { $0.hkQuantityType != nil || $0.type == MetricType.sleepDuration }
     }

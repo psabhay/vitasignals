@@ -121,4 +121,15 @@ final class MetricRegistryTests: XCTestCase {
             XCTAssertFalse(category.icon.isEmpty, "\(category.rawValue) should have an icon")
         }
     }
+
+    func testAllKnownTypesIncludesCatalogTypes() {
+        let knownTypes = MetricRegistry.allKnownTypes
+        // Should include curated types
+        XCTAssertTrue(knownTypes.contains(MetricType.bloodPressure))
+        // Should include catalog-only types
+        XCTAssertTrue(knownTypes.contains("bloodGlucose"), "allKnownTypes should include catalog-only types")
+        // Should be a superset of curated types
+        let curatedTypes = Set(MetricRegistry.all.map(\.type))
+        XCTAssertTrue(curatedTypes.isSubset(of: knownTypes))
+    }
 }
