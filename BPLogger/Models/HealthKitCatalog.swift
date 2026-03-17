@@ -25,6 +25,7 @@ struct HealthKitCatalog {
         let inputMin: Double
         let inputMax: Double
         let inputStep: Double
+        var description: String?
 
         func toMetricDefinition() -> MetricDefinition {
             MetricDefinition(
@@ -43,7 +44,8 @@ struct HealthKitCatalog {
                 inputStep: inputStep,
                 hkQuantityType: identifier,
                 hkUnit: unit,
-                isCumulative: isCumulative
+                isCumulative: isCumulative,
+                description: description
             )
         }
     }
@@ -81,7 +83,8 @@ struct HealthKitCatalog {
             displayUnit: "bpm", category: .vitals, isCumulative: false,
             icon: "heart.fill", color: .red,
             referenceMin: 60, referenceMax: 100,
-            inputMin: 30, inputMax: 220, inputStep: 1
+            inputMin: 30, inputMax: 220, inputStep: 1,
+            description: "Number of times your heart beats per minute, sampled throughout the day."
         ))
 
         list.append(Entry(
@@ -90,7 +93,8 @@ struct HealthKitCatalog {
             displayUnit: "bpm", category: .vitals, isCumulative: false,
             icon: "heart.fill", color: .pink,
             referenceMin: 60, referenceMax: 100,
-            inputMin: 30, inputMax: 220, inputStep: 1
+            inputMin: 30, inputMax: 220, inputStep: 1,
+            description: "Heart rate measured when you've been inactive and calm for at least 10 minutes."
         ))
 
         list.append(Entry(
@@ -99,7 +103,8 @@ struct HealthKitCatalog {
             displayUnit: "°C", category: .vitals, isCumulative: false,
             icon: "thermometer.medium", color: .red,
             referenceMin: 36.1, referenceMax: 37.2,
-            inputMin: 34, inputMax: 42, inputStep: 0.1
+            inputMin: 34, inputMax: 42, inputStep: 0.1,
+            description: "Core body temperature measured with a thermometer or wearable sensor."
         ))
 
         list.append(Entry(
@@ -108,7 +113,8 @@ struct HealthKitCatalog {
             displayUnit: "°C", category: .vitals, isCumulative: false,
             icon: "thermometer.low", color: .orange,
             referenceMin: 36.1, referenceMax: 36.7,
-            inputMin: 34, inputMax: 42, inputStep: 0.01
+            inputMin: 34, inputMax: 42, inputStep: 0.01,
+            description: "Lowest body temperature at rest, often tracked for fertility awareness."
         ))
 
         list.append(Entry(
@@ -117,7 +123,8 @@ struct HealthKitCatalog {
             displayUnit: "mg/dL", category: .vitals, isCumulative: false,
             icon: "drop.fill", color: .red,
             referenceMin: 70, referenceMax: 100,
-            inputMin: 20, inputMax: 600, inputStep: 1
+            inputMin: 20, inputMax: 600, inputStep: 1,
+            description: "Concentration of glucose in your blood, important for diabetes management."
         ))
 
         list.append(Entry(
@@ -126,7 +133,8 @@ struct HealthKitCatalog {
             displayUnit: "%", category: .vitals, isCumulative: false,
             icon: "drop.triangle.fill", color: .purple,
             referenceMin: nil, referenceMax: 0.08,
-            inputMin: 0, inputMax: 0.5, inputStep: 0.01
+            inputMin: 0, inputMax: 0.5, inputStep: 0.01,
+            description: "Percentage of alcohol in your bloodstream."
         ))
 
         list.append(Entry(
@@ -135,7 +143,8 @@ struct HealthKitCatalog {
             displayUnit: "%", category: .vitals, isCumulative: false,
             icon: "waveform.path", color: .pink,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 20, inputStep: 0.1
+            inputMin: 0, inputMax: 20, inputStep: 0.1,
+            description: "Strength of blood flow to your extremities, measured via pulse oximetry."
         ))
 
         // ───────────────────────────────────────
@@ -148,7 +157,8 @@ struct HealthKitCatalog {
             displayUnit: "ms", category: .cardioFitness, isCumulative: false,
             icon: "waveform.path.ecg", color: .purple,
             referenceMin: 20, referenceMax: nil,
-            inputMin: 1, inputMax: 300, inputStep: 1
+            inputMin: 1, inputMax: 300, inputStep: 1,
+            description: "Variation in time between heartbeats (SDNN), indicating autonomic nervous system balance."
         ))
 
         list.append(Entry(
@@ -157,7 +167,8 @@ struct HealthKitCatalog {
             displayUnit: "mL/kg/min", category: .cardioFitness, isCumulative: false,
             icon: "lungs.fill", color: .orange,
             referenceMin: 20, referenceMax: 60,
-            inputMin: 10, inputMax: 90, inputStep: 0.1
+            inputMin: 10, inputMax: 90, inputStep: 0.1,
+            description: "Maximum oxygen your body can use during exercise, a key indicator of cardiorespiratory fitness."
         ))
 
         list.append(Entry(
@@ -166,7 +177,8 @@ struct HealthKitCatalog {
             displayUnit: "bpm", category: .cardioFitness, isCumulative: false,
             icon: "figure.walk", color: .red,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 40, inputMax: 200, inputStep: 1
+            inputMin: 40, inputMax: 200, inputStep: 1,
+            description: "Average heart rate recorded while walking, reflecting cardiovascular efficiency during movement."
         ))
 
         list.append(Entry(
@@ -175,7 +187,8 @@ struct HealthKitCatalog {
             displayUnit: "bpm", category: .cardioFitness, isCumulative: false,
             icon: "heart.text.square", color: .teal,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 100, inputStep: 1
+            inputMin: 0, inputMax: 100, inputStep: 1,
+            description: "How quickly your heart rate drops one minute after stopping intense exercise."
         ))
 
         list.append(Entry(
@@ -184,7 +197,8 @@ struct HealthKitCatalog {
             displayUnit: "%", category: .cardioFitness, isCumulative: false,
             icon: "waveform.path.ecg.rectangle", color: .red,
             referenceMin: nil, referenceMax: 1,
-            inputMin: 0, inputMax: 100, inputStep: 0.1
+            inputMin: 0, inputMax: 100, inputStep: 0.1,
+            description: "Percentage of time your heart shows signs of irregular rhythm (atrial fibrillation)."
         ))
 
         // ───────────────────────────────────────
@@ -197,7 +211,8 @@ struct HealthKitCatalog {
             displayUnit: "steps", category: .activity, isCumulative: true,
             icon: "shoeprints.fill", color: .green,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 100000, inputStep: 100
+            inputMin: 0, inputMax: 100000, inputStep: 100,
+            description: "Total number of steps detected by your device throughout the day."
         ))
 
         list.append(Entry(
@@ -206,7 +221,8 @@ struct HealthKitCatalog {
             displayUnit: "min", category: .activity, isCumulative: true,
             icon: "flame.fill", color: .mint,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 600, inputStep: 1
+            inputMin: 0, inputMax: 600, inputStep: 1,
+            description: "Minutes spent in activity at or above a brisk walk, as tracked by Apple Watch."
         ))
 
         list.append(Entry(
@@ -215,7 +231,8 @@ struct HealthKitCatalog {
             displayUnit: "kcal", category: .activity, isCumulative: true,
             icon: "bolt.fill", color: .yellow,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 5000, inputStep: 10
+            inputMin: 0, inputMax: 5000, inputStep: 10,
+            description: "Calories burned through movement and exercise above your resting metabolic rate."
         ))
 
         list.append(Entry(
@@ -224,7 +241,8 @@ struct HealthKitCatalog {
             displayUnit: "kcal", category: .activity, isCumulative: true,
             icon: "bolt.heart", color: .orange,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 5000, inputStep: 10
+            inputMin: 0, inputMax: 5000, inputStep: 10,
+            description: "Calories your body burns at rest to maintain basic functions like breathing."
         ))
 
         list.append(Entry(
@@ -233,7 +251,8 @@ struct HealthKitCatalog {
             displayUnit: "km", category: .activity, isCumulative: true,
             icon: "figure.walk", color: .green,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 100, inputStep: 0.1
+            inputMin: 0, inputMax: 100, inputStep: 0.1,
+            description: "Total distance covered while walking and running, measured by GPS and motion sensors."
         ))
 
         list.append(Entry(
@@ -242,7 +261,8 @@ struct HealthKitCatalog {
             displayUnit: "km", category: .activity, isCumulative: true,
             icon: "bicycle", color: .blue,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 500, inputStep: 0.1
+            inputMin: 0, inputMax: 500, inputStep: 0.1,
+            description: "Distance covered while cycling, measured by GPS and motion sensors."
         ))
 
         list.append(Entry(
@@ -251,7 +271,8 @@ struct HealthKitCatalog {
             displayUnit: "m", category: .activity, isCumulative: true,
             icon: "figure.pool.swim", color: .cyan,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 20000, inputStep: 10
+            inputMin: 0, inputMax: 20000, inputStep: 10,
+            description: "Distance covered while swimming, estimated from stroke count and pool length."
         ))
 
         list.append(Entry(
@@ -260,7 +281,8 @@ struct HealthKitCatalog {
             displayUnit: "flights", category: .activity, isCumulative: true,
             icon: "figure.stairs", color: .green,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 200, inputStep: 1
+            inputMin: 0, inputMax: 200, inputStep: 1,
+            description: "Number of flights of stairs climbed, where one flight equals about 3 meters of elevation."
         ))
 
         list.append(Entry(
@@ -269,7 +291,8 @@ struct HealthKitCatalog {
             displayUnit: "min", category: .activity, isCumulative: true,
             icon: "figure.stand", color: .blue,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 1440, inputStep: 1
+            inputMin: 0, inputMax: 1440, inputStep: 1,
+            description: "Minutes per day where you stood and moved for at least one minute per hour."
         ))
 
         list.append(Entry(
@@ -278,7 +301,8 @@ struct HealthKitCatalog {
             displayUnit: "min", category: .activity, isCumulative: true,
             icon: "figure.walk.motion", color: .green,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 1440, inputStep: 1
+            inputMin: 0, inputMax: 1440, inputStep: 1,
+            description: "Total minutes spent actively moving throughout the day."
         ))
 
         list.append(Entry(
@@ -287,7 +311,8 @@ struct HealthKitCatalog {
             displayUnit: "strokes", category: .activity, isCumulative: true,
             icon: "figure.pool.swim", color: .cyan,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 10000, inputStep: 10
+            inputMin: 0, inputMax: 10000, inputStep: 10,
+            description: "Number of swim strokes counted during pool or open water swimming."
         ))
 
         list.append(Entry(
@@ -296,7 +321,8 @@ struct HealthKitCatalog {
             displayUnit: "pushes", category: .activity, isCumulative: true,
             icon: "figure.roll", color: .blue,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 50000, inputStep: 10
+            inputMin: 0, inputMax: 50000, inputStep: 10,
+            description: "Number of wheelchair pushes detected throughout the day."
         ))
 
         list.append(Entry(
@@ -305,7 +331,8 @@ struct HealthKitCatalog {
             displayUnit: "NikeFuel", category: .activity, isCumulative: true,
             icon: "flame", color: .yellow,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 10000, inputStep: 10
+            inputMin: 0, inputMax: 10000, inputStep: 10,
+            description: "Activity metric from Nike measuring overall movement intensity."
         ))
 
         list.append(Entry(
@@ -314,7 +341,8 @@ struct HealthKitCatalog {
             displayUnit: "m/s", category: .activity, isCumulative: false,
             icon: "figure.run", color: .green,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 15, inputStep: 0.1
+            inputMin: 0, inputMax: 15, inputStep: 0.1,
+            description: "Your pace while running, measured in meters per second."
         ))
 
         list.append(Entry(
@@ -323,7 +351,8 @@ struct HealthKitCatalog {
             displayUnit: "W", category: .activity, isCumulative: false,
             icon: "figure.run", color: .orange,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 1000, inputStep: 1
+            inputMin: 0, inputMax: 1000, inputStep: 1,
+            description: "Estimated mechanical power output while running, measured in watts."
         ))
 
         list.append(Entry(
@@ -332,7 +361,8 @@ struct HealthKitCatalog {
             displayUnit: "m/s", category: .activity, isCumulative: false,
             icon: "bicycle", color: .blue,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 30, inputStep: 0.1
+            inputMin: 0, inputMax: 30, inputStep: 0.1,
+            description: "Your pace while cycling, measured in meters per second."
         ))
 
         list.append(Entry(
@@ -341,7 +371,8 @@ struct HealthKitCatalog {
             displayUnit: "W", category: .activity, isCumulative: false,
             icon: "bicycle", color: .orange,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 2000, inputStep: 1
+            inputMin: 0, inputMax: 2000, inputStep: 1,
+            description: "Mechanical power output while cycling, measured by a power meter in watts."
         ))
 
         list.append(Entry(
@@ -350,7 +381,8 @@ struct HealthKitCatalog {
             displayUnit: "rpm", category: .activity, isCumulative: false,
             icon: "bicycle", color: .green,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 200, inputStep: 1
+            inputMin: 0, inputMax: 200, inputStep: 1,
+            description: "Pedal revolutions per minute while cycling."
         ))
 
         // ───────────────────────────────────────
@@ -363,7 +395,8 @@ struct HealthKitCatalog {
             displayUnit: "kg", category: .body, isCumulative: false,
             icon: "scalemass", color: .brown,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 20, inputMax: 300, inputStep: 0.1
+            inputMin: 20, inputMax: 300, inputStep: 0.1,
+            description: "Your body weight as measured or entered manually."
         ))
 
         list.append(Entry(
@@ -372,7 +405,8 @@ struct HealthKitCatalog {
             displayUnit: "kg/m²", category: .body, isCumulative: false,
             icon: "figure.arms.open", color: .orange,
             referenceMin: 18.5, referenceMax: 25,
-            inputMin: 10, inputMax: 60, inputStep: 0.1
+            inputMin: 10, inputMax: 60, inputStep: 0.1,
+            description: "Body mass divided by height squared, a screening tool for weight categories."
         ))
 
         list.append(Entry(
@@ -381,7 +415,8 @@ struct HealthKitCatalog {
             displayUnit: "%", category: .body, isCumulative: false,
             icon: "figure.arms.open", color: .orange,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 2, inputMax: 60, inputStep: 0.1
+            inputMin: 2, inputMax: 60, inputStep: 0.1,
+            description: "Proportion of your total body weight that is fat tissue."
         ))
 
         list.append(Entry(
@@ -390,7 +425,8 @@ struct HealthKitCatalog {
             displayUnit: "kg", category: .body, isCumulative: false,
             icon: "figure.strengthtraining.traditional", color: .brown,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 20, inputMax: 200, inputStep: 0.1
+            inputMin: 20, inputMax: 200, inputStep: 0.1,
+            description: "Your body weight minus fat, including muscle, bone, and organs."
         ))
 
         list.append(Entry(
@@ -399,7 +435,8 @@ struct HealthKitCatalog {
             displayUnit: "cm", category: .body, isCumulative: false,
             icon: "ruler", color: .blue,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 50, inputMax: 250, inputStep: 0.5
+            inputMin: 50, inputMax: 250, inputStep: 0.5,
+            description: "Your standing height measurement."
         ))
 
         list.append(Entry(
@@ -408,7 +445,8 @@ struct HealthKitCatalog {
             displayUnit: "cm", category: .body, isCumulative: false,
             icon: "circle.dashed", color: .orange,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 40, inputMax: 200, inputStep: 0.5
+            inputMin: 40, inputMax: 200, inputStep: 0.5,
+            description: "Circumference of your waist, an indicator of abdominal fat distribution."
         ))
 
         // ───────────────────────────────────────
@@ -421,7 +459,8 @@ struct HealthKitCatalog {
             displayUnit: "br/min", category: .respiratory, isCumulative: false,
             icon: "wind", color: .teal,
             referenceMin: 12, referenceMax: 20,
-            inputMin: 5, inputMax: 60, inputStep: 0.1
+            inputMin: 5, inputMax: 60, inputStep: 0.1,
+            description: "Number of breaths taken per minute, typically measured during sleep by Apple Watch."
         ))
 
         list.append(Entry(
@@ -430,7 +469,8 @@ struct HealthKitCatalog {
             displayUnit: "%", category: .respiratory, isCumulative: false,
             icon: "drop.fill", color: .cyan,
             referenceMin: 95, referenceMax: 100,
-            inputMin: 70, inputMax: 100, inputStep: 0.1
+            inputMin: 70, inputMax: 100, inputStep: 0.1,
+            description: "Percentage of hemoglobin carrying oxygen in your blood, measured via wrist pulse oximetry."
         ))
 
         list.append(Entry(
@@ -439,7 +479,8 @@ struct HealthKitCatalog {
             displayUnit: "L", category: .respiratory, isCumulative: false,
             icon: "lungs", color: .teal,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 8, inputStep: 0.01
+            inputMin: 0, inputMax: 8, inputStep: 0.01,
+            description: "Volume of air you can forcibly exhale in one second, a key lung function measure."
         ))
 
         list.append(Entry(
@@ -448,7 +489,8 @@ struct HealthKitCatalog {
             displayUnit: "L", category: .respiratory, isCumulative: false,
             icon: "lungs.fill", color: .teal,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 8, inputStep: 0.01
+            inputMin: 0, inputMax: 8, inputStep: 0.01,
+            description: "Maximum volume of air you can exhale after a deep breath."
         ))
 
         list.append(Entry(
@@ -457,7 +499,8 @@ struct HealthKitCatalog {
             displayUnit: "L/min", category: .respiratory, isCumulative: false,
             icon: "wind", color: .cyan,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 50, inputMax: 900, inputStep: 5
+            inputMin: 50, inputMax: 900, inputStep: 5,
+            description: "Maximum speed of airflow during a forced exhalation, used to monitor asthma."
         ))
 
         list.append(Entry(
@@ -466,7 +509,8 @@ struct HealthKitCatalog {
             displayUnit: "puffs", category: .respiratory, isCumulative: true,
             icon: "allergens", color: .teal,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 50, inputStep: 1
+            inputMin: 0, inputMax: 50, inputStep: 1,
+            description: "Number of inhaler puffs used, for tracking respiratory medication use."
         ))
 
         // ───────────────────────────────────────
@@ -479,7 +523,8 @@ struct HealthKitCatalog {
             displayUnit: "kcal", category: .nutrition, isCumulative: true,
             icon: "fork.knife", color: .brown,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 10000, inputStep: 10
+            inputMin: 0, inputMax: 10000, inputStep: 10,
+            description: "Total calories consumed from food and drink."
         ))
 
         list.append(Entry(
@@ -488,7 +533,8 @@ struct HealthKitCatalog {
             displayUnit: "g", category: .nutrition, isCumulative: true,
             icon: "fish.fill", color: .red,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 500, inputStep: 1
+            inputMin: 0, inputMax: 500, inputStep: 1,
+            description: "Grams of protein consumed, essential for muscle repair and growth."
         ))
 
         list.append(Entry(
@@ -497,7 +543,8 @@ struct HealthKitCatalog {
             displayUnit: "g", category: .nutrition, isCumulative: true,
             icon: "leaf.fill", color: .yellow,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 1000, inputStep: 1
+            inputMin: 0, inputMax: 1000, inputStep: 1,
+            description: "Grams of carbohydrates consumed, your body's primary energy source."
         ))
 
         list.append(Entry(
@@ -506,7 +553,8 @@ struct HealthKitCatalog {
             displayUnit: "g", category: .nutrition, isCumulative: true,
             icon: "drop.fill", color: .orange,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 500, inputStep: 1
+            inputMin: 0, inputMax: 500, inputStep: 1,
+            description: "Total grams of fat consumed from all dietary sources."
         ))
 
         list.append(Entry(
@@ -515,7 +563,8 @@ struct HealthKitCatalog {
             displayUnit: "g", category: .nutrition, isCumulative: true,
             icon: "cube.fill", color: .pink,
             referenceMin: nil, referenceMax: 25,
-            inputMin: 0, inputMax: 500, inputStep: 1
+            inputMin: 0, inputMax: 500, inputStep: 1,
+            description: "Grams of sugar consumed; WHO recommends under 25g of added sugar daily."
         ))
 
         list.append(Entry(
@@ -524,7 +573,8 @@ struct HealthKitCatalog {
             displayUnit: "g", category: .nutrition, isCumulative: true,
             icon: "leaf", color: .green,
             referenceMin: 25, referenceMax: nil,
-            inputMin: 0, inputMax: 200, inputStep: 1
+            inputMin: 0, inputMax: 200, inputStep: 1,
+            description: "Grams of dietary fiber consumed, important for digestive health."
         ))
 
         list.append(Entry(
@@ -533,7 +583,8 @@ struct HealthKitCatalog {
             displayUnit: "mg", category: .nutrition, isCumulative: true,
             icon: "drop.triangle.fill", color: .gray,
             referenceMin: nil, referenceMax: 2300,
-            inputMin: 0, inputMax: 10000, inputStep: 10
+            inputMin: 0, inputMax: 10000, inputStep: 10,
+            description: "Milligrams of sodium consumed; excess intake is linked to high blood pressure."
         ))
 
         list.append(Entry(
@@ -542,7 +593,8 @@ struct HealthKitCatalog {
             displayUnit: "mL", category: .nutrition, isCumulative: true,
             icon: "drop.fill", color: .blue,
             referenceMin: 2000, referenceMax: nil,
-            inputMin: 0, inputMax: 10000, inputStep: 50
+            inputMin: 0, inputMax: 10000, inputStep: 50,
+            description: "Volume of water consumed; adequate hydration supports all body functions."
         ))
 
         list.append(Entry(
@@ -551,7 +603,8 @@ struct HealthKitCatalog {
             displayUnit: "mg", category: .nutrition, isCumulative: true,
             icon: "cup.and.saucer.fill", color: .brown,
             referenceMin: nil, referenceMax: 400,
-            inputMin: 0, inputMax: 2000, inputStep: 10
+            inputMin: 0, inputMax: 2000, inputStep: 10,
+            description: "Milligrams of caffeine consumed; moderate intake is generally under 400mg daily."
         ))
 
         list.append(Entry(
@@ -560,7 +613,8 @@ struct HealthKitCatalog {
             displayUnit: "mcg", category: .nutrition, isCumulative: true,
             icon: "sun.max.fill", color: .yellow,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 250, inputStep: 1
+            inputMin: 0, inputMax: 250, inputStep: 1,
+            description: "Micrograms of vitamin D consumed, essential for bone health and immunity."
         ))
 
         list.append(Entry(
@@ -569,7 +623,8 @@ struct HealthKitCatalog {
             displayUnit: "mg", category: .nutrition, isCumulative: true,
             icon: "bone.fill", color: .white,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 5000, inputStep: 10
+            inputMin: 0, inputMax: 5000, inputStep: 10,
+            description: "Milligrams of calcium consumed, vital for bones, teeth, and muscle function."
         ))
 
         list.append(Entry(
@@ -578,7 +633,8 @@ struct HealthKitCatalog {
             displayUnit: "mg", category: .nutrition, isCumulative: true,
             icon: "atom", color: .red,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 100, inputStep: 1
+            inputMin: 0, inputMax: 100, inputStep: 1,
+            description: "Milligrams of iron consumed, necessary for oxygen transport in blood."
         ))
 
         list.append(Entry(
@@ -587,7 +643,8 @@ struct HealthKitCatalog {
             displayUnit: "mg", category: .nutrition, isCumulative: true,
             icon: "leaf.circle", color: .orange,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 10000, inputStep: 10
+            inputMin: 0, inputMax: 10000, inputStep: 10,
+            description: "Milligrams of potassium consumed, important for heart and muscle function."
         ))
 
         // ───────────────────────────────────────
@@ -600,7 +657,8 @@ struct HealthKitCatalog {
             displayUnit: "m/s", category: .mobility, isCumulative: false,
             icon: "figure.walk", color: .mint,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 5, inputStep: 0.01
+            inputMin: 0, inputMax: 5, inputStep: 0.01,
+            description: "Average speed while walking, reflecting overall mobility and fitness."
         ))
 
         list.append(Entry(
@@ -609,7 +667,8 @@ struct HealthKitCatalog {
             displayUnit: "cm", category: .mobility, isCumulative: false,
             icon: "shoeprints.fill", color: .mint,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 20, inputMax: 120, inputStep: 0.5
+            inputMin: 20, inputMax: 120, inputStep: 0.5,
+            description: "Average distance covered in a single step while walking."
         ))
 
         list.append(Entry(
@@ -618,7 +677,8 @@ struct HealthKitCatalog {
             displayUnit: "%", category: .mobility, isCumulative: false,
             icon: "figure.walk", color: .blue,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 100, inputStep: 0.1
+            inputMin: 0, inputMax: 100, inputStep: 0.1,
+            description: "Percentage of walking time with both feet on the ground, indicating stability."
         ))
 
         list.append(Entry(
@@ -627,7 +687,8 @@ struct HealthKitCatalog {
             displayUnit: "%", category: .mobility, isCumulative: false,
             icon: "figure.walk", color: .orange,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 100, inputStep: 0.1
+            inputMin: 0, inputMax: 100, inputStep: 0.1,
+            description: "Difference in step time between left and right legs while walking."
         ))
 
         list.append(Entry(
@@ -636,7 +697,8 @@ struct HealthKitCatalog {
             displayUnit: "m/s", category: .mobility, isCumulative: false,
             icon: "figure.stairs", color: .green,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 5, inputStep: 0.01
+            inputMin: 0, inputMax: 5, inputStep: 0.01,
+            description: "Speed at which you climb stairs, measured in meters per second."
         ))
 
         list.append(Entry(
@@ -645,7 +707,8 @@ struct HealthKitCatalog {
             displayUnit: "m/s", category: .mobility, isCumulative: false,
             icon: "figure.stairs", color: .blue,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 5, inputStep: 0.01
+            inputMin: 0, inputMax: 5, inputStep: 0.01,
+            description: "Speed at which you descend stairs, measured in meters per second."
         ))
 
         list.append(Entry(
@@ -654,7 +717,8 @@ struct HealthKitCatalog {
             displayUnit: "m", category: .mobility, isCumulative: false,
             icon: "figure.walk.circle", color: .mint,
             referenceMin: 400, referenceMax: nil,
-            inputMin: 0, inputMax: 1000, inputStep: 1
+            inputMin: 0, inputMax: 1000, inputStep: 1,
+            description: "Estimated distance you could walk in six minutes, a clinical fitness measure."
         ))
 
         list.append(Entry(
@@ -663,7 +727,8 @@ struct HealthKitCatalog {
             displayUnit: "%", category: .mobility, isCumulative: false,
             icon: "figure.walk.diamond", color: .green,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 100, inputStep: 0.1
+            inputMin: 0, inputMax: 100, inputStep: 0.1,
+            description: "Score reflecting your balance and stability while walking, from Apple Watch sensors."
         ))
 
         // ───────────────────────────────────────
@@ -676,7 +741,8 @@ struct HealthKitCatalog {
             displayUnit: "dB", category: .other, isCumulative: false,
             icon: "ear.fill", color: .blue,
             referenceMin: nil, referenceMax: 80,
-            inputMin: 0, inputMax: 150, inputStep: 1
+            inputMin: 0, inputMax: 150, inputStep: 1,
+            description: "Average ambient sound level in your environment, measured in decibels."
         ))
 
         list.append(Entry(
@@ -685,7 +751,8 @@ struct HealthKitCatalog {
             displayUnit: "dB", category: .other, isCumulative: false,
             icon: "headphones", color: .purple,
             referenceMin: nil, referenceMax: 80,
-            inputMin: 0, inputMax: 150, inputStep: 1
+            inputMin: 0, inputMax: 150, inputStep: 1,
+            description: "Average audio level through headphones; prolonged exposure above 80dB may cause hearing damage."
         ))
 
         list.append(Entry(
@@ -694,7 +761,8 @@ struct HealthKitCatalog {
             displayUnit: "falls", category: .other, isCumulative: true,
             icon: "figure.fall", color: .red,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 50, inputStep: 1
+            inputMin: 0, inputMax: 50, inputStep: 1,
+            description: "Number of detected falls, tracked by Apple Watch's fall detection feature."
         ))
 
         list.append(Entry(
@@ -703,7 +771,8 @@ struct HealthKitCatalog {
             displayUnit: "drinks", category: .other, isCumulative: true,
             icon: "wineglass.fill", color: .purple,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 50, inputStep: 1
+            inputMin: 0, inputMax: 50, inputStep: 1,
+            description: "Number of alcoholic drinks consumed."
         ))
 
         list.append(Entry(
@@ -712,7 +781,8 @@ struct HealthKitCatalog {
             displayUnit: "UV index", category: .other, isCumulative: false,
             icon: "sun.max.trianglebadge.exclamationmark", color: .yellow,
             referenceMin: nil, referenceMax: 6,
-            inputMin: 0, inputMax: 15, inputStep: 1
+            inputMin: 0, inputMax: 15, inputStep: 1,
+            description: "UV radiation index exposure level; values above 6 indicate high sun intensity."
         ))
 
         list.append(Entry(
@@ -721,7 +791,8 @@ struct HealthKitCatalog {
             displayUnit: "IU", category: .other, isCumulative: true,
             icon: "syringe.fill", color: .blue,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 200, inputStep: 0.5
+            inputMin: 0, inputMax: 200, inputStep: 0.5,
+            description: "Units of insulin delivered, tracked for diabetes management."
         ))
 
         list.append(Entry(
@@ -730,7 +801,8 @@ struct HealthKitCatalog {
             displayUnit: "μS", category: .other, isCumulative: false,
             icon: "hand.raised.fingers.spread.fill", color: .indigo,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 100, inputStep: 0.1
+            inputMin: 0, inputMax: 100, inputStep: 0.1,
+            description: "Electrical conductance of the skin, which can reflect emotional arousal or stress."
         ))
 
         return list

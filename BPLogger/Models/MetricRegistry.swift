@@ -80,6 +80,7 @@ struct MetricDefinition: @unchecked Sendable {
     let hkQuantityType: HKQuantityTypeIdentifier?
     let hkUnit: (() -> HKUnit)?
     let isCumulative: Bool
+    var description: String?
 
     func formatValue(_ value: Double) -> String {
         if value >= 1000 {
@@ -115,7 +116,8 @@ struct MetricRegistry {
             inputStep: 1,
             hkQuantityType: nil,
             hkUnit: nil,
-            isCumulative: false
+            isCumulative: false,
+            description: "The force of blood against artery walls, measured as systolic over diastolic pressure."
         ),
         // Cardio Fitness
         MetricDefinition(
@@ -134,7 +136,8 @@ struct MetricRegistry {
             inputStep: 1,
             hkQuantityType: .restingHeartRate,
             hkUnit: { HKUnit.count().unitDivided(by: .minute()) },
-            isCumulative: false
+            isCumulative: false,
+            description: "Heart rate measured when you've been inactive and calm for at least 10 minutes."
         ),
         MetricDefinition(
             type: MetricType.heartRateVariability,
@@ -152,7 +155,8 @@ struct MetricRegistry {
             inputStep: 1,
             hkQuantityType: .heartRateVariabilitySDNN,
             hkUnit: { HKUnit.secondUnit(with: .milli) },
-            isCumulative: false
+            isCumulative: false,
+            description: "Variation in time between heartbeats (SDNN), indicating autonomic nervous system balance."
         ),
         MetricDefinition(
             type: MetricType.vo2Max,
@@ -170,7 +174,8 @@ struct MetricRegistry {
             inputStep: 0.1,
             hkQuantityType: .vo2Max,
             hkUnit: { HKUnit(from: "ml/kg*min") },
-            isCumulative: false
+            isCumulative: false,
+            description: "Maximum oxygen your body can use during exercise, a key indicator of cardiorespiratory fitness."
         ),
         MetricDefinition(
             type: MetricType.walkingHeartRate,
@@ -188,7 +193,8 @@ struct MetricRegistry {
             inputStep: 1,
             hkQuantityType: .walkingHeartRateAverage,
             hkUnit: { HKUnit.count().unitDivided(by: .minute()) },
-            isCumulative: false
+            isCumulative: false,
+            description: "Average heart rate recorded while walking, reflecting cardiovascular efficiency during movement."
         ),
         // Activity
         MetricDefinition(
@@ -207,7 +213,8 @@ struct MetricRegistry {
             inputStep: 100,
             hkQuantityType: .stepCount,
             hkUnit: { HKUnit.count() },
-            isCumulative: true
+            isCumulative: true,
+            description: "Total number of steps detected by your device throughout the day."
         ),
         MetricDefinition(
             type: MetricType.exerciseMinutes,
@@ -225,7 +232,8 @@ struct MetricRegistry {
             inputStep: 1,
             hkQuantityType: .appleExerciseTime,
             hkUnit: { HKUnit.minute() },
-            isCumulative: true
+            isCumulative: true,
+            description: "Minutes spent in activity at or above a brisk walk, as tracked by Apple Watch."
         ),
         MetricDefinition(
             type: MetricType.activeEnergy,
@@ -243,7 +251,8 @@ struct MetricRegistry {
             inputStep: 10,
             hkQuantityType: .activeEnergyBurned,
             hkUnit: { HKUnit.kilocalorie() },
-            isCumulative: true
+            isCumulative: true,
+            description: "Calories burned through movement and exercise above your resting metabolic rate."
         ),
         // Body
         MetricDefinition(
@@ -262,7 +271,8 @@ struct MetricRegistry {
             inputStep: 0.1,
             hkQuantityType: .bodyMass,
             hkUnit: { HKUnit.gramUnit(with: .kilo) },
-            isCumulative: false
+            isCumulative: false,
+            description: "Your body weight as measured or entered manually."
         ),
         // Sleep & Recovery
         MetricDefinition(
@@ -281,7 +291,8 @@ struct MetricRegistry {
             inputStep: 0.5,
             hkQuantityType: nil,
             hkUnit: nil,
-            isCumulative: false
+            isCumulative: false,
+            description: "Total time spent asleep, including all sleep stages tracked by your device."
         ),
         // Activity - Workout
         MetricDefinition(
@@ -300,7 +311,8 @@ struct MetricRegistry {
             inputStep: 1,
             hkQuantityType: nil,
             hkUnit: nil,
-            isCumulative: false
+            isCumulative: false,
+            description: "Duration of recorded workout sessions across all activity types."
         ),
         // Respiratory
         MetricDefinition(
@@ -319,7 +331,8 @@ struct MetricRegistry {
             inputStep: 0.1,
             hkQuantityType: .respiratoryRate,
             hkUnit: { HKUnit.count().unitDivided(by: .minute()) },
-            isCumulative: false
+            isCumulative: false,
+            description: "Number of breaths taken per minute, typically measured during sleep by Apple Watch."
         ),
         MetricDefinition(
             type: MetricType.oxygenSaturation,
@@ -337,7 +350,8 @@ struct MetricRegistry {
             inputStep: 0.1,
             hkQuantityType: .oxygenSaturation,
             hkUnit: { HKUnit.percent() },
-            isCumulative: false
+            isCumulative: false,
+            description: "Percentage of hemoglobin carrying oxygen in your blood, measured via wrist pulse oximetry."
         ),
     ]
 
