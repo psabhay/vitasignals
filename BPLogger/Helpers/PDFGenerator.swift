@@ -7,13 +7,7 @@ struct PDFGenerator {
     private static let m: CGFloat = 48
     private static let cw: CGFloat = 612 - 96
 
-    // MARK: - Fixed Colors (no dynamic/system colors)
-    private static let black     = UIColor(white: 0.10, alpha: 1)
-    private static let dark      = UIColor(white: 0.25, alpha: 1)
-    private static let mid       = UIColor(white: 0.50, alpha: 1)
-    private static let border    = UIColor(white: 0.78, alpha: 1)
-    private static let stripe    = UIColor(white: 0.95, alpha: 1)
-    private static let accent    = UIColor(red: 0.15, green: 0.30, blue: 0.55, alpha: 1)
+    // MARK: - Metric Colors (fixed, not theme-dependent)
     private static let red       = UIColor(red: 0.80, green: 0.15, blue: 0.15, alpha: 1)
     private static let blue      = UIColor(red: 0.15, green: 0.35, blue: 0.70, alpha: 1)
     private static let pink      = UIColor(red: 0.75, green: 0.25, blue: 0.40, alpha: 1)
@@ -44,20 +38,6 @@ struct PDFGenerator {
         default: return blue
         }
     }
-
-    // MARK: - Fonts
-    private static let f24b  = UIFont.systemFont(ofSize: 24, weight: .bold)
-    private static let f14b  = UIFont.systemFont(ofSize: 14, weight: .bold)
-    private static let f12b  = UIFont.systemFont(ofSize: 12, weight: .bold)
-    private static let f11m  = UIFont.systemFont(ofSize: 11, weight: .medium)
-    private static let f11   = UIFont.systemFont(ofSize: 11)
-    private static let f10m  = UIFont.systemFont(ofSize: 10, weight: .medium)
-    private static let f10   = UIFont.systemFont(ofSize: 10)
-    private static let f9b   = UIFont.monospacedDigitSystemFont(ofSize: 9, weight: .semibold)
-    private static let f9    = UIFont.monospacedDigitSystemFont(ofSize: 9, weight: .regular)
-    private static let f8b   = UIFont.systemFont(ofSize: 8, weight: .bold)
-    private static let f8    = UIFont.systemFont(ofSize: 8)
-    private static let f7    = UIFont.monospacedDigitSystemFont(ofSize: 7, weight: .regular)
 
     // MARK: - Profile Data
     struct ProfileData: Sendable {
@@ -109,7 +89,8 @@ struct PDFGenerator {
         var y: CGFloat = 0
         var page = 0
         let ctx: CGContext
-        init(_ ctx: CGContext) { self.ctx = ctx }
+        let style: ReportStyle
+        init(_ ctx: CGContext, style: ReportStyle) { self.ctx = ctx; self.style = style }
     }
 
     // MARK: - Generate (new universal API)
@@ -118,7 +99,8 @@ struct PDFGenerator {
         records: [HealthRecord],
         selectedMetrics: Set<String>? = nil,
         periodLabel: String = "",
-        profile: ProfileData? = nil
+        profile: ProfileData? = nil,
+        style: ReportStyle = .classic
     ) -> URL? {
         guard !records.isEmpty else { return nil }
         let sorted = records.sorted { $0.timestamp < $1.timestamp }
@@ -129,7 +111,7 @@ struct PDFGenerator {
             kCGPDFContextCreator as String: "Health Logger"
         ])
         guard let ctx = UIGraphicsGetCurrentContext() else { return nil }
-        let s = State(ctx)
+        let s = State(ctx, style: style)
 
         let metrics = selectedMetrics ?? Set(sorted.map(\.metricType))
         let bpRecords = sorted.filter { $0.metricType == MetricType.bloodPressure }
@@ -199,6 +181,10 @@ struct PDFGenerator {
 
                     let color = metricColor(def.type)
                     section(s, "\(def.name.uppercased()) TREND")
+                    if let desc = def.description {
+                        text(s, desc, font: s.style.captionFont, color: s.style.mutedTextColor, w: cw)
+                        s.y += 4
+                    }
 
                     let values = metricRecords.map { DailyValue(date: $0.timestamp, value: $0.primaryValue) }
                     var refLines: [(Double, String, UIColor)] = []
@@ -219,7 +205,7 @@ struct PDFGenerator {
                     }
 
                     let avg = values.map(\.value).reduce(0, +) / Double(values.count)
-                    text(s, String(format: "Average: %@ %@  |  %d data points", def.formatValue(avg), def.unit, values.count), font: f9, color: dark)
+                    text(s, String(format: "Average: %@ %@  |  %d data points", def.formatValue(avg), def.unit, values.count), font: s.style.monoFont, color: s.style.secondaryTextColor)
                     s.y += 20
                 }
                 footer(s)
@@ -229,9 +215,9 @@ struct PDFGenerator {
         // Disclaimer
         pageBreak(s, 32)
         s.y += 12
-        hline(s, color: border)
+        hline(s, color: s.style.borderColor)
         s.y += 6
-        text(s, "Disclaimer: This report is generated from self-recorded data and data imported from Apple Health. It is intended as a supplementary reference for healthcare providers and should not be used for self-diagnosis or treatment decisions.", font: f8, color: mid, w: cw)
+        text(s, "Disclaimer: This report is generated from self-recorded data and data imported from Apple Health. It is intended as a supplementary reference for healthcare providers and should not be used for self-diagnosis or treatment decisions.", font: s.style.captionFont, color: s.style.mutedTextColor, w: cw)
 
         // ── ANNEXURE: BP Data Table (at the very end) ──
         if metrics.contains(MetricType.bloodPressure) && !bpRecords.isEmpty {
@@ -261,9 +247,9 @@ struct PDFGenerator {
 
     private static func footer(_ s: State) {
         let fy = ph - 30
-        hline(s, y: fy - 6, color: border)
-        let la: [NSAttributedString.Key: Any] = [.font: f8, .foregroundColor: mid]
-        ("Health Logger  |  Health Report" as NSString).draw(at: CGPoint(x: m, y: fy), withAttributes: la)
+        hline(s, y: fy - 6, color: s.style.borderColor)
+        let la: [NSAttributedString.Key: Any] = [.font: s.style.captionFont, .foregroundColor: s.style.mutedTextColor]
+        (s.style.footerText as NSString).draw(at: CGPoint(x: m, y: fy), withAttributes: la)
         let rt = "Page \(s.page)"
         let rs = (rt as NSString).size(withAttributes: la)
         (rt as NSString).draw(at: CGPoint(x: pw - m - rs.width, y: fy), withAttributes: la)
@@ -273,44 +259,44 @@ struct PDFGenerator {
 
     private static func drawSectionHeader(_ s: State, title: String, subtitle: String) {
         // Accent bar at top
-        s.ctx.setFillColor(accent.cgColor)
-        s.ctx.fill(CGRect(x: m, y: s.y, width: cw, height: 3))
+        s.ctx.setFillColor(s.style.accentColor.cgColor)
+        s.ctx.fill(CGRect(x: m, y: s.y, width: cw, height: s.style.sectionBarHeight))
         s.y += 8
 
         // Section heading
-        let titleA: [NSAttributedString.Key: Any] = [.font: f14b, .foregroundColor: accent]
+        let titleA: [NSAttributedString.Key: Any] = [.font: s.style.sectionHeaderFont, .foregroundColor: s.style.accentColor]
         (title as NSString).draw(at: CGPoint(x: m, y: s.y), withAttributes: titleA)
         s.y += 18
 
         // Subtitle
-        let subA: [NSAttributedString.Key: Any] = [.font: f11m, .foregroundColor: mid]
+        let subA: [NSAttributedString.Key: Any] = [.font: s.style.sectionSubtitleFont, .foregroundColor: s.style.mutedTextColor]
         (subtitle as NSString).draw(at: CGPoint(x: m, y: s.y), withAttributes: subA)
         s.y += 14
 
-        hline(s, color: accent.withAlphaComponent(0.3), width: 1)
+        hline(s, color: s.style.accentColor.withAlphaComponent(0.3), width: 1)
         s.y += 12
     }
 
     // MARK: - Header
 
     private static func drawHeader(_ s: State, records: [HealthRecord], periodLabel: String, profile: ProfileData? = nil) {
-        s.ctx.setFillColor(accent.cgColor)
+        s.ctx.setFillColor(s.style.accentColor.cgColor)
         s.ctx.fill(CGRect(x: 0, y: 0, width: pw, height: 3))
         s.y = m
 
-        text(s, "HEALTH REPORT", font: f24b, color: accent)
+        text(s, "HEALTH REPORT", font: s.style.titleFont, color: s.style.accentColor)
         s.y += 4
-        hline(s, color: accent, width: 1.5)
+        hline(s, color: s.style.accentColor, width: s.style.headerRuleWidth)
         s.y += 6
 
         let genDate = Date.now.formatted(date: .long, time: .shortened)
-        text(s, "Report generated: \(genDate)", font: f10, color: mid)
+        text(s, "Report generated: \(genDate)", font: s.style.bodyFont, color: s.style.mutedTextColor)
         s.y += 2
         let period = periodLabel.isEmpty
             ? (records.first.map { "\($0.formattedDateOnly) – \(records.last!.formattedDateOnly)" } ?? "")
             : periodLabel
         let metricCount = Set(records.map(\.metricType)).count
-        text(s, "Data period: \(period)  (\(records.count) records, \(metricCount) metric types)", font: f10, color: mid)
+        text(s, "Data period: \(period)  (\(records.count) records, \(metricCount) metric types)", font: s.style.bodyFont, color: s.style.mutedTextColor)
         s.y += 14
     }
 
@@ -327,10 +313,10 @@ struct PDFGenerator {
         if !profile.doctorName.isEmpty { rows.append(("Physician", profile.doctorName)) }
         if !profile.medicalNotes.isEmpty { rows.append(("Notes", profile.medicalNotes)) }
 
-        let la: [NSAttributedString.Key: Any] = [.font: f10m, .foregroundColor: dark]
-        let va: [NSAttributedString.Key: Any] = [.font: f10, .foregroundColor: black]
+        let la: [NSAttributedString.Key: Any] = [.font: s.style.bodyMediumFont, .foregroundColor: s.style.secondaryTextColor]
+        let va: [NSAttributedString.Key: Any] = [.font: s.style.bodyFont, .foregroundColor: s.style.primaryTextColor]
         for (i, row) in rows.enumerated() {
-            if i % 2 == 0 { fillRect(s, x: m, w: cw, h: 16, color: stripe) }
+            if i % 2 == 0 { fillRect(s, x: m, w: cw, h: 16, color: s.style.stripeColor) }
             (row.0 as NSString).draw(at: CGPoint(x: m + 6, y: s.y + 1), withAttributes: la)
             (row.1 as NSString).draw(at: CGPoint(x: m + labelW, y: s.y + 1), withAttributes: va)
             s.y += 16
@@ -367,10 +353,10 @@ struct PDFGenerator {
 
         let labelW: CGFloat = 200
         for (i, row) in rows.enumerated() {
-            if i % 2 == 0 { fillRect(s, x: m, w: cw, h: 16, color: stripe) }
-            let la: [NSAttributedString.Key: Any] = [.font: f10m, .foregroundColor: dark]
+            if i % 2 == 0 { fillRect(s, x: m, w: cw, h: 16, color: s.style.stripeColor) }
+            let la: [NSAttributedString.Key: Any] = [.font: s.style.bodyMediumFont, .foregroundColor: s.style.secondaryTextColor]
             (row.0 as NSString).draw(at: CGPoint(x: m + 6, y: s.y + 1), withAttributes: la)
-            let va: [NSAttributedString.Key: Any] = [.font: f9b, .foregroundColor: row.0 == "Classification" ? catColor(cat) : black]
+            let va: [NSAttributedString.Key: Any] = [.font: s.style.monoBoldFont, .foregroundColor: row.0 == "Classification" ? catColor(cat) : s.style.primaryTextColor]
             (row.1 as NSString).draw(at: CGPoint(x: m + labelW, y: s.y + 2), withAttributes: va)
             s.y += 16
         }
@@ -385,12 +371,12 @@ struct PDFGenerator {
         let cats: [BPCategory] = [.normal, .elevated, .highStage1, .highStage2, .crisis]
 
         let colX: [CGFloat] = [m + 6, m + 130, m + 190, m + 260]
-        let ha: [NSAttributedString.Key: Any] = [.font: f8b, .foregroundColor: mid]
+        let ha: [NSAttributedString.Key: Any] = [.font: s.style.captionBoldFont, .foregroundColor: s.style.mutedTextColor]
         for (t, x) in zip(["Classification", "Count", "Percentage", "Avg BP"], colX) {
             (t as NSString).draw(at: CGPoint(x: x, y: s.y), withAttributes: ha)
         }
         s.y += 14
-        hline(s, color: border, width: 0.5)
+        hline(s, color: s.style.borderColor, width: 0.5)
         s.y += 3
 
         for (i, cat) in cats.enumerated() {
@@ -401,12 +387,12 @@ struct PDFGenerator {
             let avgS = avg.map(\.systolic).reduce(0, +) / count
             let avgD = avg.map(\.diastolic).reduce(0, +) / count
 
-            if i % 2 == 0 { fillRect(s, x: m, w: cw, h: 15, color: stripe) }
+            if i % 2 == 0 { fillRect(s, x: m, w: cw, h: 15, color: s.style.stripeColor) }
             s.ctx.setFillColor(catColor(cat).cgColor)
             s.ctx.fillEllipse(in: CGRect(x: m + 6, y: s.y + 3, width: 7, height: 7))
 
-            let la: [NSAttributedString.Key: Any] = [.font: f10, .foregroundColor: black]
-            let va: [NSAttributedString.Key: Any] = [.font: f9, .foregroundColor: black]
+            let la: [NSAttributedString.Key: Any] = [.font: s.style.bodyFont, .foregroundColor: s.style.primaryTextColor]
+            let va: [NSAttributedString.Key: Any] = [.font: s.style.monoFont, .foregroundColor: s.style.primaryTextColor]
             (cat.rawValue as NSString).draw(at: CGPoint(x: m + 18, y: s.y + 1), withAttributes: la)
             ("\(count)" as NSString).draw(at: CGPoint(x: colX[1], y: s.y + 1), withAttributes: va)
             ("\(pct)%" as NSString).draw(at: CGPoint(x: colX[2], y: s.y + 1), withAttributes: va)
@@ -422,12 +408,12 @@ struct PDFGenerator {
         section(s, "HEALTH METRICS SUMMARY")
 
         let colX: [CGFloat] = [m + 6, m + 160, m + 260, m + 380]
-        let ha: [NSAttributedString.Key: Any] = [.font: f8b, .foregroundColor: mid]
+        let ha: [NSAttributedString.Key: Any] = [.font: s.style.captionBoldFont, .foregroundColor: s.style.mutedTextColor]
         for (t, x) in zip(["Metric", "Average", "Range", "Data Points"], colX) {
             (t as NSString).draw(at: CGPoint(x: x, y: s.y), withAttributes: ha)
         }
         s.y += 14
-        hline(s, color: border, width: 0.5)
+        hline(s, color: s.style.borderColor, width: 0.5)
         s.y += 3
 
         for (i, metricType) in metricTypes.sorted().enumerated() {
@@ -435,15 +421,15 @@ struct PDFGenerator {
             guard !metricRecords.isEmpty, let def = MetricRegistry.definition(for: metricType) else { continue }
 
             pageBreak(s, 16)
-            if i % 2 == 0 { fillRect(s, x: m, w: cw, h: 15, color: stripe) }
+            if i % 2 == 0 { fillRect(s, x: m, w: cw, h: 15, color: s.style.stripeColor) }
 
             let values = metricRecords.map(\.primaryValue)
             let avg = values.reduce(0, +) / Double(values.count)
             let minV = values.min()!
             let maxV = values.max()!
 
-            let la: [NSAttributedString.Key: Any] = [.font: f10, .foregroundColor: black]
-            let va: [NSAttributedString.Key: Any] = [.font: f9, .foregroundColor: black]
+            let la: [NSAttributedString.Key: Any] = [.font: s.style.bodyFont, .foregroundColor: s.style.primaryTextColor]
+            let va: [NSAttributedString.Key: Any] = [.font: s.style.monoFont, .foregroundColor: s.style.primaryTextColor]
 
             (def.name as NSString).draw(at: CGPoint(x: colX[0], y: s.y + 1), withAttributes: la)
             ("\(def.formatValue(avg)) \(def.unit)" as NSString).draw(at: CGPoint(x: colX[1], y: s.y + 1), withAttributes: va)
@@ -461,9 +447,9 @@ struct PDFGenerator {
         let headers = ["Date / Time", "SYS", "DIA", "HR", "MAP", "Context"]
 
         func tableHeader() {
-            fillRect(s, x: m, w: cw, h: 15, color: accent)
+            fillRect(s, x: m, w: cw, h: 15, color: s.style.tableHeaderBackground)
             var hx = m + 4
-            let ha: [NSAttributedString.Key: Any] = [.font: f8b, .foregroundColor: UIColor.white]
+            let ha: [NSAttributedString.Key: Any] = [.font: s.style.captionBoldFont, .foregroundColor: s.style.tableHeaderForeground]
             for (j, h) in headers.enumerated() {
                 (h as NSString).draw(at: CGPoint(x: hx, y: s.y + 2), withAttributes: ha)
                 hx += colW[j]
@@ -475,22 +461,22 @@ struct PDFGenerator {
 
         for (i, r) in records.reversed().enumerated() {
             if s.y + 16 > ph - m - 28 { footer(s); newPage(s); tableHeader() }
-            if i % 2 == 0 { fillRect(s, x: m, w: cw, h: 14, color: stripe) }
+            if i % 2 == 0 { fillRect(s, x: m, w: cw, h: 14, color: s.style.stripeColor) }
 
             let mapV = Int(Double(r.diastolic) + Double(r.systolic - r.diastolic) / 3.0)
             let ctxLabel = r.bpActivityContext?.rawValue ?? ""
             let vals: [(String, UIColor)] = [
-                (r.formattedDate, black),
+                (r.formattedDate, s.style.primaryTextColor),
                 ("\(r.systolic)", red),
                 ("\(r.diastolic)", blue),
                 ("\(r.pulse)", pink),
                 ("\(mapV)", purple),
-                (ctxLabel, dark),
+                (ctxLabel, s.style.secondaryTextColor),
             ]
 
             var cx = m + 4
             for (j, v) in vals.enumerated() {
-                let f = (j == 1 || j == 2) ? f9b : f9
+                let f = (j == 1 || j == 2) ? s.style.monoBoldFont : s.style.monoFont
                 let a: [NSAttributedString.Key: Any] = [.font: f, .foregroundColor: v.1]
                 (v.0 as NSString).draw(at: CGPoint(x: cx, y: s.y + 1), withAttributes: a)
                 cx += colW[j]
@@ -549,7 +535,7 @@ struct PDFGenerator {
         ap.addLine(to: CGPoint(x: xp(records.count - 1), y: cy + ch))
         ap.closeSubpath()
         s.ctx.addPath(ap)
-        s.ctx.setFillColor(pink.withAlphaComponent(0.08).cgColor)
+        s.ctx.setFillColor(pink.withAlphaComponent(s.style.chartFillOpacity).cgColor)
         s.ctx.fillPath()
         s.ctx.restoreGState()
 
@@ -598,11 +584,11 @@ struct PDFGenerator {
 
         newPage(s)
         drawSectionHeader(s, title: "BLOOD PRESSURE", subtitle: "Time-of-Day Analysis")
-        text(s, "TIME-OF-DAY ANALYSIS", font: f14b, color: accent)
+        text(s, "TIME-OF-DAY ANALYSIS", font: s.style.sectionHeaderFont, color: s.style.accentColor)
         s.y += 4
-        hline(s, color: accent, width: 1.5)
+        hline(s, color: s.style.accentColor, width: s.style.headerRuleWidth)
         s.y += 6
-        text(s, "Blood pressure readings grouped by time of day to help identify patterns such as morning hypertension or evening dipping.", font: f10, color: mid, w: cw)
+        text(s, "Blood pressure readings grouped by time of day to help identify patterns such as morning hypertension or evening dipping.", font: s.style.bodyFont, color: s.style.mutedTextColor, w: cw)
         s.y += 12
 
         // Comparison summary table
@@ -627,12 +613,12 @@ struct PDFGenerator {
         // Table header
         let colX: [CGFloat] = [m + 6, m + 110, m + 190, m + 260, m + 330, m + 400]
         let headers = ["Time Period", "Avg BP", "Avg HR", "Classification", "Readings", "% of Total"]
-        let ha: [NSAttributedString.Key: Any] = [.font: f8b, .foregroundColor: mid]
+        let ha: [NSAttributedString.Key: Any] = [.font: s.style.captionBoldFont, .foregroundColor: s.style.mutedTextColor]
         for (t, x) in zip(headers, colX) {
             (t as NSString).draw(at: CGPoint(x: x, y: s.y), withAttributes: ha)
         }
         s.y += 14
-        hline(s, color: border, width: 0.5)
+        hline(s, color: s.style.borderColor, width: 0.5)
         s.y += 3
 
         for (i, period) in periods.enumerated() {
@@ -644,11 +630,11 @@ struct PDFGenerator {
             let cat = BPCategory.classify(systolic: avgSys, diastolic: avgDia)
             let pct = Int(Double(recs.count) / Double(totalCount) * 100)
 
-            if i % 2 == 0 { fillRect(s, x: m, w: cw, h: 16, color: stripe) }
+            if i % 2 == 0 { fillRect(s, x: m, w: cw, h: 16, color: s.style.stripeColor) }
 
-            let la: [NSAttributedString.Key: Any] = [.font: f10m, .foregroundColor: dark]
-            let va: [NSAttributedString.Key: Any] = [.font: f9b, .foregroundColor: black]
-            let ca: [NSAttributedString.Key: Any] = [.font: f9b, .foregroundColor: catColor(cat)]
+            let la: [NSAttributedString.Key: Any] = [.font: s.style.bodyMediumFont, .foregroundColor: s.style.secondaryTextColor]
+            let va: [NSAttributedString.Key: Any] = [.font: s.style.monoBoldFont, .foregroundColor: s.style.primaryTextColor]
+            let ca: [NSAttributedString.Key: Any] = [.font: s.style.monoBoldFont, .foregroundColor: catColor(cat)]
 
             (period.shortName as NSString).draw(at: CGPoint(x: colX[0], y: s.y + 1), withAttributes: la)
             ("\(avgSys)/\(avgDia)" as NSString).draw(at: CGPoint(x: colX[1], y: s.y + 1), withAttributes: va)
@@ -669,11 +655,11 @@ struct PDFGenerator {
             let eveAvgSys = eveningRecs.map(\.systolic).reduce(0, +) / eveningRecs.count
             let diff = mornAvgSys - eveAvgSys
             if diff > 10 {
-                text(s, "⚠ Morning systolic average is \(diff) mmHg higher than evening — may indicate morning hypertension surge.", font: f10, color: orange, w: cw)
+                text(s, "⚠ Morning systolic average is \(diff) mmHg higher than evening — may indicate morning hypertension surge.", font: s.style.bodyFont, color: orange, w: cw)
             } else if diff < -10 {
-                text(s, "Note: Evening systolic average is \(abs(diff)) mmHg higher than morning — normal nocturnal dipping pattern may be reduced.", font: f10, color: dark, w: cw)
+                text(s, "Note: Evening systolic average is \(abs(diff)) mmHg higher than morning — normal nocturnal dipping pattern may be reduced.", font: s.style.bodyFont, color: s.style.secondaryTextColor, w: cw)
             } else {
-                text(s, "Blood pressure appears relatively stable across time periods.", font: f10, color: dark, w: cw)
+                text(s, "Blood pressure appears relatively stable across time periods.", font: s.style.bodyFont, color: s.style.secondaryTextColor, w: cw)
             }
         }
         s.y += 6
@@ -681,7 +667,7 @@ struct PDFGenerator {
 
     private static func drawTimePeriodChart(_ s: State, records: [HealthRecord], period: TimePeriod) {
         // Section title
-        let titleA: [NSAttributedString.Key: Any] = [.font: f11m, .foregroundColor: accent]
+        let titleA: [NSAttributedString.Key: Any] = [.font: s.style.sectionSubtitleFont, .foregroundColor: s.style.accentColor]
         ("\(period.rawValue)  —  \(records.count) readings" as NSString).draw(at: CGPoint(x: m, y: s.y), withAttributes: titleA)
         s.y += 14
 
@@ -714,11 +700,11 @@ struct PDFGenerator {
         let avgPulse = records.map(\.pulse).reduce(0, +) / records.count
         let statsY = cy + 4
         let statsX = cx + cw2 + 10
-        let sa: [NSAttributedString.Key: Any] = [.font: f8, .foregroundColor: dark]
-        let sb: [NSAttributedString.Key: Any] = [.font: f8b, .foregroundColor: black]
+        let sa: [NSAttributedString.Key: Any] = [.font: s.style.captionFont, .foregroundColor: s.style.secondaryTextColor]
+        let sb: [NSAttributedString.Key: Any] = [.font: s.style.captionBoldFont, .foregroundColor: s.style.primaryTextColor]
         ("Avg:" as NSString).draw(at: CGPoint(x: statsX, y: statsY), withAttributes: sa)
         ("\(avgSys)/\(avgDia)" as NSString).draw(at: CGPoint(x: statsX, y: statsY + 10), withAttributes: sb)
-        ("♡ \(avgPulse)" as NSString).draw(at: CGPoint(x: statsX, y: statsY + 22), withAttributes: [.font: f8, .foregroundColor: pink])
+        ("♡ \(avgPulse)" as NSString).draw(at: CGPoint(x: statsX, y: statsY + 22), withAttributes: [.font: s.style.captionFont, .foregroundColor: pink])
 
         s.y = cy + ch + 18
     }
@@ -735,14 +721,14 @@ struct PDFGenerator {
     }
 
     private static func section(_ s: State, _ title: String) {
-        let a: [NSAttributedString.Key: Any] = [.font: f12b, .foregroundColor: accent]
+        let a: [NSAttributedString.Key: Any] = [.font: s.style.sectionFont, .foregroundColor: s.style.accentColor]
         (title as NSString).draw(at: CGPoint(x: m, y: s.y), withAttributes: a)
         s.y += 16
-        hline(s, color: accent, width: 1)
+        hline(s, color: s.style.accentColor, width: 1)
         s.y += 6
     }
 
-    private static func hline(_ s: State, y: CGFloat? = nil, color: UIColor = border, width: CGFloat = 0.5) {
+    private static func hline(_ s: State, y: CGFloat? = nil, color: UIColor, width: CGFloat = 0.5) {
         let ly = y ?? s.y
         s.ctx.setStrokeColor(color.cgColor)
         s.ctx.setLineWidth(width)
@@ -767,9 +753,9 @@ struct PDFGenerator {
     }
 
     private static func grid(_ s: State, cx: CGFloat, cy: CGFloat, cw: CGFloat, ch: CGFloat, lo: Int, hi: Int, step: Int) {
-        let ga: [NSAttributedString.Key: Any] = [.font: f7, .foregroundColor: mid]
-        s.ctx.setStrokeColor(UIColor(white: 0.90, alpha: 1).cgColor)
-        s.ctx.setLineWidth(0.4)
+        let ga: [NSAttributedString.Key: Any] = [.font: s.style.tinyFont, .foregroundColor: s.style.mutedTextColor]
+        s.ctx.setStrokeColor(s.style.gridColor.cgColor)
+        s.ctx.setLineWidth(s.style.gridLineWidth)
         for v in stride(from: (lo / step) * step, through: hi, by: step) {
             let gy = cy + ch - CGFloat(v - lo) / CGFloat(hi - lo) * ch
             s.ctx.move(to: CGPoint(x: cx, y: gy))
@@ -781,20 +767,20 @@ struct PDFGenerator {
 
     private static func drawIntLine(_ s: State, records: [HealthRecord], getValue: (HealthRecord) -> Int, xp: (Int) -> CGFloat, yp: (Int) -> CGFloat, color: UIColor) {
         s.ctx.setStrokeColor(color.cgColor)
-        s.ctx.setLineWidth(1.2)
+        s.ctx.setLineWidth(s.style.chartLineWidth)
         s.ctx.move(to: CGPoint(x: xp(0), y: yp(getValue(records[0]))))
         for i in 1..<records.count { s.ctx.addLine(to: CGPoint(x: xp(i), y: yp(getValue(records[i])))) }
         s.ctx.strokePath()
 
         s.ctx.setFillColor(color.cgColor)
-        let dr: CGFloat = records.count > 40 ? 1.2 : 2.0
+        let dr: CGFloat = records.count > 40 ? 1.2 : s.style.chartDotRadius
         for i in 0..<records.count {
             s.ctx.fillEllipse(in: CGRect(x: xp(i) - dr, y: yp(getValue(records[i])) - dr, width: dr * 2, height: dr * 2))
         }
     }
 
     private static func xLabelsFromRecords(_ s: State, records: [HealthRecord], xp: (Int) -> CGFloat, baseY: CGFloat) {
-        let a: [NSAttributedString.Key: Any] = [.font: f7, .foregroundColor: mid]
+        let a: [NSAttributedString.Key: Any] = [.font: s.style.tinyFont, .foregroundColor: s.style.mutedTextColor]
         let step = max(records.count / 5, 1)
         for i in stride(from: 0, to: records.count, by: step) {
             let l = records[i].timestamp.formatted(.dateTime.month(.abbreviated).day())
@@ -807,7 +793,7 @@ struct PDFGenerator {
         for item in items {
             s.ctx.setFillColor(item.1.cgColor)
             s.ctx.fillEllipse(in: CGRect(x: lx, y: y + 2, width: 5, height: 5))
-            let a: [NSAttributedString.Key: Any] = [.font: f8, .foregroundColor: dark]
+            let a: [NSAttributedString.Key: Any] = [.font: s.style.captionFont, .foregroundColor: s.style.secondaryTextColor]
             (item.0 as NSString).draw(at: CGPoint(x: lx + 8, y: y), withAttributes: a)
             lx += (item.0 as NSString).size(withAttributes: a).width + 20
         }
@@ -843,37 +829,37 @@ struct PDFGenerator {
         grid(s, cx: cx, cy: cy, cw: cw2, ch: ch, lo: lo, hi: hi, step: gridStep)
 
         if let zone = zoneRange {
-            s.ctx.setFillColor(zone.2.withAlphaComponent(0.08).cgColor)
+            s.ctx.setFillColor(zone.2.withAlphaComponent(s.style.chartFillOpacity).cgColor)
             s.ctx.fill(CGRect(x: cx, y: yp(zone.1), width: cw2, height: yp(zone.0) - yp(zone.1)))
         }
 
         for rl in refLines {
             let ry = yp(rl.0)
             dashedLine(s, from: CGPoint(x: cx, y: ry), to: CGPoint(x: cx + cw2, y: ry), color: rl.2.withAlphaComponent(0.5))
-            let la: [NSAttributedString.Key: Any] = [.font: f7, .foregroundColor: rl.2]
+            let la: [NSAttributedString.Key: Any] = [.font: s.style.tinyFont, .foregroundColor: rl.2]
             (rl.1 as NSString).draw(at: CGPoint(x: cx + cw2 + 3, y: ry - 4), withAttributes: la)
         }
 
         s.ctx.setStrokeColor(color.cgColor)
-        s.ctx.setLineWidth(1.2)
+        s.ctx.setLineWidth(s.style.chartLineWidth)
         s.ctx.move(to: CGPoint(x: xp(0), y: yp(values[0].value)))
         for i in 1..<values.count { s.ctx.addLine(to: CGPoint(x: xp(i), y: yp(values[i].value))) }
         s.ctx.strokePath()
 
         s.ctx.setFillColor(color.cgColor)
-        let dr: CGFloat = values.count > 40 ? 1.2 : 2.0
+        let dr: CGFloat = values.count > 40 ? 1.2 : s.style.chartDotRadius
         for i in 0..<values.count {
             s.ctx.fillEllipse(in: CGRect(x: xp(i) - dr, y: yp(values[i].value) - dr, width: dr * 2, height: dr * 2))
         }
 
-        let da: [NSAttributedString.Key: Any] = [.font: f7, .foregroundColor: mid]
+        let da: [NSAttributedString.Key: Any] = [.font: s.style.tinyFont, .foregroundColor: s.style.mutedTextColor]
         let step = max(values.count / 5, 1)
         for i in stride(from: 0, to: values.count, by: step) {
             let l = values[i].dateLabel
             (l as NSString).draw(at: CGPoint(x: xp(i) - 12, y: cy + ch + 3), withAttributes: da)
         }
 
-        let ua: [NSAttributedString.Key: Any] = [.font: f8, .foregroundColor: mid]
+        let ua: [NSAttributedString.Key: Any] = [.font: s.style.captionFont, .foregroundColor: s.style.mutedTextColor]
         (unit as NSString).draw(at: CGPoint(x: cx + cw2 + 3, y: cy - 2), withAttributes: ua)
         s.y = cy + ch + 18
     }
@@ -897,7 +883,7 @@ struct PDFGenerator {
             let ty = yp(target)
             dashedLine(s, from: CGPoint(x: cx, y: ty), to: CGPoint(x: cx + cw2, y: ty), color: green.withAlphaComponent(0.6))
             if !targetLabel.isEmpty {
-                let tla: [NSAttributedString.Key: Any] = [.font: f7, .foregroundColor: green]
+                let tla: [NSAttributedString.Key: Any] = [.font: s.style.tinyFont, .foregroundColor: green]
                 (targetLabel as NSString).draw(at: CGPoint(x: cx + cw2 + 3, y: ty - 4), withAttributes: tla)
             }
         }
@@ -909,12 +895,12 @@ struct PDFGenerator {
             let barX = cx + gw * CGFloat(i) + (gw - bw) / 2
             let barY = yp(v.value)
             let barH = yp(0) - barY
-            s.ctx.setFillColor(color.withAlphaComponent(0.7).cgColor)
+            s.ctx.setFillColor(color.withAlphaComponent(s.style.barOpacity).cgColor)
             let barRect = CGRect(x: barX, y: barY, width: bw, height: barH)
-            UIBezierPath(roundedRect: barRect, byRoundingCorners: [.topLeft, .topRight], cornerRadii: CGSize(width: 1.5, height: 1.5)).fill()
+            UIBezierPath(roundedRect: barRect, byRoundingCorners: [.topLeft, .topRight], cornerRadii: CGSize(width: s.style.barCornerRadius, height: s.style.barCornerRadius)).fill()
         }
 
-        let da: [NSAttributedString.Key: Any] = [.font: f7, .foregroundColor: mid]
+        let da: [NSAttributedString.Key: Any] = [.font: s.style.tinyFont, .foregroundColor: s.style.mutedTextColor]
         let labelStep = max(values.count / 6, 1)
         for i in stride(from: 0, to: values.count, by: labelStep) {
             let centerX = cx + gw * CGFloat(i) + gw / 2
@@ -923,7 +909,7 @@ struct PDFGenerator {
             (l as NSString).draw(at: CGPoint(x: centerX - ls.width / 2, y: cy + ch + 3), withAttributes: da)
         }
 
-        let ua: [NSAttributedString.Key: Any] = [.font: f8, .foregroundColor: mid]
+        let ua: [NSAttributedString.Key: Any] = [.font: s.style.captionFont, .foregroundColor: s.style.mutedTextColor]
         (unit as NSString).draw(at: CGPoint(x: cx + cw2 + 3, y: cy - 2), withAttributes: ua)
         s.y = cy + ch + 18
     }
