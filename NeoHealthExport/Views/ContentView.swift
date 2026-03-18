@@ -149,11 +149,15 @@ struct OnboardingView: View {
                         Image(systemName: "heart.text.square.fill")
                             .font(.system(size: 64))
                             .foregroundStyle(Color.accentColor)
-                        Text("Welcome to Health Logger")
+                        Text("Welcome to Neo Health Export")
                             .font(.title2.bold())
                         Text("Set up your profile to personalize your health reports.")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                        Text("This app is not a medical device and does not provide medical advice. Always consult your healthcare provider.")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
                             .multilineTextAlignment(.center)
                     }
                     .frame(maxWidth: .infinity)
@@ -499,7 +503,12 @@ struct ProfileSection: View {
         } header: {
             Text("Data Management")
         } footer: {
-            Text("\"Delete All Records\" removes all health data. \"Reset Import History\" allows all Health records to be reimported.")
+            VStack(alignment: .leading, spacing: 8) {
+                Text("\"Delete All Records\" removes all health data. \"Reset Import History\" allows all Health records to be reimported.")
+                Text("Neo Health Export is not a medical device and does not provide medical advice, diagnosis, or treatment. Health data classifications are for informational purposes only. Always consult a qualified healthcare provider.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
         }
         .confirmationDialog("Delete All Records?", isPresented: $showDeleteAllConfirmation, titleVisibility: .visible) {
             Button("Delete All \(dataStore.recordCount) Records", role: .destructive) {

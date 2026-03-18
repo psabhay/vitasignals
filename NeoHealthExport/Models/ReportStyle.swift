@@ -89,7 +89,7 @@ struct ReportStyle: Sendable, Identifiable, CaseIterable {
         gridColor: UIColor(white: 0.90, alpha: 1),
         sectionBarHeight: 3,
         headerRuleWidth: 1.5,
-        footerText: "Health Logger  |  Health Report"
+        footerText: "Neo Health Export  |  Health Report"
     )
 
     // MARK: - Modern (rounded, softer palette)
@@ -128,7 +128,7 @@ struct ReportStyle: Sendable, Identifiable, CaseIterable {
         gridColor: UIColor(white: 0.92, alpha: 1),
         sectionBarHeight: 4,
         headerRuleWidth: 2.0,
-        footerText: "Health Logger  ·  Health Report"
+        footerText: "Neo Health Export  ·  Health Report"
     )
 
     // MARK: - Clinical (serif, minimal)
@@ -175,7 +175,7 @@ struct ReportStyle: Sendable, Identifiable, CaseIterable {
             gridColor: UIColor(white: 0.88, alpha: 1),
             sectionBarHeight: 1.5,
             headerRuleWidth: 1.0,
-            footerText: "Health Logger  —  Health Report"
+            footerText: "Neo Health Export  —  Health Report"
         )
     }()
 }

@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 
 @main
-struct BPLoggerApp: App {
+struct NeoHealthExportApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             HealthRecord.self,

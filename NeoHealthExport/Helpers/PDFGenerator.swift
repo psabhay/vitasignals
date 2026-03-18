@@ -108,7 +108,7 @@ struct PDFGenerator {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("Health_Report_\(dateStamp()).pdf")
         UIGraphicsBeginPDFContextToFile(url.path, CGRect(x: 0, y: 0, width: pw, height: ph), [
             kCGPDFContextTitle as String: "Health Report",
-            kCGPDFContextCreator as String: "Health Logger"
+            kCGPDFContextCreator as String: "Neo Health Export"
         ])
         guard let ctx = UIGraphicsGetCurrentContext() else { return nil }
         let s = State(ctx, style: style)

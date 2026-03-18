@@ -1,5 +1,5 @@
 import XCTest
-@testable import BPLogger
+@testable import NeoHealthExport
 
 final class PDFGeneratorTests: XCTestCase {
 

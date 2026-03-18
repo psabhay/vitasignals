@@ -18,12 +18,12 @@ struct MigrationManager {
         //
         // Because SwiftData doesn't support reading models no longer in the schema,
         // we rely on the app entry point to perform migration BEFORE changing the schema.
-        // The actual migration is handled in BPLoggerApp.swift using the old schema first.
+        // The actual migration is handled in NeoHealthExportApp.swift using the old schema first.
 
         UserDefaults.standard.set(true, forKey: migrationKey)
     }
 
-    /// Called from BPLoggerApp when old-schema container is still available.
+    /// Called from NeoHealthExportApp when old-schema container is still available.
     /// Reads BPReading objects and creates HealthRecord equivalents.
     static func performMigration(
         oldReadings: [(systolic: Int, diastolic: Int, pulse: Int, timestamp: Date, activityContext: String, notes: String, healthKitID: String?)],

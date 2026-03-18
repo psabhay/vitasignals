@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>BP Logger</string>
+	<string>Neo Health Export</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -34,10 +34,6 @@
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
 	<key>NSHealthShareUsageDescription</key>
-	<string>BP Logger reads your blood pressure, heart rate, activity, sleep, fitness, and body measurement data from Apple Health to generate comprehensive health reports for your healthcare provider.</string>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>processing</string>
-	</array>
+	<string>Neo Health Export reads your blood pressure, heart rate, activity, sleep, fitness, and body measurement data from Apple Health to generate comprehensive health reports for your healthcare provider.</string>
 </dict>
 </plist>
