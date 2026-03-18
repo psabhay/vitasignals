@@ -3,7 +3,9 @@ import SwiftData
 
 @main
 struct NeoHealthExportApp: App {
-    var sharedModelContainer: ModelContainer = {
+    @State private var containerError: String?
+
+    var sharedModelContainer: ModelContainer? = {
         let schema = Schema([
             HealthRecord.self,
             DismissedHealthKitRecord.self,
@@ -21,7 +23,8 @@ struct NeoHealthExportApp: App {
             do {
                 return try ModelContainer(for: schema, configurations: [config])
             } catch {
-                fatalError("Could not create ModelContainer: \(error)")
+                print("❌ ModelContainer creation failed after retry: \(error)")
+                return nil
             }
         }
     }()
@@ -30,12 +33,34 @@ struct NeoHealthExportApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .environmentObject(dataStore)
-                .onAppear {
-                    dataStore.setup(container: sharedModelContainer)
-                }
+            if let container = sharedModelContainer {
+                ContentView()
+                    .environmentObject(dataStore)
+                    .onAppear {
+                        dataStore.setup(container: container)
+                    }
+                    .modelContainer(container)
+            } else {
+                DatabaseErrorView()
+            }
         }
-        .modelContainer(sharedModelContainer)
+    }
+}
+
+/// Shown when the SwiftData store cannot be created or recovered.
+private struct DatabaseErrorView: View {
+    var body: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 56))
+                .foregroundStyle(.red)
+            Text("Unable to Load Data")
+                .font(.title2.bold())
+            Text("The app's database could not be initialized. This may be caused by a corrupted data store.\n\nPlease try restarting the app. If the problem persists, reinstall the app.")
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 32)
+        }
+        .padding()
     }
 }

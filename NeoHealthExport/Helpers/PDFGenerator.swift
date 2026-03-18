@@ -293,7 +293,7 @@ struct PDFGenerator {
         text(s, "Report generated: \(genDate)", font: s.style.bodyFont, color: s.style.mutedTextColor)
         s.y += 2
         let period = periodLabel.isEmpty
-            ? (records.first.map { "\($0.formattedDateOnly) – \(records.last!.formattedDateOnly)" } ?? "")
+            ? (records.first.map { "\($0.formattedDateOnly) – \(records.last?.formattedDateOnly ?? $0.formattedDateOnly)" } ?? "")
             : periodLabel
         let metricCount = Set(records.map(\.metricType)).count
         text(s, "Data period: \(period)  (\(records.count) records, \(metricCount) metric types)", font: s.style.bodyFont, color: s.style.mutedTextColor)
@@ -334,10 +334,10 @@ struct PDFGenerator {
         let cat = BPCategory.classify(systolic: avgSys, diastolic: avgDia)
         let mapVal = Int(Double(avgDia) + Double(avgSys - avgDia) / 3.0)
         let pp = avgSys - avgDia
-        let minS = records.map(\.systolic).min()!
-        let maxS = records.map(\.systolic).max()!
-        let minD = records.map(\.diastolic).min()!
-        let maxD = records.map(\.diastolic).max()!
+        let minS = records.map(\.systolic).min() ?? 0
+        let maxS = records.map(\.systolic).max() ?? 0
+        let minD = records.map(\.diastolic).min() ?? 0
+        let maxD = records.map(\.diastolic).max() ?? 0
         let normalPct = Int(Double(records.filter { $0.bpCategory == .normal }.count) / Double(records.count) * 100)
 
         let rows: [(String, String)] = [
@@ -425,8 +425,8 @@ struct PDFGenerator {
 
             let values = metricRecords.map(\.primaryValue)
             let avg = values.reduce(0, +) / Double(values.count)
-            let minV = values.min()!
-            let maxV = values.max()!
+            let minV = values.min() ?? 0
+            let maxV = values.max() ?? 0
 
             let la: [NSAttributedString.Key: Any] = [.font: s.style.bodyFont, .foregroundColor: s.style.primaryTextColor]
             let va: [NSAttributedString.Key: Any] = [.font: s.style.monoFont, .foregroundColor: s.style.primaryTextColor]
@@ -914,9 +914,13 @@ struct PDFGenerator {
         s.y = cy + ch + 18
     }
 
-    private static func dateStamp() -> String {
+    private static let dateStampFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
-        return f.string(from: .now)
+        return f
+    }()
+
+    private static func dateStamp() -> String {
+        dateStampFormatter.string(from: .now)
     }
 }

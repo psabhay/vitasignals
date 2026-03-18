@@ -36,6 +36,11 @@ struct ChartsContainerView: View {
         return result
     }
 
+    // Sort once for chart consumption — records from dataStore are reverse-chronological
+    private var sortedForChart: [HealthRecord] {
+        filteredRecords.reversed()
+    }
+
     private var availableMetricTypes: [String] {
         let types = dataStore.availableMetricTypes
         return MetricRegistry.all.map(\.type).filter { types.contains($0) }
@@ -105,7 +110,7 @@ struct ChartsContainerView: View {
 
     @ViewBuilder
     private var bpCharts: some View {
-        let sorted = filteredRecords.sorted { $0.timestamp < $1.timestamp }
+        let sorted = sortedForChart
 
         BPTrendChart(records: sorted)
         PulseChart(records: sorted)
@@ -119,9 +124,8 @@ struct ChartsContainerView: View {
 
     @ViewBuilder
     private var genericChart: some View {
-        let sorted = filteredRecords.sorted { $0.timestamp < $1.timestamp }
         if let def = MetricRegistry.definition(for: selectedMetricType) {
-            GenericMetricChart(records: sorted, definition: def)
+            GenericMetricChart(records: sortedForChart, definition: def)
         }
     }
 }

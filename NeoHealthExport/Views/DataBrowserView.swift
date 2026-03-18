@@ -25,33 +25,36 @@ struct DataBrowserView: View {
 
     private static let displayLimit = 200
 
-    private var filteredRecords: [HealthRecord] {
+    // Single computed struct to avoid re-deriving the same data 3-4×
+    private struct FilteredResult {
+        let display: [HealthRecord]
+        let totalCount: Int
+        let grouped: [(String, [HealthRecord])]
+        var hasMore: Bool { totalCount > display.count }
+    }
+
+    private var filteredResult: FilteredResult {
+        let all: [HealthRecord]
         if let metricType = selectedMetricType {
-            return dataStore.records(for: metricType)
+            all = dataStore.records(for: metricType)
         } else if let category = selectedCategory {
             let types = Set(MetricRegistry.definitions(for: category).map(\.type))
-            return dataStore.allRecords.filter { types.contains($0.metricType) }
+            all = dataStore.allRecords.filter { types.contains($0.metricType) }
+        } else {
+            all = dataStore.allRecords
         }
-        return dataStore.allRecords
-    }
 
-    private var displayRecords: [HealthRecord] {
-        Array(filteredRecords.prefix(Self.displayLimit))
-    }
-
-    private var hasMoreRecords: Bool {
-        filteredRecords.count > Self.displayLimit
-    }
-
-    private var groupedRecords: [(String, [HealthRecord])] {
+        let display = Array(all.prefix(Self.displayLimit))
         let calendar = Calendar.current
-        let grouped = Dictionary(grouping: displayRecords) { record in
+        let grouped = Dictionary(grouping: display) { record in
             calendar.startOfDay(for: record.timestamp)
         }
-        return grouped.sorted { $0.key > $1.key }
-            .map { (date, records) in
-                (date.formatted(date: .abbreviated, time: .omitted), records)
-            }
+        .sorted { $0.key > $1.key }
+        .map { (date, records) in
+            (date.formatted(date: .abbreviated, time: .omitted), records)
+        }
+
+        return FilteredResult(display: display, totalCount: all.count, grouped: grouped)
     }
 
     private var availableMetricTypes: [String] {
@@ -59,11 +62,12 @@ struct DataBrowserView: View {
     }
 
     var body: some View {
+        let result = filteredResult
         NavigationStack {
             VStack(spacing: 0) {
                 categoryFilterBar
                 Group {
-                    if filteredRecords.isEmpty {
+                    if result.totalCount == 0 {
                         ContentUnavailableView(
                             "No Records",
                             systemImage: "list.bullet.clipboard",
@@ -73,7 +77,7 @@ struct DataBrowserView: View {
                         )
                     } else {
                         List {
-                            ForEach(groupedRecords, id: \.0) { date, dayRecords in
+                            ForEach(result.grouped, id: \.0) { date, dayRecords in
                                 Section(date) {
                                     ForEach(dayRecords) { record in
                                         Button {
@@ -101,9 +105,9 @@ struct DataBrowserView: View {
                                 }
                             }
 
-                            if hasMoreRecords {
+                            if result.hasMore {
                                 Section {
-                                    Text("Showing \(Self.displayLimit) of \(filteredRecords.count) records. Use filters to narrow results.")
+                                    Text("Showing \(Self.displayLimit) of \(result.totalCount) records. Use filters to narrow results.")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                         .frame(maxWidth: .infinity)
@@ -129,11 +133,8 @@ struct DataBrowserView: View {
                 switch sheet {
                 case .metricPicker:
                     AddRecordPickerSheet { selectedType in
-                        activeSheet = nil
                         addMetricType = selectedType
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                            activeSheet = .addForm(selectedType)
-                        }
+                        activeSheet = .addForm(selectedType)
                     }
                 case .addForm(let type):
                     AddHealthRecordView(metricType: type)

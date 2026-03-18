@@ -44,68 +44,44 @@ Neo Health Export is a health data tracking app that syncs with Apple HealthKit,
 
 ## Performance & Optimization Recommendations
 
-### P1 — High Impact (Recommended Before Launch)
+> **All P1 and P2 items below have been fixed.** The descriptions are kept for reference.
 
-#### 1. HealthDataStore.refresh() loads ALL records into memory
-- **File:** `NeoHealthExport/Helpers/HealthDataStore.swift`
-- **Problem:** `refresh()` fetches every HealthRecord from the database with no limit. For active users syncing from Apple Health, this could be 10,000+ records held in `allRecords`.
-- **Impact:** High memory usage, slow refresh on large datasets.
-- **Fix:** Add fetch limits for display purposes; use lazy pagination for the data browser. Keep only recent records (e.g., 90 days) in memory and fetch older data on demand.
+### P1 — High Impact ✅ Fixed
 
-#### 2. DashboardView.cardDataList recomputes on every render
-- **File:** `NeoHealthExport/Views/DashboardView.swift` (lines 68–85)
-- **Problem:** `cardDataList` is a computed property on the view body. It iterates all non-BP metric types, fetches records, filters last 7 days, sorts, and maps — all recomputed on every SwiftUI invalidation.
-- **Impact:** Sluggish dashboard with many metrics.
-- **Fix:** Cache in `@State` and recompute only when `dataStore.objectWillChange` fires.
+#### 1. HealthDataStore.refresh() loads ALL records into memory ✅
+- **Fix applied:** Removed stored `allRecords` @Published property — now a lazy computed property from `recordsByType`. Added `fetchLimit: 5000` to the main query. Added `fetchRecords(from:to:metricTypes:)` for targeted report queries.
 
-#### 3. DataBrowserView computes filteredRecords 3× per render
-- **File:** `NeoHealthExport/Views/DataBrowserView.swift` (lines 28–55)
-- **Problem:** `filteredRecords`, `displayRecords`, `hasMoreRecords`, and `groupedRecords` all independently re-derive from the same data on every body evaluation.
-- **Impact:** O(n) work multiplied 3–4× per render.
-- **Fix:** Compute once and pass the result through a single struct.
+#### 2. DashboardView.cardDataList recomputes on every render ✅
+- **Fix applied:** Replaced computed `cardDataList` with `@State cachedCardData` + `recomputeCardData()` triggered only by `onReceive(dataStore.objectWillChange)` and `onAppear`.
 
-#### 4. MetricDetailView uses @Query — inconsistent with rest of app
-- **File:** `NeoHealthExport/Views/MetricDetailView.swift` (line 7)
-- **Problem:** This is the only view still using `@Query` for HealthRecord instead of the shared `HealthDataStore`. Creates a parallel fetch pipeline.
-- **Impact:** Extra memory for duplicate query results; inconsistent data timing after sync.
-- **Fix:** Migrate to `HealthDataStore.records(for:)` for consistency.
+#### 3. DataBrowserView computes filteredRecords 3× per render ✅
+- **Fix applied:** Consolidated 4 computed properties into single `FilteredResult` struct computed once per render.
 
-#### 5. PDF generation runs at default priority
-- **File:** `NeoHealthExport/Views/ReportBuilderView.swift` (line 316)
-- **Problem:** `Task.detached { }` without specifying `.priority(.background)` — competes with UI thread.
-- **Fix:** Use `Task.detached(priority: .background) { }`.
+#### 4. MetricDetailView uses @Query — inconsistent with rest of app ✅
+- **Fix applied:** Migrated from `@Query` to `HealthDataStore.records(for:)`. Removed SwiftData import.
 
-#### 6. DateFormatter created on every PDF export
-- **File:** `NeoHealthExport/Helpers/PDFGenerator.swift` (lines 917–921)
-- **Problem:** `dateStamp()` creates a new `DateFormatter` each call. DateFormatter is notoriously expensive to instantiate.
-- **Fix:** Use a `static let` cached formatter.
+#### 5. PDF generation runs at default priority ✅
+- **Fix applied:** `Task.detached(priority: .background)`.
 
-#### 7. Force unwraps in PDFGenerator (7 instances)
-- **File:** `NeoHealthExport/Helpers/PDFGenerator.swift` (lines 296, 337–340, 428–429)
-- **Problem:** `.min()!`, `.max()!`, `.last!` will crash if arrays are unexpectedly empty. Guards exist upstream but defense-in-depth is safer.
-- **Fix:** Replace with nil-coalescing (`?? 0`) or `guard let`.
+#### 6. DateFormatter created on every PDF export ✅
+- **Fix applied:** Cached as `static let` in PDFGenerator.
 
-### P2 — Medium Impact (Nice to Have)
+#### 7. Force unwraps in PDFGenerator (7 instances) ✅
+- **Fix applied:** All 7 force unwraps replaced with safe nil-coalescing alternatives.
 
-#### 8. SyncWorker creates a new ModelContext per metric
-- **File:** `NeoHealthExport/Helpers/HealthSyncManager.swift` (line 163)
-- **Problem:** Each `syncMetric()` call creates its own `ModelContext(container)`. During a full sync with 10+ metrics, this means 10+ contexts.
-- **Fix:** Create one shared background context and pass it through all sync operations.
+### P2 — Medium Impact ✅ Fixed
 
-#### 9. ChartsContainerView sorts records in body
-- **File:** `NeoHealthExport/Views/ChartsContainerView.swift` (lines 108, 122)
-- **Problem:** `.sorted { $0.timestamp < $1.timestamp }` called every time `bpCharts` or `genericChart` is evaluated.
-- **Fix:** Sort once in a cached computed property or in `onChange`.
+#### 8. SyncWorker creates a new ModelContext per metric ✅
+- **Fix applied:** Single shared `ModelContext` created in `syncAll()` and passed to all sync methods. Single `context.save()` at the end.
 
-#### 10. DispatchQueue.main.asyncAfter for sheet transitions
-- **Files:** `DashboardView.swift:139`, `DataBrowserView.swift:134`
-- **Problem:** Fragile 0.35-second delays to dismiss one sheet then present another. Can fail on slow devices or feel laggy on fast ones.
-- **Fix:** Use `onChange(of: activeSheet)` or a two-phase state machine for sheet presentation.
+#### 9. ChartsContainerView sorts records in body ✅
+- **Fix applied:** Added `sortedForChart` computed property — sorted once, used by both `bpCharts` and `genericChart`.
 
-#### 11. fatalError in app entry point
-- **File:** `NeoHealthExport/App/NeoHealthExportApp.swift` (line 24)
-- **Problem:** If SwiftData store creation fails twice (after deleting the corrupted store), the app crashes with `fatalError`. This gives users no recovery path.
-- **Fix:** Show a graceful error screen with a "Reset Data" button instead of crashing.
+#### 10. DispatchQueue.main.asyncAfter for sheet transitions ✅
+- **Fix applied:** Removed fragile asyncAfter(0.35) pattern. Sheet item identity change handles transitions directly.
+
+#### 11. fatalError in app entry point ✅
+- **Fix applied:** Replaced `fatalError` with optional `ModelContainer?` and a graceful `DatabaseErrorView` explaining the issue to users.
 
 ---
 
@@ -113,4 +89,4 @@ Neo Health Export is a health data tracking app that syncs with Apple HealthKit,
 
 The app is **ready for App Store submission** from a compliance standpoint. The only remaining item is hosting a privacy policy URL (done in App Store Connect, not in code).
 
-For performance, the P1 items (especially #1, #2, #3) will make the biggest difference for users with large datasets. The force-unwrap fixes (#7) are low-effort high-safety improvements worth doing before launch.
+All 11 performance optimizations (P1 and P2) have been implemented and verified.

@@ -60,12 +60,7 @@ struct ReportBuilderView: View {
     @State private var isGenerating = false
     @State private var generationStatus = ""
     @State private var showPreview = false
-
-    private var filteredRecords: [HealthRecord] {
-        let start = Calendar.current.startOfDay(for: startDate)
-        let end = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: endDate))!
-        return dataStore.allRecords.filter { $0.timestamp >= start && $0.timestamp < end }
-    }
+    @State private var cachedFilteredCount: Int = 0
 
     private var availableMetricTypes: Set<String> {
         dataStore.availableMetricTypes
@@ -73,12 +68,6 @@ struct ReportBuilderView: View {
 
     private var selectedAndAvailable: Set<String> {
         selectedMetrics.intersection(availableMetricTypes)
-    }
-
-    private var filteredRecordCount: Int {
-        let start = Calendar.current.startOfDay(for: startDate)
-        let end = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: endDate))!
-        return dataStore.allRecords.lazy.filter { $0.timestamp >= start && $0.timestamp < end }.count
     }
 
     var body: some View {
@@ -89,7 +78,10 @@ struct ReportBuilderView: View {
         generateSection
             .onAppear {
                 selectedMetrics.formUnion(dataStore.availableMetricTypes)
+                updateFilteredCount()
             }
+            .onChange(of: startDate) { _, _ in renderedPDF = nil; updateFilteredCount() }
+            .onChange(of: endDate) { _, _ in renderedPDF = nil; updateFilteredCount() }
     }
 
     // MARK: - Sections
@@ -97,9 +89,7 @@ struct ReportBuilderView: View {
     private var dateRangeSection: some View {
         Section("Date Range") {
             DatePicker("From", selection: $startDate, displayedComponents: .date)
-                .onChange(of: startDate) { _, _ in renderedPDF = nil }
             DatePicker("To", selection: $endDate, displayedComponents: .date)
-                .onChange(of: endDate) { _, _ in renderedPDF = nil }
         }
     }
 
@@ -134,9 +124,9 @@ struct ReportBuilderView: View {
     private var previewSection: some View {
         Section {
             LabeledContent("Records in range") {
-                Text("\(filteredRecordCount)")
+                Text("\(cachedFilteredCount)")
                     .bold()
-                    .foregroundStyle(filteredRecordCount == 0 ? .red : .primary)
+                    .foregroundStyle(cachedFilteredCount == 0 ? .red : .primary)
             }
             LabeledContent("Metric types") {
                 Text("\(selectedAndAvailable.count)")
@@ -275,7 +265,7 @@ struct ReportBuilderView: View {
                         Spacer()
                     }
                 }
-                .disabled(isGenerating || filteredRecordCount == 0 || selectedAndAvailable.isEmpty)
+                .disabled(isGenerating || cachedFilteredCount == 0 || selectedAndAvailable.isEmpty)
             }
         }
     }
@@ -286,7 +276,7 @@ struct ReportBuilderView: View {
         isGenerating = true
         generationStatus = "Generating report..."
 
-        let records = filteredRecords.filter { selectedMetrics.contains($0.metricType) }
+        let records = dataStore.fetchRecords(from: startDate, to: endDate, metricTypes: selectedMetrics)
         let periodLabel = "\(startDate.formatted(date: .abbreviated, time: .omitted)) – \(endDate.formatted(date: .abbreviated, time: .omitted))"
         let profileData: PDFGenerator.ProfileData? = {
             guard let p = profiles.first, !p.name.isEmpty else { return nil }
@@ -313,7 +303,7 @@ struct ReportBuilderView: View {
         let metrics = selectedAndAvailable
         let style = selectedStyle
 
-        Task.detached {
+        Task.detached(priority: .background) {
             let url = PDFGenerator.generate(
                 records: snapshots,
                 selectedMetrics: metrics,
@@ -327,5 +317,9 @@ struct ReportBuilderView: View {
                 generationStatus = ""
             }
         }
+    }
+
+    private func updateFilteredCount() {
+        cachedFilteredCount = dataStore.fetchRecords(from: startDate, to: endDate).count
     }
 }

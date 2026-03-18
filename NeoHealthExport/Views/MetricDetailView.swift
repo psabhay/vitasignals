@@ -1,24 +1,17 @@
 import SwiftUI
-import SwiftData
 import Charts
 
 struct MetricDetailView: View {
     let metricType: String
-    @Query private var records: [HealthRecord]
+    @EnvironmentObject var dataStore: HealthDataStore
     @State private var timeRange: ChartTimeRange = .month
-
-    init(metricType: String) {
-        self.metricType = metricType
-        let type = metricType
-        _records = Query(
-            filter: #Predicate<HealthRecord> { $0.metricType == type },
-            sort: \HealthRecord.timestamp,
-            order: .reverse
-        )
-    }
 
     private var definition: MetricDefinition? {
         MetricRegistry.definition(for: metricType)
+    }
+
+    private var records: [HealthRecord] {
+        dataStore.records(for: metricType)
     }
 
     private var filteredRecords: [HealthRecord] {

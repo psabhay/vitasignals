@@ -16,12 +16,16 @@ import Combine
 
 @MainActor
 final class HealthDataStore: ObservableObject {
-    @Published private(set) var allRecords: [HealthRecord] = []
     @Published private(set) var recordsByType: [String: [HealthRecord]] = [:]
     @Published private(set) var availableMetricTypes: Set<String> = []
     @Published private(set) var recordCount: Int = 0
 
     private var container: ModelContainer?
+
+    /// Lazily derived from recordsByType — avoids storing a second full copy.
+    var allRecords: [HealthRecord] {
+        recordsByType.values.flatMap { $0 }.sorted { $0.timestamp > $1.timestamp }
+    }
 
     func setup(container: ModelContainer) {
         self.container = container
@@ -37,19 +41,18 @@ final class HealthDataStore: ObservableObject {
         let context = ModelContext(container)
         context.autosaveEnabled = false
 
-        let descriptor = FetchDescriptor<HealthRecord>(
+        var descriptor = FetchDescriptor<HealthRecord>(
             sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
         )
+        descriptor.fetchLimit = 5000
+
         let records = (try? context.fetch(descriptor)) ?? []
         let grouped = Dictionary(grouping: records, by: \.metricType)
-        let types = Set(grouped.keys)
-        let count = records.count
 
         // Batch all updates to trigger a single SwiftUI render pass
-        allRecords = records
         recordsByType = grouped
-        availableMetricTypes = types
-        recordCount = count
+        availableMetricTypes = Set(grouped.keys)
+        recordCount = records.count
     }
 
     // MARK: - Convenience accessors
@@ -61,5 +64,28 @@ final class HealthDataStore: ObservableObject {
     func recentRecords(for metricType: String, days: Int) -> [HealthRecord] {
         guard let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: .now) else { return [] }
         return records(for: metricType).filter { $0.timestamp >= cutoff }
+    }
+
+    /// Targeted fetch for report generation — fetches only records in the given date range.
+    /// Uses its own context so it doesn't disturb the main cached data.
+    func fetchRecords(from startDate: Date, to endDate: Date, metricTypes: Set<String>? = nil) -> [HealthRecord] {
+        guard let container else { return [] }
+        let context = ModelContext(container)
+        context.autosaveEnabled = false
+
+        let start = Calendar.current.startOfDay(for: startDate)
+        let end = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: endDate)) ?? endDate
+
+        var descriptor = FetchDescriptor<HealthRecord>(
+            predicate: #Predicate { $0.timestamp >= start && $0.timestamp < end },
+            sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+        )
+        descriptor.fetchLimit = 10000
+
+        let records = (try? context.fetch(descriptor)) ?? []
+        if let types = metricTypes {
+            return records.filter { types.contains($0.metricType) }
+        }
+        return records
     }
 }

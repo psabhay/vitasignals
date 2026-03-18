@@ -66,7 +66,10 @@ final class HealthSyncManager: ObservableObject {
             return MetricRegistry.definition(for: type)
         }.filter { $0.hkQuantityType != nil }
 
-        // Run all sync work on background context
+        // Create a single shared background context for all sync operations
+        let context = ModelContext(container)
+        context.autosaveEnabled = false
+
         let total = quantityDefs.count
             + (discovered.contains(MetricType.bloodPressure) ? 1 : 0)
             + (discovered.contains(MetricType.sleepDuration) ? 1 : 0)
@@ -74,21 +77,24 @@ final class HealthSyncManager: ObservableObject {
 
         for def in quantityDefs {
             syncProgress = "Syncing \(def.name)... (\(completed + 1)/\(total))"
-            await worker.syncMetric(def, store: store, container: container)
+            await worker.syncMetric(def, store: store, context: context)
             completed += 1
         }
 
         if discovered.contains(MetricType.bloodPressure) {
             syncProgress = "Syncing Blood Pressure... (\(completed + 1)/\(total))"
-            await worker.syncBloodPressure(store: store, container: container)
+            await worker.syncBloodPressure(store: store, context: context)
             completed += 1
         }
 
         if discovered.contains(MetricType.sleepDuration) {
             syncProgress = "Syncing Sleep... (\(completed + 1)/\(total))"
-            await worker.syncSleep(store: store, container: container)
+            await worker.syncSleep(store: store, context: context)
             completed += 1
         }
+
+        // Save once at the end
+        try? context.save()
 
         // Refresh the shared data store once — all views update from this single source
         syncProgress = "Updating..."
@@ -156,12 +162,8 @@ private final class SyncWorker: Sendable {
 
     // MARK: - Quantity Metric Sync
 
-    func syncMetric(_ def: MetricDefinition, store: HKHealthStore, container: ModelContainer) async {
+    func syncMetric(_ def: MetricDefinition, store: HKHealthStore, context: ModelContext) async {
         guard let hkType = def.hkQuantityType, let hkUnit = def.hkUnit?() else { return }
-
-        // Background context — all SwiftData work stays off main thread
-        let context = ModelContext(container)
-        context.autosaveEnabled = false
 
         let syncState = getOrCreateSyncState(for: def.type, context: context)
         let startDate = syncState.lastSyncDate.map {
@@ -205,15 +207,11 @@ private final class SyncWorker: Sendable {
 
         syncState.lastSyncDate = endDate
         syncState.isAvailable = true
-        try? context.save()
     }
 
     // MARK: - Blood Pressure Sync
 
-    func syncBloodPressure(store: HKHealthStore, container: ModelContainer) async {
-        let context = ModelContext(container)
-        context.autosaveEnabled = false
-
+    func syncBloodPressure(store: HKHealthStore, context: ModelContext) async {
         let syncState = getOrCreateSyncState(for: MetricType.bloodPressure, context: context)
         let startDate = syncState.lastSyncDate.map {
             $0.addingTimeInterval(-overlapInterval)
@@ -268,14 +266,11 @@ private final class SyncWorker: Sendable {
 
         syncState.lastSyncDate = endDate
         syncState.isAvailable = true
-        try? context.save()
     }
 
     // MARK: - Sleep Sync
 
-    func syncSleep(store: HKHealthStore, container: ModelContainer) async {
-        let context = ModelContext(container)
-        context.autosaveEnabled = false
+    func syncSleep(store: HKHealthStore, context: ModelContext) async {
 
         let syncState = getOrCreateSyncState(for: MetricType.sleepDuration, context: context)
         let startDate = syncState.lastSyncDate.map {
@@ -329,7 +324,6 @@ private final class SyncWorker: Sendable {
 
         syncState.lastSyncDate = endDate
         syncState.isAvailable = true
-        try? context.save()
     }
 
     // MARK: - HealthKit Query Helpers

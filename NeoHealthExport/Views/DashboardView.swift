@@ -8,6 +8,7 @@ struct DashboardView: View {
     @ObservedObject var syncManager: HealthSyncManager
     @State private var activeSheet: DashboardSheet?
     @State private var addMetricType: String = MetricType.bloodPressure
+    @State private var cachedCardData: [CardData] = []
 
     private enum DashboardSheet: Identifiable {
         case metricPicker
@@ -57,17 +58,16 @@ struct DashboardView: View {
         return MetricRegistry.all.map(\.type).filter { types.contains($0) && $0 != MetricType.bloodPressure }
     }
 
-    // Pre-compute card data once instead of per-card
-    private struct CardData: Identifiable {
+    struct CardData: Identifiable {
         let id: String
         let latestValue: String
         let unit: String
         let sparkline: [(Date, Double)]
     }
 
-    private var cardDataList: [CardData] {
+    private func recomputeCardData() {
         let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: .now)!
-        return nonBPMetricTypes.map { type in
+        cachedCardData = nonBPMetricTypes.map { type in
             let records = dataStore.records(for: type)
             let def = MetricRegistry.definition(for: type)
             let latest = records.first
@@ -101,7 +101,7 @@ struct DashboardView: View {
                         latestBPCard(latest)
                     }
 
-                    if !cardDataList.isEmpty {
+                    if !cachedCardData.isEmpty {
                         metricCardsGrid
                     }
 
@@ -134,11 +134,8 @@ struct DashboardView: View {
                 switch sheet {
                 case .metricPicker:
                     AddRecordPickerSheet { selectedType in
-                        activeSheet = nil
                         addMetricType = selectedType
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                            activeSheet = .addForm(selectedType)
-                        }
+                        activeSheet = .addForm(selectedType)
                     }
                 case .addForm(let type):
                     AddHealthRecordView(metricType: type)
@@ -146,6 +143,12 @@ struct DashboardView: View {
             }
             .navigationDestination(for: String.self) { metricType in
                 MetricDetailView(metricType: metricType)
+            }
+            .onReceive(dataStore.objectWillChange) { _ in
+                recomputeCardData()
+            }
+            .onAppear {
+                recomputeCardData()
             }
         }
     }
@@ -206,7 +209,7 @@ struct DashboardView: View {
             Text("Health Overview").font(.subheadline.bold()).foregroundStyle(.secondary)
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                ForEach(cardDataList) { card in
+                ForEach(cachedCardData) { card in
                     NavigationLink(value: card.id) {
                         MetricCardView(
                             metricType: card.id,
