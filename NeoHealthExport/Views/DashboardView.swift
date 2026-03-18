@@ -34,7 +34,7 @@ struct DashboardView: View {
     }
 
     private var last7DaysBP: [HealthRecord] {
-        let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: .now)!
+        let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: .now) ?? .now
         return bpRecords.filter { $0.timestamp >= sevenDaysAgo }
     }
 
@@ -66,7 +66,7 @@ struct DashboardView: View {
     }
 
     private func recomputeCardData() {
-        let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: .now)!
+        let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: .now) ?? .now
         cachedCardData = nonBPMetricTypes.map { type in
             let records = dataStore.records(for: type)
             let def = MetricRegistry.definition(for: type)
@@ -95,6 +95,28 @@ struct DashboardView: View {
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                         .padding(.horizontal)
+                    }
+
+                    if syncManager.permissionDenied {
+                        VStack(spacing: 8) {
+                            Image(systemName: "lock.shield")
+                                .font(.title2).foregroundStyle(.orange)
+                            Text("Health Data Access Required")
+                                .font(.subheadline.bold())
+                            Text("This app needs access to your Apple Health data to display metrics and generate reports. Please enable access in Settings.")
+                                .font(.caption).foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                            Button("Open Settings") {
+                                if let url = URL(string: UIApplication.openSettingsURLString) {
+                                    UIApplication.shared.open(url)
+                                }
+                            }
+                            .font(.subheadline.bold())
+                            .padding(.top, 4)
+                        }
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .background(.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
                     }
 
                     if let latest = latestBP {
@@ -128,6 +150,7 @@ struct DashboardView: View {
                         Image(systemName: "plus.circle.fill")
                             .font(.title2)
                     }
+                    .accessibilityLabel("Add Record")
                 }
             }
             .sheet(item: $activeSheet) { sheet in
@@ -144,7 +167,7 @@ struct DashboardView: View {
             .navigationDestination(for: String.self) { metricType in
                 MetricDetailView(metricType: metricType)
             }
-            .onReceive(dataStore.objectWillChange) { _ in
+            .onReceive(dataStore.$recordCount) { _ in
                 recomputeCardData()
             }
             .onAppear {
@@ -200,6 +223,8 @@ struct DashboardView: View {
         .frame(maxWidth: .infinity)
         .padding()
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Latest blood pressure: \(record.systolic) over \(record.diastolic) mmHg, pulse \(record.pulse) bpm, \(record.bpCategory.rawValue)")
     }
 
     // MARK: - Metric Cards Grid
@@ -286,6 +311,8 @@ struct DashboardView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Last 7 days blood pressure trend chart")
     }
 
     // MARK: - Today Section
@@ -327,6 +354,7 @@ struct CategoryBadge: View {
             .padding(.horizontal, 12).padding(.vertical, 4)
             .background(badgeColor.opacity(0.15), in: Capsule())
             .foregroundStyle(badgeColor)
+            .accessibilityLabel("Blood pressure category: \(category.rawValue)")
     }
 }
 

@@ -30,7 +30,7 @@ struct ChartsContainerView: View {
     private var filteredRecords: [HealthRecord] {
         var result = dataStore.records(for: selectedMetricType)
         if let days = timeRange.days {
-            let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: .now)!
+            let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: .now) ?? .now
             result = result.filter { $0.timestamp >= cutoff }
         }
         return result
@@ -264,6 +264,8 @@ struct BPTrendChart: View {
         .padding()
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
         .padding(.horizontal)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Blood pressure trend chart showing systolic and diastolic values over time")
     }
 }
 

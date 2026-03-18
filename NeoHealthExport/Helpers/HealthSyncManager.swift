@@ -15,6 +15,7 @@ final class HealthSyncManager: ObservableObject {
     @Published var syncProgress: String = ""
     @Published var availableMetrics: Set<String> = []
     @Published var lastSyncDate: Date?
+    @Published var permissionDenied = false
 
     private let store = HKHealthStore()
     private let worker = SyncWorker()
@@ -43,7 +44,9 @@ final class HealthSyncManager: ObservableObject {
         do {
             try await store.requestAuthorization(toShare: [], read: Self.allReadTypes)
         } catch {
+            #if DEBUG
             print("HealthKit auth error: \(error)")
+            #endif
         }
     }
 
@@ -60,41 +63,39 @@ final class HealthSyncManager: ObservableObject {
         let discovered = await worker.discoverAvailableMetrics(store: store)
         availableMetrics = discovered
 
+        if discovered.isEmpty {
+            permissionDenied = true
+            syncProgress = ""
+            isSyncing = false
+            return
+        }
+        permissionDenied = false
+
         // Build list of quantity defs to sync
         let quantityDefs = discovered.compactMap { type -> MetricDefinition? in
             guard type != MetricType.bloodPressure && type != MetricType.sleepDuration else { return nil }
             return MetricRegistry.definition(for: type)
         }.filter { $0.hkQuantityType != nil }
 
-        // Create a single shared background context for all sync operations
-        let context = ModelContext(container)
-        context.autosaveEnabled = false
-
         let total = quantityDefs.count
             + (discovered.contains(MetricType.bloodPressure) ? 1 : 0)
             + (discovered.contains(MetricType.sleepDuration) ? 1 : 0)
-        var completed = 0
 
-        for def in quantityDefs {
-            syncProgress = "Syncing \(def.name)... (\(completed + 1)/\(total))"
-            await worker.syncMetric(def, store: store, context: context)
-            completed += 1
-        }
+        syncProgress = "Syncing \(total) metrics..."
 
+        // Sync all metrics in parallel with concurrency limit
+        await worker.syncMetricsBatched(quantityDefs, store: store, container: container)
+
+        // Sync BP and sleep (these need special handling)
         if discovered.contains(MetricType.bloodPressure) {
-            syncProgress = "Syncing Blood Pressure... (\(completed + 1)/\(total))"
-            await worker.syncBloodPressure(store: store, context: context)
-            completed += 1
+            syncProgress = "Syncing Blood Pressure..."
+            await worker.syncBloodPressure(store: store, container: container)
         }
 
         if discovered.contains(MetricType.sleepDuration) {
-            syncProgress = "Syncing Sleep... (\(completed + 1)/\(total))"
-            await worker.syncSleep(store: store, context: context)
-            completed += 1
+            syncProgress = "Syncing Sleep..."
+            await worker.syncSleep(store: store, container: container)
         }
-
-        // Save once at the end
-        try? context.save()
 
         // Refresh the shared data store once — all views update from this single source
         syncProgress = "Updating..."
@@ -162,23 +163,58 @@ private final class SyncWorker: Sendable {
 
     // MARK: - Quantity Metric Sync
 
+    /// Maximum samples to fetch per metric type per sync
+    private let sampleFetchLimit = 500
+
+    /// Sync multiple metrics in parallel with controlled concurrency
+    func syncMetricsBatched(_ defs: [MetricDefinition], store: HKHealthStore, container: ModelContainer) async {
+        // Process metrics in parallel with concurrency limit of 6
+        await withTaskGroup(of: Void.self) { group in
+            var inFlight = 0
+            let maxConcurrency = 6
+
+            for def in defs {
+                // Wait if we've hit concurrency limit
+                if inFlight >= maxConcurrency {
+                    await group.next()
+                    inFlight -= 1
+                }
+
+                group.addTask {
+                    // Each task gets its own context for thread safety
+                    let context = ModelContext(container)
+                    context.autosaveEnabled = false
+                    await self.syncMetric(def, store: store, context: context)
+                    try? context.save()
+                }
+                inFlight += 1
+            }
+
+            // Wait for remaining tasks
+            await group.waitForAll()
+        }
+    }
+
     func syncMetric(_ def: MetricDefinition, store: HKHealthStore, context: ModelContext) async {
         guard let hkType = def.hkQuantityType, let hkUnit = def.hkUnit?() else { return }
 
         let syncState = getOrCreateSyncState(for: def.type, context: context)
-        let startDate = syncState.lastSyncDate.map {
-            $0.addingTimeInterval(-overlapInterval)
-        } ?? Calendar.current.date(byAdding: .year, value: -1, to: .now)!
+        let lastSync = syncState.lastSyncDate
         let endDate = Date.now
 
-        let excludedUUIDs = existingHealthKitUUIDs(for: def.type, context: context)
-            .union(dismissedHealthKitUUIDs(for: def.type, context: context))
+        // First sync: fetch 1 year, no overlap check needed
+        // Incremental sync: fetch from lastSync - overlap, check UUIDs only in overlap window
+        let isFirstSync = lastSync == nil
+        let startDate = lastSync.map {
+            $0.addingTimeInterval(-overlapInterval)
+        } ?? Calendar.current.date(byAdding: .year, value: -1, to: .now) ?? .now
 
         if def.isCumulative {
+            // Cumulative metrics: check by day, no UUID needed
             let dailyValues = await Self.fetchDailyStatistics(store: store, hkType, unit: hkUnit, from: startDate, to: endDate)
             for dv in dailyValues {
                 let dayStart = Calendar.current.startOfDay(for: dv.date)
-                let dayEnd = Calendar.current.date(byAdding: .day, value: 1, to: dayStart)!
+                let dayEnd = Calendar.current.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
                 let existing = existingRecords(for: def.type, from: dayStart, to: dayEnd, context: context)
                 if let existingRecord = existing.first(where: { !$0.isManualEntry }) {
                     if existingRecord.primaryValue != dv.value {
@@ -192,8 +228,21 @@ private final class SyncWorker: Sendable {
                 }
             }
         } else {
-            let samples = await Self.fetchQuantitySamples(store: store, hkType, unit: hkUnit, from: startDate, to: endDate)
+            let samples = await Self.fetchQuantitySamples(store: store, hkType, unit: hkUnit, from: startDate, to: endDate, limit: sampleFetchLimit)
+
+            // Only fetch existing UUIDs if we have an overlap window to check
+            let excludedUUIDs: Set<String>
+            if isFirstSync {
+                // First sync: only check dismissed records (user explicitly rejected)
+                excludedUUIDs = dismissedHealthKitUUIDs(for: def.type, context: context)
+            } else {
+                // Incremental: only check UUIDs in the overlap window (lastSync - 1hr to lastSync)
+                excludedUUIDs = existingHealthKitUUIDs(for: def.type, from: startDate, to: lastSync!, context: context)
+                    .union(dismissedHealthKitUUIDs(for: def.type, context: context))
+            }
+
             for sample in samples {
+                // Skip if already imported or dismissed
                 guard !excludedUUIDs.contains(sample.uuid) else { continue }
                 var value = sample.value
                 if hkUnit == HKUnit.percent() { value *= 100 }
@@ -211,15 +260,17 @@ private final class SyncWorker: Sendable {
 
     // MARK: - Blood Pressure Sync
 
-    func syncBloodPressure(store: HKHealthStore, context: ModelContext) async {
-        let syncState = getOrCreateSyncState(for: MetricType.bloodPressure, context: context)
-        let startDate = syncState.lastSyncDate.map {
-            $0.addingTimeInterval(-overlapInterval)
-        } ?? Calendar.current.date(byAdding: .year, value: -1, to: .now)!
-        let endDate = Date.now
+    func syncBloodPressure(store: HKHealthStore, container: ModelContainer) async {
+        let context = ModelContext(container)
+        context.autosaveEnabled = false
 
-        let excludedUUIDs = existingHealthKitUUIDs(for: MetricType.bloodPressure, context: context)
-            .union(dismissedHealthKitUUIDs(for: MetricType.bloodPressure, context: context))
+        let syncState = getOrCreateSyncState(for: MetricType.bloodPressure, context: context)
+        let lastSync = syncState.lastSyncDate
+        let endDate = Date.now
+        let isFirstSync = lastSync == nil
+        let startDate = lastSync.map {
+            $0.addingTimeInterval(-overlapInterval)
+        } ?? Calendar.current.date(byAdding: .year, value: -1, to: .now) ?? .now
 
         let bpType = HKCorrelationType(.bloodPressure)
         let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: [])
@@ -228,15 +279,34 @@ private final class SyncWorker: Sendable {
         let samples: [HKCorrelation] = await withCheckedContinuation { continuation in
             let query = HKSampleQuery(
                 sampleType: bpType, predicate: predicate,
-                limit: HKObjectQueryNoLimit, sortDescriptors: [sortDescriptor]
+                limit: sampleFetchLimit, sortDescriptors: [sortDescriptor]
             ) { _, results, _ in
                 continuation.resume(returning: (results as? [HKCorrelation]) ?? [])
             }
             store.execute(query)
         }
 
-        // Limit heart rate fetch to BP time window (not entire year)
-        let heartRates = await Self.fetchHeartRates(store: store, since: startDate, until: endDate)
+        guard !samples.isEmpty else {
+            syncState.lastSyncDate = endDate
+            syncState.isAvailable = true
+            try? context.save()
+            return
+        }
+
+        // Only check UUIDs in overlap window (not all records)
+        let excludedUUIDs: Set<String>
+        if isFirstSync {
+            excludedUUIDs = dismissedHealthKitUUIDs(for: MetricType.bloodPressure, context: context)
+        } else {
+            excludedUUIDs = existingHealthKitUUIDs(for: MetricType.bloodPressure, from: startDate, to: lastSync!, context: context)
+                .union(dismissedHealthKitUUIDs(for: MetricType.bloodPressure, context: context))
+        }
+
+        // Fetch heart rates only for the actual BP sample time window
+        let bpDates = samples.map(\.startDate)
+        let hrStart = bpDates.min() ?? startDate
+        let hrEnd = bpDates.max() ?? endDate
+        let heartRates = await Self.fetchHeartRates(store: store, since: hrStart, until: hrEnd, limit: samples.count * 2)
 
         for sample in samples {
             let uuid = sample.uuid.uuidString
@@ -266,26 +336,30 @@ private final class SyncWorker: Sendable {
 
         syncState.lastSyncDate = endDate
         syncState.isAvailable = true
+        try? context.save()
     }
 
     // MARK: - Sleep Sync
 
-    func syncSleep(store: HKHealthStore, context: ModelContext) async {
+    func syncSleep(store: HKHealthStore, container: ModelContainer) async {
+        let context = ModelContext(container)
+        context.autosaveEnabled = false
 
         let syncState = getOrCreateSyncState(for: MetricType.sleepDuration, context: context)
         let startDate = syncState.lastSyncDate.map {
             $0.addingTimeInterval(-overlapInterval)
-        } ?? Calendar.current.date(byAdding: .year, value: -1, to: .now)!
+        } ?? Calendar.current.date(byAdding: .year, value: -1, to: .now) ?? .now
         let endDate = Date.now
 
         let sleepType = HKCategoryType(.sleepAnalysis)
         let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: [])
         let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
 
+        // Sleep samples are aggregated per day, so we can fetch more
         let samples: [HKCategorySample] = await withCheckedContinuation { continuation in
             let query = HKSampleQuery(
                 sampleType: sleepType, predicate: predicate,
-                limit: HKObjectQueryNoLimit, sortDescriptors: [sortDescriptor]
+                limit: 2000, sortDescriptors: [sortDescriptor]
             ) { _, results, _ in
                 continuation.resume(returning: (results as? [HKCategorySample]) ?? [])
             }
@@ -311,7 +385,7 @@ private final class SyncWorker: Sendable {
         for (components, duration) in dayDurations {
             guard let date = calendar.date(from: components) else { continue }
             let dayStart = calendar.startOfDay(for: date)
-            let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart)!
+            let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
             let existing = existingRecords(for: MetricType.sleepDuration, from: dayStart, to: dayEnd, context: context)
             if existing.isEmpty {
                 context.insert(HealthRecord(
@@ -324,6 +398,7 @@ private final class SyncWorker: Sendable {
 
         syncState.lastSyncDate = endDate
         syncState.isAvailable = true
+        try? context.save()
     }
 
     // MARK: - HealthKit Query Helpers
@@ -345,16 +420,17 @@ private final class SyncWorker: Sendable {
         _ identifier: HKQuantityTypeIdentifier,
         unit: HKUnit,
         from startDate: Date,
-        to endDate: Date
+        to endDate: Date,
+        limit: Int
     ) async -> [SampleResult] {
         let quantityType = HKQuantityType(identifier)
         let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: [])
-        let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
+        let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
 
         let samples: [HKQuantitySample] = await withCheckedContinuation { continuation in
             let query = HKSampleQuery(
                 sampleType: quantityType, predicate: predicate,
-                limit: HKObjectQueryNoLimit, sortDescriptors: [sortDescriptor]
+                limit: limit, sortDescriptors: [sortDescriptor]
             ) { _, results, _ in
                 continuation.resume(returning: (results as? [HKQuantitySample]) ?? [])
             }
@@ -409,7 +485,7 @@ private final class SyncWorker: Sendable {
         }
     }
 
-    private static func fetchHeartRates(store: HKHealthStore, since startDate: Date, until endDate: Date) async -> [(Date, Int)] {
+    private static func fetchHeartRates(store: HKHealthStore, since startDate: Date, until endDate: Date, limit: Int) async -> [(Date, Int)] {
         let hrType = HKQuantityType(.heartRate)
         let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: [])
         let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
@@ -417,7 +493,7 @@ private final class SyncWorker: Sendable {
         return await withCheckedContinuation { continuation in
             let query = HKSampleQuery(
                 sampleType: hrType, predicate: predicate,
-                limit: HKObjectQueryNoLimit, sortDescriptors: [sortDescriptor]
+                limit: limit, sortDescriptors: [sortDescriptor]
             ) { _, results, _ in
                 let rates: [(Date, Int)] = (results as? [HKQuantitySample])?.map { sample in
                     let bpm = Int(sample.quantity.doubleValue(for: HKUnit.count().unitDivided(by: .minute())))
@@ -435,7 +511,7 @@ private final class SyncWorker: Sendable {
         for (rateDate, bpm) in rates {
             let interval = abs(rateDate.timeIntervalSince(date))
             if interval <= maxInterval {
-                if closest == nil || interval < closest!.0 {
+                if closest == nil || interval < (closest?.0 ?? .infinity) {
                     closest = (interval, bpm)
                 }
             }
@@ -457,9 +533,15 @@ private final class SyncWorker: Sendable {
         return state
     }
 
-    private func existingHealthKitUUIDs(for metricType: String, context: ModelContext) -> Set<String> {
+    /// Fetch UUIDs only within a specific time window (for overlap checking)
+    private func existingHealthKitUUIDs(for metricType: String, from startDate: Date, to endDate: Date, context: ModelContext) -> Set<String> {
         let descriptor = FetchDescriptor<HealthRecord>(
-            predicate: #Predicate { $0.metricType == metricType && $0.healthKitUUID != nil }
+            predicate: #Predicate {
+                $0.metricType == metricType &&
+                $0.healthKitUUID != nil &&
+                $0.timestamp >= startDate &&
+                $0.timestamp < endDate
+            }
         )
         let records = (try? context.fetch(descriptor)) ?? []
         return Set(records.compactMap(\.healthKitUUID))

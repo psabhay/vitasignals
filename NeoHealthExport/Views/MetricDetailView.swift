@@ -16,7 +16,7 @@ struct MetricDetailView: View {
 
     private var filteredRecords: [HealthRecord] {
         guard let days = timeRange.days else { return records }
-        let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: .now)!
+        let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: .now) ?? .now
         return records.filter { $0.timestamp >= cutoff }
     }
 
@@ -58,7 +58,7 @@ struct MetricDetailView: View {
 
     private var summaryCard: some View {
         let values = filteredRecords.map(\.primaryValue)
-        let count = Double(values.count)
+        let count = Double(max(values.count, 1))
         let avg = values.reduce(0, +) / count
         let minV = values.min() ?? 0
         let maxV = values.max() ?? 0

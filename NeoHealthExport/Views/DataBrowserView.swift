@@ -127,6 +127,7 @@ struct DataBrowserView: View {
                         Image(systemName: "plus.circle.fill")
                             .font(.title2)
                     }
+                    .accessibilityLabel("Add Record")
                 }
             }
             .sheet(item: $activeSheet) { sheet in
@@ -250,6 +251,8 @@ struct FilterChip: View {
             .overlay(Capsule().strokeBorder(isSelected ? color : .clear, lineWidth: 1))
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityLabel(title)
     }
 }
 

@@ -52,7 +52,7 @@ struct ReportBuilderView: View {
     @EnvironmentObject var dataStore: HealthDataStore
     @Query private var profiles: [UserProfile]
 
-    @State private var startDate: Date = Calendar.current.date(byAdding: .month, value: -1, to: .now)!
+    @State private var startDate: Date = Calendar.current.date(byAdding: .month, value: -1, to: .now) ?? .now
     @State private var endDate: Date = .now
     @State private var selectedMetrics: Set<String> = MetricRegistry.allKnownTypes
     @State private var selectedStyle: ReportStyle = .classic
@@ -61,6 +61,7 @@ struct ReportBuilderView: View {
     @State private var generationStatus = ""
     @State private var showPreview = false
     @State private var cachedFilteredCount: Int = 0
+    @State private var hasInitialized = false
 
     private var availableMetricTypes: Set<String> {
         dataStore.availableMetricTypes
@@ -77,7 +78,10 @@ struct ReportBuilderView: View {
         metricSelectionSection
         generateSection
             .onAppear {
-                selectedMetrics.formUnion(dataStore.availableMetricTypes)
+                if !hasInitialized {
+                    selectedMetrics.formUnion(dataStore.availableMetricTypes)
+                    hasInitialized = true
+                }
                 updateFilteredCount()
             }
             .onChange(of: startDate) { _, _ in renderedPDF = nil; updateFilteredCount() }
@@ -186,7 +190,7 @@ struct ReportBuilderView: View {
             HStack {
                 Text("Metrics to Include")
                 Spacer()
-                if selectedMetrics.count == availableMetricTypes.count {
+                if availableMetricTypes.isSubset(of: selectedMetrics) {
                     Button("Deselect All") {
                         selectedMetrics.removeAll()
                         renderedPDF = nil

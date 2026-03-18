@@ -57,6 +57,8 @@ struct MetricCardView: View {
             }
             .padding(12)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("\(def.name): \(latestValue) \(unit)")
         )
     }
 }

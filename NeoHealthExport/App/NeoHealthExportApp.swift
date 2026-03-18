@@ -3,7 +3,7 @@ import SwiftData
 
 @main
 struct NeoHealthExportApp: App {
-    @State private var containerError: String?
+    @State private var showDataLossAlert = false
 
     var sharedModelContainer: ModelContainer? = {
         let schema = Schema([
@@ -16,14 +16,17 @@ struct NeoHealthExportApp: App {
         do {
             return try ModelContainer(for: schema, configurations: [config])
         } catch {
-            // If migration fails, delete the store and retry
             let url = config.url
+            #if DEBUG
             print("⚠️ ModelContainer creation failed: \(error). Deleting store at \(url) and retrying.")
+            #endif
             try? FileManager.default.removeItem(at: url)
             do {
                 return try ModelContainer(for: schema, configurations: [config])
             } catch {
+                #if DEBUG
                 print("❌ ModelContainer creation failed after retry: \(error)")
+                #endif
                 return nil
             }
         }
@@ -40,6 +43,11 @@ struct NeoHealthExportApp: App {
                         dataStore.setup(container: container)
                     }
                     .modelContainer(container)
+                    .alert("Data Reset Required", isPresented: $showDataLossAlert) {
+                        Button("OK") {}
+                    } message: {
+                        Text("The app's database was incompatible and had to be reset. Your previously stored data has been removed. Health data can be re-imported from Apple Health by syncing again.")
+                    }
             } else {
                 DatabaseErrorView()
             }

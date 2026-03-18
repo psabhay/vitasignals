@@ -786,16 +786,6 @@ struct HealthKitCatalog {
         ))
 
         list.append(Entry(
-            identifier: .insulinDelivery, metricType: "insulinDelivery",
-            name: "Insulin Delivery", unit: { .internationalUnit() },
-            displayUnit: "IU", category: .other, isCumulative: true,
-            icon: "syringe.fill", color: .blue,
-            referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 200, inputStep: 0.5,
-            description: "Units of insulin delivered, tracked for diabetes management."
-        ))
-
-        list.append(Entry(
             identifier: .electrodermalActivity, metricType: "electrodermalActivity",
             name: "Electrodermal Activity", unit: { HKUnit(from: "mcS") },
             displayUnit: "μS", category: .other, isCumulative: false,

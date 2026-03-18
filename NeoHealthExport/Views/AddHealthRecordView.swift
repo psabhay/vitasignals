@@ -147,6 +147,8 @@ struct AddHealthRecordView: View {
                         )
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(context.rawValue)
+                    .accessibilityAddTraits(selectedContext == context ? .isSelected : [])
                 }
             }
             .padding(.vertical, 4)

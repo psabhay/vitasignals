@@ -85,6 +85,7 @@ struct ProfileToolbarModifier: ViewModifier {
                 } label: {
                     Image(systemName: "person.crop.circle")
                 }
+                .accessibilityLabel("Profile")
             }
         }
     }
@@ -168,7 +169,7 @@ struct OnboardingView: View {
                 Section("Personal Information") {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Full Name *").font(.caption).foregroundStyle(.secondary)
-                        TextField("e.g. Abhay Singh", text: $name)
+                        TextField("e.g. John Smith", text: $name)
                             .textContentType(.name)
                             .focused($focusedField, equals: .name)
                     }.padding(.vertical, 2)
@@ -385,7 +386,7 @@ struct ProfileSection: View {
         Section("Personal Information") {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Full Name").font(.caption).foregroundStyle(.secondary)
-                TextField("e.g. Abhay Singh", text: $name)
+                TextField("e.g. John Smith", text: $name)
                     .textContentType(.name)
                     .focused($focusedField, equals: .name)
             }.padding(.vertical, 2)
@@ -531,6 +532,7 @@ struct ProfileSection: View {
             Button("Reset", role: .destructive) {
                 if let dismissed = try? modelContext.fetch(FetchDescriptor<DismissedHealthKitRecord>()) {
                     for d in dismissed { modelContext.delete(d) }
+                    try? modelContext.save()
                 }
             }
             Button("Cancel", role: .cancel) {}
