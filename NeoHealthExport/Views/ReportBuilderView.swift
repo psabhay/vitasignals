@@ -55,6 +55,7 @@ struct ReportBuilderView: View {
     @State private var startDate: Date = Calendar.current.date(byAdding: .month, value: -1, to: .now) ?? .now
     @State private var endDate: Date = .now
     @State private var selectedMetrics: Set<String> = MetricRegistry.allKnownTypes
+    @State private var selectedTemplate: ReportTemplate = .comprehensive
     @State private var selectedStyle: ReportStyle = .classic
     @State private var renderedPDF: URL?
     @State private var isGenerating = false
@@ -73,6 +74,7 @@ struct ReportBuilderView: View {
 
     var body: some View {
         dateRangeSection
+        templateSection
         styleSection
         previewSection
         metricSelectionSection
@@ -86,6 +88,7 @@ struct ReportBuilderView: View {
             }
             .onChange(of: startDate) { _, _ in renderedPDF = nil; updateFilteredCount() }
             .onChange(of: endDate) { _, _ in renderedPDF = nil; updateFilteredCount() }
+            .onChange(of: selectedTemplate) { _, _ in renderedPDF = nil }
     }
 
     // MARK: - Sections
@@ -97,22 +100,25 @@ struct ReportBuilderView: View {
         }
     }
 
-    private var styleSection: some View {
+    private var templateSection: some View {
         Section {
-            ForEach(ReportStyle.allCases) { style in
+            ForEach(ReportTemplate.allTemplates) { template in
                 Button {
-                    selectedStyle = style
+                    selectedTemplate = template
                     renderedPDF = nil
                 } label: {
                     HStack(spacing: 12) {
-                        Image(systemName: selectedStyle.id == style.id ? "checkmark.circle.fill" : "circle")
-                            .foregroundStyle(selectedStyle.id == style.id ? Color.accentColor : .secondary)
+                        Image(systemName: selectedTemplate.id == template.id ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(selectedTemplate.id == template.id ? Color.accentColor : .secondary)
                             .font(.title3)
+                        Image(systemName: template.icon)
+                            .foregroundStyle(selectedTemplate.id == template.id ? Color.accentColor : .secondary)
+                            .frame(width: 20)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(style.name)
+                            Text(template.name)
                                 .font(.headline)
                                 .foregroundStyle(.primary)
-                            Text(style.previewDescription)
+                            Text(template.description)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -120,6 +126,20 @@ struct ReportBuilderView: View {
                     }
                 }
             }
+        } header: {
+            Text("Report Template")
+        }
+    }
+
+    private var styleSection: some View {
+        Section {
+            Picker("Visual Style", selection: $selectedStyle) {
+                ForEach(ReportStyle.allCases) { style in
+                    Text(style.name).tag(style)
+                }
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: selectedStyle) { _, _ in renderedPDF = nil }
         } header: {
             Text("Report Style")
         }
@@ -226,6 +246,9 @@ struct ReportBuilderView: View {
                 .fullScreenCover(isPresented: $showPreview) {
                     if let url = renderedPDF {
                         PDFPreviewView(url: url)
+                    } else {
+                        // PDF was invalidated while preview was open — dismiss
+                        Color.clear.onAppear { showPreview = false }
                     }
                 }
 
@@ -306,6 +329,7 @@ struct ReportBuilderView: View {
         }
         let metrics = selectedAndAvailable
         let style = selectedStyle
+        let template = selectedTemplate
 
         Task.detached(priority: .background) {
             let url = PDFGenerator.generate(
@@ -313,7 +337,8 @@ struct ReportBuilderView: View {
                 selectedMetrics: metrics,
                 periodLabel: periodLabel,
                 profile: profileData,
-                style: style
+                style: style,
+                template: template
             )
             await MainActor.run {
                 renderedPDF = url

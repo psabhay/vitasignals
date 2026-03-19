@@ -301,6 +301,10 @@ struct ProfileSection: View {
     @State private var showResetDismissedConfirmation = false
     @State private var showSaved = false
     @State private var isEditing = false
+    #if DEBUG
+    @State private var showSyntheticDataConfirmation = false
+    @State private var syntheticDataCount: Int?
+    #endif
 
     private enum Field: Hashable {
         case name, age, heightFt, heightIn, weight, doctor, notes
@@ -501,6 +505,16 @@ struct ProfileSection: View {
             } label: {
                 Label("Reset Import History", systemImage: "arrow.counterclockwise")
             }
+
+            #if DEBUG
+            Button {
+                showSyntheticDataConfirmation = true
+            } label: {
+                Label("Generate Synthetic Data (90 days)", systemImage: "wand.and.stars")
+                    .foregroundStyle(.purple)
+            }
+            .disabled(dataStore.recordCount > 0)
+            #endif
         } header: {
             Text("Data Management")
         } footer: {
@@ -537,6 +551,26 @@ struct ProfileSection: View {
             }
             Button("Cancel", role: .cancel) {}
         }
+        #if DEBUG
+        .confirmationDialog("Generate Synthetic Data?", isPresented: $showSyntheticDataConfirmation, titleVisibility: .visible) {
+            Button("Generate 90 Days of Data") {
+                let count = SyntheticDataGenerator.generate(into: modelContext, days: 90)
+                dataStore.refresh()
+                syntheticDataCount = count
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will create ~1500 realistic health records across 15+ metric types spanning the last 90 days. Use this to test the app in the simulator.")
+        }
+        .alert("Synthetic Data Generated", isPresented: Binding(
+            get: { syntheticDataCount != nil },
+            set: { if !$0 { syntheticDataCount = nil } }
+        )) {
+            Button("OK") { syntheticDataCount = nil }
+        } message: {
+            Text("\(syntheticDataCount ?? 0) records created across multiple health metrics.")
+        }
+        #endif
     }
 
     // MARK: - Helpers

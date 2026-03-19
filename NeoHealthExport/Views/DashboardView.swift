@@ -9,6 +9,9 @@ struct DashboardView: View {
     @State private var activeSheet: DashboardSheet?
     @State private var addMetricType: String = MetricType.bloodPressure
     @State private var cachedCardData: [CardData] = []
+    #if DEBUG
+    @State private var isGeneratingData = false
+    #endif
 
     private enum DashboardSheet: Identifiable {
         case metricPicker
@@ -113,6 +116,11 @@ struct DashboardView: View {
                             }
                             .font(.subheadline.bold())
                             .padding(.top, 4)
+
+                            #if DEBUG
+                            Divider().padding(.vertical, 4)
+                            debugGenerateButton
+                            #endif
                         }
                         .padding()
                         .frame(maxWidth: .infinity)
@@ -185,10 +193,32 @@ struct DashboardView: View {
             Text("No Health Data Yet").font(.title2.bold())
             Text("Tap + to log data or sync from Apple Health")
                 .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            #if DEBUG
+            debugGenerateButton
+                .padding(.top, 8)
+            #endif
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 60)
     }
+
+    #if DEBUG
+    private var debugGenerateButton: some View {
+        Button {
+            isGeneratingData = true
+            _ = SyntheticDataGenerator.generate(into: modelContext, days: 90)
+            dataStore.refresh()
+            recomputeCardData()
+            isGeneratingData = false
+            syncManager.permissionDenied = false
+        } label: {
+            Label(isGeneratingData ? "Generating..." : "Load Sample Data (Debug)", systemImage: "wand.and.stars")
+                .font(.subheadline.bold())
+                .foregroundStyle(.purple)
+        }
+        .disabled(isGeneratingData || dataStore.recordCount > 0)
+    }
+    #endif
 
     // MARK: - Latest BP Card
 

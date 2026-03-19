@@ -21,9 +21,11 @@
 		471C94691A2A6698212C198B /* HealthRecordTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BFE444C2108586E85ED23A4 /* HealthRecordTests.swift */; };
 		5D531C3315795C6166AB217F /* MigrationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8ED604E86EF848604F58E685 /* MigrationManager.swift */; };
 		90180D35FE12EE22C91729C6 /* MetricRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9006C3EEFF62E76A23EC7B8 /* MetricRegistryTests.swift */; };
+		A1B2C3D4E5F6A7B8C9D0E1F2 /* ReportTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1E2D3C4B5A69788A1B2C3D4 /* ReportTemplate.swift */; };
 		A44A312E03B457E4A4CF1BB8 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 9A96CCCF06C81237A2D5D4AC /* PrivacyInfo.xcprivacy */; };
 		A95674B150068D95CDCCD5FD /* HealthKitCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8952EDC13AAC128CA6B53C1C /* HealthKitCatalog.swift */; };
 		A9DDAAE0AE092A59BA23CFF8 /* HealthSyncManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34FB05D9F7B4BD70C8C006F6 /* HealthSyncManager.swift */; };
+		AB12CD34EF56789012345678 /* SyntheticDataGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD34EF56AB12789012345678 /* SyntheticDataGenerator.swift */; };
 		BCDB9900EF62C688AAFFFA58 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E036B94DAA3135E804DC5DE /* ContentView.swift */; };
 		C470EDE9B8EC17B39E831E3B /* AddRecordPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B503E8B5C8893448B69F610 /* AddRecordPickerSheet.swift */; };
 		DB184DEE589E9D46F59D6E67 /* MetricRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5411513A2D423DA4926639D /* MetricRegistry.swift */; };
@@ -62,22 +64,24 @@
 		58D54CEDEF341C65335C84BC /* UserProfileTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfileTests.swift; sourceTree = "<group>"; };
 		73EC3B9E77B1D0282D9EEEE3 /* AddHealthRecordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddHealthRecordView.swift; sourceTree = "<group>"; };
 		7BB5FEA41354107DD3BBB5C7 /* ReportStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportStyle.swift; sourceTree = "<group>"; };
-		7BF9F4C4D85077E34FE6E242 /* NeoHealthExport.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = NeoHealthExport.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7BF9F4C4D85077E34FE6E242 /* NeoHealthExport.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NeoHealthExport.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7E036B94DAA3135E804DC5DE /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		834965396D201C3E179743FF /* MetricDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricDetailView.swift; sourceTree = "<group>"; };
 		8952EDC13AAC128CA6B53C1C /* HealthKitCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitCatalog.swift; sourceTree = "<group>"; };
 		8ED604E86EF848604F58E685 /* MigrationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MigrationManager.swift; sourceTree = "<group>"; };
-		9A96CCCF06C81237A2D5D4AC /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		9A96CCCF06C81237A2D5D4AC /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		9F41BC8E636319451B74383C /* UserProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfile.swift; sourceTree = "<group>"; };
 		A6403B2E181825E688D69D58 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		B48E4AA12D1E6A15C145B8B7 /* NeoHealthExportTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = NeoHealthExportTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B48E4AA12D1E6A15C145B8B7 /* NeoHealthExportTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NeoHealthExportTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		BAD8193E56D8F78A50C57910 /* PDFGeneratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFGeneratorTests.swift; sourceTree = "<group>"; };
 		BF1D75A09F0A87A6408277F5 /* DataBrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataBrowserView.swift; sourceTree = "<group>"; };
 		C247496D328936868E149381 /* DismissedHealthKitRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DismissedHealthKitRecord.swift; sourceTree = "<group>"; };
+		CD34EF56AB12789012345678 /* SyntheticDataGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyntheticDataGenerator.swift; sourceTree = "<group>"; };
 		D15A655D971A10106FBF8BF0 /* HealthDataStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthDataStore.swift; sourceTree = "<group>"; };
 		D254597A1D00CFE14A756072 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		D43335F0F57BCE502C357DE7 /* PDFGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFGenerator.swift; sourceTree = "<group>"; };
 		EE10DED4D3F722478682728E /* ChartsContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartsContainerView.swift; sourceTree = "<group>"; };
+		F1E2D3C4B5A69788A1B2C3D4 /* ReportTemplate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportTemplate.swift; sourceTree = "<group>"; };
 		F22EA529A303152FDF93BE9C /* NeoHealthExport.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = NeoHealthExport.entitlements; sourceTree = "<group>"; };
 		F5411513A2D423DA4926639D /* MetricRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricRegistry.swift; sourceTree = "<group>"; };
 		F9006C3EEFF62E76A23EC7B8 /* MetricRegistryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricRegistryTests.swift; sourceTree = "<group>"; };
@@ -101,6 +105,7 @@
 				34FB05D9F7B4BD70C8C006F6 /* HealthSyncManager.swift */,
 				8ED604E86EF848604F58E685 /* MigrationManager.swift */,
 				D43335F0F57BCE502C357DE7 /* PDFGenerator.swift */,
+				CD34EF56AB12789012345678 /* SyntheticDataGenerator.swift */,
 			);
 			path = Helpers;
 			sourceTree = "<group>";
@@ -182,6 +187,7 @@
 				1F80709BE351CFDDA1EAF81F /* HealthRecord.swift */,
 				F5411513A2D423DA4926639D /* MetricRegistry.swift */,
 				7BB5FEA41354107DD3BBB5C7 /* ReportStyle.swift */,
+				F1E2D3C4B5A69788A1B2C3D4 /* ReportTemplate.swift */,
 				545E0EE5A12EAA0AAB084149 /* SyncState.swift */,
 				9F41BC8E636319451B74383C /* UserProfile.swift */,
 			);
@@ -234,7 +240,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1600;
+				LastUpgradeCheck = 2630;
 				TargetAttributes = {
 					CCA3E7558AC149C4DFBBF2ED = {
 						DevelopmentTeam = U433W77Z44;
@@ -303,7 +309,9 @@
 				3C86E380033CE981B8B20D73 /* RecordDetailView.swift in Sources */,
 				0CE4C94A1012847E3A193563 /* ReportBuilderView.swift in Sources */,
 				24231111510480D9FDAFFE9A /* ReportStyle.swift in Sources */,
+				A1B2C3D4E5F6A7B8C9D0E1F2 /* ReportTemplate.swift in Sources */,
 				F72109E2DBC5E32200007203 /* SyncState.swift in Sources */,
+				AB12CD34EF56789012345678 /* SyntheticDataGenerator.swift in Sources */,
 				FA779B825BBD1B3666039AB0 /* UserProfile.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -348,7 +356,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.abhaysingh.neohealthexport;
 				SDKROOT = iphoneos;
 				SUPPORTS_XR_DESIGNED_FOR = NO;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
@@ -404,7 +412,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.abhaysingh.neohealthexport;
 				SDKROOT = iphoneos;
 				SUPPORTS_XR_DESIGNED_FOR = NO;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};
@@ -446,6 +454,7 @@
 				DEVELOPMENT_TEAM = U433W77Z44;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -459,6 +468,7 @@
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.9;
@@ -503,6 +513,7 @@
 				DEVELOPMENT_TEAM = U433W77Z44;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -523,6 +534,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.9;
