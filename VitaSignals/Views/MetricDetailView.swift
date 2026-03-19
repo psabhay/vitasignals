@@ -5,6 +5,7 @@ struct MetricDetailView: View {
     let metricType: String
     @EnvironmentObject var dataStore: HealthDataStore
     @State private var timeRange: ChartTimeRange = .month
+    @State private var selectedRecord: HealthRecord?
 
     private var definition: MetricDefinition? {
         MetricRegistry.definition(for: metricType)
@@ -52,6 +53,9 @@ struct MetricDetailView: View {
         }
         .navigationTitle(definition?.name ?? "Metric")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(item: $selectedRecord) { record in
+            RecordDetailView(record: record)
+        }
     }
 
     // MARK: - Summary Card
@@ -189,21 +193,29 @@ struct MetricDetailView: View {
             }
 
             ForEach(recent) { record in
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(record.formattedPrimaryValue)
-                            .font(.subheadline.bold().monospacedDigit())
-                        if let def = definition {
-                            Text(def.unit).font(.caption2).foregroundStyle(.secondary)
+                Button {
+                    selectedRecord = record
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(record.formattedPrimaryValue)
+                                .font(.subheadline.bold().monospacedDigit())
+                            if let def = definition {
+                                Text(def.unit).font(.caption2).foregroundStyle(.secondary)
+                            }
                         }
+                        Spacer()
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text(record.formattedDateOnly).font(.caption).foregroundStyle(.secondary)
+                            Text(record.formattedTimeOnly).font(.caption2).foregroundStyle(.tertiary)
+                        }
+                        Image(systemName: "chevron.right")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
                     }
-                    Spacer()
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text(record.formattedDateOnly).font(.caption).foregroundStyle(.secondary)
-                        Text(record.formattedTimeOnly).font(.caption2).foregroundStyle(.tertiary)
-                    }
+                    .padding(.vertical, 4)
                 }
-                .padding(.vertical, 4)
+                .tint(.primary)
                 if record.id != recent.last?.id {
                     Divider()
                 }

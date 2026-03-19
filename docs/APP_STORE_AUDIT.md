@@ -1,15 +1,15 @@
-# Neo Health Export — App Store Audit & Optimization Report
+# VitaSignals — App Store Audit & Optimization Report
 
 **Date:** March 18, 2026
 **App Version:** 1.0.0
-**Bundle ID:** com.abhaysingh.neohealthexport
+**Bundle ID:** com.abhaysingh.vitasignals
 **Deployment Target:** iOS 17.0
 
 ---
 
 ## App Overview
 
-Neo Health Export is a health data tracking app that syncs with Apple HealthKit, allows manual entry of health metrics (blood pressure, heart rate, sleep, weight, and 50+ more), displays interactive charts/trends, and generates professional PDF reports for healthcare providers.
+VitaSignals is a health data tracking app that syncs with Apple HealthKit, allows manual entry of health metrics (blood pressure, heart rate, sleep, weight, and 50+ more), displays interactive charts/trends, and generates professional PDF reports for healthcare providers.
 
 ---
 
@@ -32,7 +32,7 @@ Neo Health Export is a health data tracking app that syncs with Apple HealthKit,
 | 2.5.1 — No Private APIs | ✅ | Only Apple public frameworks used |
 | Launch Screen | ✅ | `UILaunchScreen` key present |
 | No Unused Capabilities | ✅ | `UIBackgroundModes` removed (was unused) |
-| Naming Consistency | ✅ | All user-facing strings say "Neo Health Export" |
+| Naming Consistency | ✅ | All user-facing strings say "VitaSignals" |
 
 ### ⚠️ Remaining Action (Non-Code)
 

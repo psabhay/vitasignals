@@ -1,8 +1,10 @@
-# Neo Health Export
+# VitaSignals
 
-A fully offline iOS health data app that imports data from Apple Health and lets users manually log readings, then generates professional PDF reports to share with their doctor. No accounts, no servers, no tracking — everything stays on-device.
+A fully offline iOS health tracking and visualization app. Its core feature is **multi-metric comparison** — users can see all their health metrics (blood pressure, heart rate, steps, sleep, weight, and 50+ more) charted side-by-side with aligned time axes, making it easy to spot correlations and trends across metrics. The app imports data from Apple Health, lets users manually log readings, surfaces smart trend insights on the dashboard, and can export PDF reports to share with a doctor.
 
-**Bundle ID:** `com.abhaysingh.neohealthexport`
+No accounts, no servers, no tracking — everything stays on-device.
+
+**Bundle ID:** `com.abhaysingh.vitasignals`
 **Platform:** iOS 17.0+
 **Architecture:** SwiftUI + SwiftData
 **Dependencies:** Zero third-party — Apple frameworks only (HealthKit, PDFKit, Swift Charts)
@@ -10,6 +12,8 @@ A fully offline iOS health data app that imports data from Apple Health and lets
 ---
 
 ## Features
+
+> **The Charts tab is the heart of the app.** Multi-metric comparison — seeing how health metrics relate and trend together — is the primary value proposition. The dashboard teases these insights with trend badges and highlights. PDF export is a secondary convenience for sharing with healthcare providers.
 
 ### HealthKit Sync
 
@@ -23,15 +27,47 @@ A fully offline iOS health data app that imports data from Apple Health and lets
 
 ### Dashboard (Tab 1)
 
-- Latest BP reading with large systolic/diastolic display, pulse, activity context, and AHA classification badge (Normal / Elevated / High Stage 1 / High Stage 2 / Hypertensive Crisis)
-- 7-day BP average card (systolic, diastolic, pulse)
-- Mini 7-day BP trend chart with dual systolic (red) and diastolic (blue) lines and dashed reference markers at 120/80 mmHg
-- 2-column grid of metric cards for every non-BP metric with data — each shows metric icon, name, latest value, unit, and a 7-day sparkline
-- Tapping a metric card navigates to a detailed Metric Detail View
-- Today's BP readings list with time, value, pulse, context, and category badge
+- **Personalized greeting** — time-of-day greeting ("Good morning, [Name]") using the user's profile, with sync status below
+- **Highlights card** — smart auto-generated insights:
+  - Today's reading count ("3 readings recorded today")
+  - Top 2 trend movers ("Blood Pressure down 4% this week") — compares 7-day average to previous 7-day average, color-coded green/orange based on whether the direction is healthy for that metric
+  - Logging streak ("5-day logging streak") when 3+ consecutive days have data
+- **Health Overview strip** — horizontal scrollable cards for ALL metrics with data, each showing:
+  - Metric icon + name
+  - Latest value in bold rounded type
+  - Unit + trend badge (arrow + percentage change vs prior week)
+  - 7-day sparkline with area fill
+  - Tapping a card navigates to the Metric Detail View
+- **Blood Pressure Trend card** — combined card with:
+  - Latest BP reading (large systolic/diastolic), pulse, AHA classification badge
+  - 7-day mini chart (systolic red, diastolic blue, reference lines at 120/80)
+  - 7-day average and reading count footer
+- **Recent Activity feed** — cross-metric list of the last 8 records showing metric icon, formatted value, metric name, timestamp (time-only for today, date + time otherwise), and BP category badge where applicable
 - Permission-denied banner with "Open Settings" link when HealthKit access is blocked
 - Sync progress indicator during active sync
-- Empty state when no data exists
+- Empty state with sample data generator (debug builds)
+
+### Charts & Metric Comparison (Tab 3) — Core Feature
+
+The Charts tab is the centerpiece of the app. It enables users to **visually compare any combination of health metrics over the same time period**, making it easy to spot correlations (e.g., does BP improve when steps increase? does sleep affect heart rate variability?).
+
+- **Comparison-first design** — all selected metrics are shown simultaneously as compact chart cards stacked vertically, each sharing the same time-axis domain (`chartXScale`). All metrics start visible by default; users narrow down via the filter sheet.
+- **Metric comparison controls** — users choose which metrics to compare by toggling them on/off in the filter sheet. Deselecting a metric removes its chart card; selecting it adds it back. Select All shows every metric side-by-side; Deselect All clears the view for manual picks. The filter bar always shows the active count (e.g., "5 of 12 metrics").
+- **Inline filter bar** — always-visible tappable bar at the top showing current date range and metric count (e.g., "7 Days · All 8 metrics · Edit"). Opens the filter sheet on tap.
+- **Filter sheet** (half-sheet / full-sheet):
+  - **Date range:** preset options (7 Days / 14 Days / 30 Days / 90 Days / All Time) with checkmark selection, plus expandable "Custom Range" with From/To date pickers
+  - **Metric selection:** organized by category (`DisclosureGroup`), individual toggles per metric, Select All / Deselect All in the header. Shows ALL metrics with any data regardless of date range — metric availability is decoupled from date filtering to avoid circular dependencies.
+- **Export button** — in the filter bar area, passes current visible metrics and date range to the Reports tab for PDF generation
+- **Compact chart cards** (`ComparisonBPChart` / `ComparisonMetricChart`):
+  - Header with metric icon, name, latest value, and chevron
+  - 180pt chart with shared X-axis domain (`chartXScale`)
+  - Summary footer (average, reading count)
+  - Tappable — expands inline to full detail view
+- **Expanded view** (tap a compact card):
+  - **Blood pressure** shows the full 6-chart suite: BP Trend (dual systolic/diastolic lines), Pulse Trend (area + line), Summary Card (average BP with AHA classification, pulse, % normal, ranges), Weekly Averages (gradient bar), Time of Day Comparison (Morning/Afternoon/Evening stat cards), Mean Arterial Pressure (MAP + Pulse Pressure lines)
+  - **Non-BP metrics** show: larger 220pt chart with reference lines, summary stats (average/min/max, % in normal range), and recent records list (up to 10)
+  - Expanded cards have a tinted border and a down-chevron header to collapse
+- **GenericMetricChart** — line or bar chart (based on metric definition) with reference range overlays and avg/range summary
 
 ### Data Browser (Tab 2)
 
@@ -42,19 +78,6 @@ A fully offline iOS health data app that imports data from Apple Health and lets
 - Swipe left to delete (writes tombstone for HealthKit records)
 - Swipe right to open edit view
 - Tap row to open full record detail
-
-### Charts (Tab 3)
-
-- Segmented time range picker: 7 Days / 14 Days / 30 Days / 90 Days / All Time
-- Horizontal metric picker chips for switching between any available metric type
-- **Blood pressure mode** renders 6 chart cards:
-  1. **BP Trend** — dual line chart (systolic + diastolic) with Catmull-Rom interpolation and reference lines at 120/80
-  2. **Pulse Trend** — area + line chart
-  3. **Summary Card** — average BP with classification, average pulse, % in normal range, systolic/diastolic ranges
-  4. **Weekly Averages** — gradient bar chart showing diastolic-to-systolic range per week
-  5. **Time of Day Comparison** — stat cards for Morning (5am–12pm), Afternoon (12pm–5pm), Evening (5pm–5am)
-  6. **Mean Arterial Pressure** — dual line chart for MAP and Pulse Pressure with normal range (70–100 mmHg)
-- **Generic metric mode** for any non-BP metric: line or bar chart (based on metric definition) with reference range overlays and avg/range summary
 
 ### Metric Detail View
 
@@ -70,6 +93,8 @@ A fully offline iOS health data app that imports data from Apple Health and lets
 - Per-metric selection with expandable category disclosure groups and individual toggles
 - Select All / Deselect All for quick toggling
 - Preview summary: record count in range, metric type count, patient name
+- **Charts → Reports handoff:** tapping "Export" on the Charts tab switches to Reports and pre-populates the date range and metric selection from the current chart filters
+- 4 report templates: Comprehensive, Summary, Cardio Focus, Provider Report
 - 3 PDF report styles:
   - **Classic** — navy blue accent, system fonts, professional layout
   - **Modern** — teal/green accent, heavier fonts, softer feel
@@ -97,11 +122,12 @@ The generated report is US Letter size (612×792 pt) with 48pt margins and inclu
 
 - Entry points: "+" button on Dashboard and Data Browser tabs
 - `AddRecordPickerSheet`: category-grouped 2-column grid of all available metric types
-- **Blood pressure form:** steppers for systolic (60–300), diastolic (30–200), pulse (30–220); live "SYS/DIA" preview with animated category badge; 18 activity context buttons in a 2-column grid
-- **Sleep form:** 0.5-hour step slider (0–24 hours) with large hour display
-- **Generic metric form:** stepper with per-metric min/max/step bounds and value display in metric color
+- **Unified form** (`HealthRecordFormView`): single view handles both add and edit, with metric-specific layouts:
+  - **Blood pressure:** steppers for systolic (60–300), diastolic (30–200), pulse (30–220); live "SYS/DIA" preview with animated category badge; 18 activity context buttons in a 2-column grid
+  - **Sleep:** 0.5-hour step slider (0–24 hours) with large hour display
+  - **Generic metrics:** stepper with per-metric min/max/step bounds and value display in metric color
 - All forms include: date/time picker, optional notes text field
-- Edit any existing record with the same form layouts, pre-populated from the record
+- Edit mode pre-populates from the existing record
 
 ### Activity Contexts (Blood Pressure)
 
@@ -221,9 +247,10 @@ All SwiftUI Views (via @EnvironmentObject)
 ### Performance Optimizations
 
 - Single shared `HealthDataStore` eliminates redundant `@Query` loads across views
-- `allRecords` is a lazy computed property to avoid a second full copy in memory
+- `allRecords` is a `@Published` property populated once during `refresh()`
 - Main fetch capped at 5,000 records; report fetch capped at 10,000
-- Dashboard card data cached in `@State`, recomputed only when `recordCount` changes
+- Dashboard metric summaries, trend percentages, and highlights are cached in `@State`, recomputed only when `recordCount` changes
+- Charts `allMetricsWithData` is date-independent to avoid circular filter dependencies; `visibleMetricTypes` layers on both user selection and date-range filtering
 - Data Browser uses a single `FilteredResult` struct computed once per render
 - PDF generation runs on `Task.detached(priority: .background)`
 - HealthKit sync uses up to 6 parallel tasks via `withTaskGroup`
@@ -260,34 +287,35 @@ All SwiftUI Views (via @EnvironmentObject)
 ## Project Structure
 
 ```
-NeoHealthExport/
+VitaSignals/
 ├── App/
-│   └── NeoHealthExportApp.swift              — Entry point, SwiftData schema, container setup
+│   └── VitaSignalsApp.swift                  — Entry point, SwiftData schema, container setup
 ├── Models/
-│   ├── HealthRecord.swift                    — Core entity, BPCategory, ActivityContext
+│   ├── HealthRecord.swift                    — Core entity, BPCategory, ActivityContext, MetricType
 │   ├── HealthKitCatalog.swift                — ~55 extended HK metric entries
 │   ├── MetricRegistry.swift                  — Metric definitions, categories, chart styles
 │   ├── ReportStyle.swift                     — Classic/Modern/Clinical PDF themes
+│   ├── ReportTemplate.swift                  — Comprehensive/Summary/Cardio/Provider templates
 │   ├── UserProfile.swift                     — User profile entity with BMI
 │   ├── SyncState.swift                       — Per-metric sync timestamp
 │   └── DismissedHealthKitRecord.swift        — Tombstone for deleted HK records
 ├── Views/
-│   ├── ContentView.swift                     — Tab shell, onboarding, profile sheet
-│   ├── DashboardView.swift                   — Main dashboard with BP card, metric grid, charts
+│   ├── ContentView.swift                     — Tab shell, onboarding, profile sheet, export handoff
+│   ├── DashboardView.swift                   — Greeting, highlights, metric strip, BP trend, activity feed
 │   ├── DataBrowserView.swift                 — Filterable record list, FilterChip
-│   ├── ChartsContainerView.swift             — All BP analysis charts + generic metric chart
+│   ├── ChartsContainerView.swift             — Comparison chart cards, filter sheet, ChartTimeRange, ChartExportRequest
+│   ├── ComparisonChartView.swift             — Compact BP and metric chart cards with tap-to-expand
 │   ├── MetricDetailView.swift                — Per-metric detail with summary + chart
-│   ├── MetricCardView.swift                  — Compact metric card with sparkline
-│   ├── ReportBuilderView.swift               — Report config UI, PDF preview/share
+│   ├── MetricCardView.swift                  — Compact metric card with sparkline (legacy)
+│   ├── ReportBuilderView.swift               — Report config UI, PDF preview/share, export request intake
 │   ├── AddRecordPickerSheet.swift            — Metric type selector for adding records
-│   ├── AddHealthRecordView.swift             — Add form (BP/sleep/generic)
-│   ├── EditHealthRecordView.swift            — Edit form (same layouts, pre-populated)
+│   ├── HealthRecordFormView.swift            — Unified add/edit form (BP/sleep/generic)
 │   └── RecordDetailView.swift                — Record inspector with edit/delete
 ├── Helpers/
 │   ├── HealthSyncManager.swift               — HealthKit auth, discovery, incremental sync
 │   ├── HealthDataStore.swift                 — Shared in-memory record cache
 │   ├── PDFGenerator.swift                    — CoreGraphics PDF renderer
-│   └── MigrationManager.swift                — DB migration stub
+│   └── SyntheticDataGenerator.swift          — Debug-only sample data generator
 ├── Resources/
 │   ├── Assets.xcassets/                      — App icon, accent color
 │   └── PrivacyInfo.xcprivacy                 — Privacy manifest

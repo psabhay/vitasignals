@@ -133,7 +133,8 @@ final class HealthRecord {
 
     var systolic: Int { Int(primaryValue) }
     var diastolic: Int { Int(secondaryValue ?? 0) }
-    var pulse: Int { Int(tertiaryValue ?? 0) }
+    var pulseOptional: Int? { tertiaryValue.map { Int($0) } }
+    var pulse: Int { pulseOptional ?? 0 }
 
     var bpCategory: BPCategory {
         BPCategory.classify(systolic: systolic, diastolic: diastolic)

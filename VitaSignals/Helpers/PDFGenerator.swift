@@ -109,7 +109,7 @@ struct PDFGenerator {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("Health_Report_\(dateStamp()).pdf")
         UIGraphicsBeginPDFContextToFile(url.path, CGRect(x: 0, y: 0, width: pw, height: ph), [
             kCGPDFContextTitle as String: "Health Report",
-            kCGPDFContextCreator as String: "Neo Health Export"
+            kCGPDFContextCreator as String: "VitaSignals"
         ])
         guard let ctx = UIGraphicsGetCurrentContext() else { return nil }
         let s = State(ctx, style: style)
@@ -469,7 +469,7 @@ struct PDFGenerator {
             let white = UIColor.white
             let appA: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 7.5, weight: .semibold),
                                                         .foregroundColor: white.withAlphaComponent(0.65), .kern: 1.2 as NSNumber]
-            ("NEO HEALTH EXPORT" as NSString).draw(at: CGPoint(x: m, y: 14), withAttributes: appA)
+            ("VITASIGNALS" as NSString).draw(at: CGPoint(x: m, y: 14), withAttributes: appA)
             let titleA: [NSAttributedString.Key: Any] = [.font: s.style.titleFont, .foregroundColor: white]
             ("Health Summary" as NSString).draw(at: CGPoint(x: m, y: 32), withAttributes: titleA)
             if let profile, !profile.name.isEmpty {
@@ -498,7 +498,7 @@ struct PDFGenerator {
             let white = UIColor.white
             let appA: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 7.5, weight: .semibold),
                                                         .foregroundColor: white.withAlphaComponent(0.5), .kern: 1.5 as NSNumber]
-            ("NEO HEALTH EXPORT" as NSString).draw(at: CGPoint(x: m, y: 16), withAttributes: appA)
+            ("VITASIGNALS" as NSString).draw(at: CGPoint(x: m, y: 16), withAttributes: appA)
             let titleA: [NSAttributedString.Key: Any] = [.font: s.style.titleFont, .foregroundColor: white]
             ("Health Summary" as NSString).draw(at: CGPoint(x: m, y: 38), withAttributes: titleA)
             let infoA: [NSAttributedString.Key: Any] = [.font: s.style.sectionSubtitleFont, .foregroundColor: white.withAlphaComponent(0.7)]
@@ -513,7 +513,7 @@ struct PDFGenerator {
         case .document:
             s.y = m
             let appA: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 8, weight: .medium), .foregroundColor: s.style.mutedTextColor]
-            ("Neo Health Export" as NSString).draw(at: CGPoint(x: m, y: s.y), withAttributes: appA)
+            ("VitaSignals" as NSString).draw(at: CGPoint(x: m, y: s.y), withAttributes: appA)
             if let profile, !profile.name.isEmpty {
                 let nameA: [NSAttributedString.Key: Any] = [.font: s.style.bodyMediumFont, .foregroundColor: s.style.primaryTextColor]
                 let nameSize = (profile.name as NSString).size(withAttributes: nameA)

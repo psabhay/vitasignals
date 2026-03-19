@@ -40,7 +40,7 @@ struct RecordDetailView: View {
                 }
             }
             .sheet(isPresented: $showEditSheet) {
-                EditHealthRecordView(record: record)
+                HealthRecordFormView(metricType: record.metricType, record: record)
             }
             .confirmationDialog("Delete this record?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
                 Button("Delete", role: .destructive) {
@@ -111,8 +111,13 @@ struct RecordDetailView: View {
                         .foregroundStyle(.blue)
                 }
                 LabeledContent("Pulse") {
-                    Text("\(record.pulse) bpm")
-                        .foregroundStyle(.pink)
+                    if let p = record.pulseOptional {
+                        Text("\(p) bpm")
+                            .foregroundStyle(.pink)
+                    } else {
+                        Text("N/A")
+                            .foregroundStyle(.secondary)
+                    }
                 }
             } else if record.metricType == MetricType.sleepDuration {
                 LabeledContent("Duration") {

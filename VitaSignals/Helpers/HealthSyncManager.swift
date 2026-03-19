@@ -20,6 +20,15 @@ final class HealthSyncManager: ObservableObject {
     private let store = HKHealthStore()
     private let worker = SyncWorker()
 
+    private static let lastSyncKey = "lastSyncDate"
+
+    init() {
+        let stored = UserDefaults.standard.double(forKey: Self.lastSyncKey)
+        if stored > 0 {
+            lastSyncDate = Date(timeIntervalSince1970: stored)
+        }
+    }
+
     static var isAvailable: Bool {
         HKHealthStore.isHealthDataAvailable()
     }
@@ -102,6 +111,7 @@ final class HealthSyncManager: ObservableObject {
         dataStore.refresh()
 
         lastSyncDate = .now
+        UserDefaults.standard.set(Date.now.timeIntervalSince1970, forKey: Self.lastSyncKey)
         syncProgress = ""
         isSyncing = false
     }
@@ -387,7 +397,13 @@ private final class SyncWorker: Sendable {
             let dayStart = calendar.startOfDay(for: date)
             let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
             let existing = existingRecords(for: MetricType.sleepDuration, from: dayStart, to: dayEnd, context: context)
-            if existing.isEmpty {
+            if let existingRecord = existing.first(where: { !$0.isManualEntry }) {
+                let newHours = duration / 3600
+                if abs(existingRecord.primaryValue - newHours) > 0.01 {
+                    existingRecord.primaryValue = newHours
+                    existingRecord.durationSeconds = duration
+                }
+            } else if existing.isEmpty {
                 context.insert(HealthRecord(
                     metricType: MetricType.sleepDuration,
                     timestamp: date, primaryValue: duration / 3600,

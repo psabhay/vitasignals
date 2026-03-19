@@ -138,7 +138,7 @@ struct DataBrowserView: View {
                         activeSheet = .addForm(selectedType)
                     }
                 case .addForm(let type):
-                    AddHealthRecordView(metricType: type)
+                    HealthRecordFormView(metricType: type)
                 case .recordDetail(let record):
                     RecordDetailView(record: record)
                 }

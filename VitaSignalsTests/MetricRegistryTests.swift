@@ -1,5 +1,5 @@
 import XCTest
-@testable import NeoHealthExport
+@testable import VitaSignals
 
 final class MetricRegistryTests: XCTestCase {
 

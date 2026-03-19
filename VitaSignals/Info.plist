@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>Neo Health Export</string>
+	<string>VitaSignals</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -41,6 +41,6 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>NSHealthShareUsageDescription</key>
-	<string>Neo Health Export reads your health and wellness data from Apple Health — including vitals, blood pressure, heart rate, respiratory metrics, activity, sleep, nutrition, body measurements, mobility, and other available metrics — to generate comprehensive health reports for your healthcare provider. All data remains on your device.</string>
+	<string>VitaSignals reads your health and wellness data from Apple Health — including vitals, blood pressure, heart rate, respiratory metrics, activity, sleep, nutrition, body measurements, mobility, and other available metrics — to generate comprehensive health reports for your healthcare provider. All data remains on your device.</string>
 </dict>
 </plist>
