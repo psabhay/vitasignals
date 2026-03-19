@@ -8,6 +8,7 @@ struct ContentView: View {
     @State private var selectedTab = 0
     @State private var showProfile = false
     @State private var hasCompletedOnboarding = false
+    @State private var chartExportRequest: ChartExportRequest?
     @StateObject private var syncManager = HealthSyncManager()
 
     private var hasProfile: Bool {
@@ -25,11 +26,14 @@ struct ContentView: View {
                 .tabItem { Label("Data", systemImage: "list.bullet.clipboard") }
                 .tag(1)
 
-            ChartsContainerView()
+            ChartsContainerView(onExport: { request in
+                    chartExportRequest = request
+                    selectedTab = 3
+                })
                 .tabItem { Label("Charts", systemImage: "chart.xyaxis.line") }
                 .tag(2)
 
-            ReportsTab()
+            ReportsTab(exportRequest: $chartExportRequest)
                 .tabItem { Label("Reports", systemImage: "doc.text") }
                 .tag(3)
         }
@@ -612,13 +616,22 @@ struct ProfileSection: View {
 // MARK: - Reports Tab
 
 struct ReportsTab: View {
+    @EnvironmentObject var dataStore: HealthDataStore
+    @Binding var exportRequest: ChartExportRequest?
+
     var body: some View {
         NavigationStack {
-            List {
-                ReportBuilderView()
+            if dataStore.recordCount == 0 {
+                ContentUnavailableView(
+                    "No Health Data",
+                    systemImage: "doc.text",
+                    description: Text("Once you have health records, you can generate PDF reports here. Sync from Apple Health or add records manually.")
+                )
+                .navigationTitle("Reports")
+                .withProfileButton()
+            } else {
+                ReportBuilderView(exportRequest: $exportRequest)
             }
-            .navigationTitle("Reports")
-            .withProfileButton()
         }
     }
 }

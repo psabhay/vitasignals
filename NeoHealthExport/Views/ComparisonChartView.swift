@@ -1,0 +1,240 @@
+import SwiftUI
+import Charts
+
+// MARK: - Comparison Metric Chart
+
+struct ComparisonMetricChart: View {
+    let records: [HealthRecord]
+    let definition: MetricDefinition
+    let xDomain: ClosedRange<Date>
+    var onTap: (() -> Void)? = nil
+
+    var body: some View {
+        Button {
+            onTap?()
+        } label: {
+            cardContent
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var cardContent: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            // Header
+            HStack(spacing: 8) {
+                Image(systemName: definition.icon)
+                    .foregroundStyle(definition.color)
+                    .font(.subheadline)
+                Text(definition.name)
+                    .font(.subheadline.bold())
+                Spacer()
+                if let latest = records.last {
+                    Text("\(definition.formatValue(latest.primaryValue)) \(definition.unit)")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+                Image(systemName: "chevron.right")
+                    .font(.caption2.bold())
+                    .foregroundStyle(.tertiary)
+            }
+
+            if records.count >= 2 {
+                Chart {
+                    ForEach(records) { record in
+                        if definition.chartStyle == .bar {
+                            BarMark(
+                                x: .value("Date", record.timestamp, unit: .day),
+                                y: .value(definition.unit, record.primaryValue)
+                            )
+                            .foregroundStyle(definition.color.opacity(0.7))
+                        } else {
+                            LineMark(
+                                x: .value("Date", record.timestamp),
+                                y: .value(definition.unit, record.primaryValue)
+                            )
+                            .foregroundStyle(definition.color)
+                            .interpolationMethod(.catmullRom)
+
+                            AreaMark(
+                                x: .value("Date", record.timestamp),
+                                y: .value(definition.unit, record.primaryValue)
+                            )
+                            .foregroundStyle(definition.color.opacity(0.08))
+                            .interpolationMethod(.catmullRom)
+                        }
+                    }
+
+                    if let refMin = definition.referenceMin {
+                        RuleMark(y: .value("Min", refMin))
+                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                            .foregroundStyle(.green.opacity(0.4))
+                    }
+                    if let refMax = definition.referenceMax {
+                        RuleMark(y: .value("Max", refMax))
+                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                            .foregroundStyle(.green.opacity(0.4))
+                    }
+                }
+                .chartXScale(domain: xDomain)
+                .chartXAxis {
+                    AxisMarks(values: .automatic(desiredCount: 5)) { _ in
+                        AxisGridLine()
+                        AxisValueLabel(format: .dateTime.month(.abbreviated).day(), anchor: .top)
+                    }
+                }
+                .chartYAxis { AxisMarks(position: .leading) }
+                .frame(height: 180)
+            } else if records.count == 1 {
+                HStack {
+                    Text(definition.formatValue(records[0].primaryValue))
+                        .font(.title2.bold().monospacedDigit())
+                    Text(definition.unit)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text("1 data point")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+                .padding(.vertical, 8)
+            } else {
+                Text("No data in this range")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
+            }
+
+            // Summary footer
+            if records.count >= 2 {
+                let values = records.map(\.primaryValue)
+                let avg = values.reduce(0, +) / Double(values.count)
+                HStack {
+                    Text("Avg: \(definition.formatValue(avg)) \(definition.unit)")
+                    Spacer()
+                    Text("\(records.count) readings")
+                }
+                .font(.caption2.monospacedDigit())
+                .foregroundStyle(.tertiary)
+            }
+        }
+        .padding()
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .padding(.horizontal)
+        .contentShape(Rectangle())
+    }
+}
+
+// MARK: - Comparison BP Chart
+
+struct ComparisonBPChart: View {
+    let records: [HealthRecord]
+    let xDomain: ClosedRange<Date>
+    var onTap: (() -> Void)? = nil
+
+    var body: some View {
+        Button {
+            onTap?()
+        } label: {
+            cardContent
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var cardContent: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            // Header
+            HStack(spacing: 8) {
+                Image(systemName: "heart.fill")
+                    .foregroundStyle(.red)
+                    .font(.subheadline)
+                Text("Blood Pressure")
+                    .font(.subheadline.bold())
+                Spacer()
+                if let latest = records.last {
+                    Text("\(latest.systolic)/\(latest.diastolic) mmHg")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+                Image(systemName: "chevron.right")
+                    .font(.caption2.bold())
+                    .foregroundStyle(.tertiary)
+            }
+
+            if records.count >= 2 {
+                Chart {
+                    ForEach(records) { record in
+                        LineMark(
+                            x: .value("Date", record.timestamp),
+                            y: .value("mmHg", record.systolic),
+                            series: .value("Type", "Systolic")
+                        )
+                        .foregroundStyle(.red)
+                        .interpolationMethod(.catmullRom)
+
+                        LineMark(
+                            x: .value("Date", record.timestamp),
+                            y: .value("mmHg", record.diastolic),
+                            series: .value("Type", "Diastolic")
+                        )
+                        .foregroundStyle(.blue)
+                        .interpolationMethod(.catmullRom)
+                    }
+
+                    RuleMark(y: .value("Ref", 120))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                        .foregroundStyle(.red.opacity(0.3))
+                    RuleMark(y: .value("Ref", 80))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                        .foregroundStyle(.blue.opacity(0.3))
+                }
+                .chartXScale(domain: xDomain)
+                .chartXAxis {
+                    AxisMarks(values: .automatic(desiredCount: 5)) { _ in
+                        AxisGridLine()
+                        AxisValueLabel(format: .dateTime.month(.abbreviated).day(), anchor: .top)
+                    }
+                }
+                .chartYAxis { AxisMarks(position: .leading) }
+                .chartLegend(position: .bottom)
+                .frame(height: 180)
+            } else if records.count == 1 {
+                HStack {
+                    Text("\(records[0].systolic)/\(records[0].diastolic)")
+                        .font(.title2.bold().monospacedDigit())
+                    Text("mmHg")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text("1 data point")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+                .padding(.vertical, 8)
+            } else {
+                Text("No data in this range")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
+            }
+
+            // Summary footer
+            if records.count >= 2 {
+                let avgSys = records.map(\.systolic).reduce(0, +) / records.count
+                let avgDia = records.map(\.diastolic).reduce(0, +) / records.count
+                HStack {
+                    Text("Avg: \(avgSys)/\(avgDia) mmHg")
+                    Spacer()
+                    Text("\(records.count) readings")
+                }
+                .font(.caption2.monospacedDigit())
+                .foregroundStyle(.tertiary)
+            }
+        }
+        .padding()
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .padding(.horizontal)
+        .contentShape(Rectangle())
+    }
+}

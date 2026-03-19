@@ -51,6 +51,7 @@ private struct PDFKitView: UIViewRepresentable {
 struct ReportBuilderView: View {
     @EnvironmentObject var dataStore: HealthDataStore
     @Query private var profiles: [UserProfile]
+    @Binding var exportRequest: ChartExportRequest?
 
     @State private var startDate: Date = Calendar.current.date(byAdding: .month, value: -1, to: .now) ?? .now
     @State private var endDate: Date = .now
@@ -73,22 +74,97 @@ struct ReportBuilderView: View {
     }
 
     var body: some View {
-        dateRangeSection
-        templateSection
-        styleSection
-        previewSection
-        metricSelectionSection
-        generateSection
-            .onAppear {
-                if !hasInitialized {
-                    selectedMetrics.formUnion(dataStore.availableMetricTypes)
-                    hasInitialized = true
-                }
-                updateFilteredCount()
+        List {
+            dateRangeSection
+            templateSection
+            styleSection
+            previewSection
+            metricSelectionSection
+        }
+        .safeAreaInset(edge: .bottom) {
+            generateOverlay
+                .padding(.horizontal)
+                .padding(.vertical, 12)
+                .background(.ultraThinMaterial)
+        }
+        .fullScreenCover(isPresented: $showPreview) {
+            if let url = renderedPDF {
+                PDFPreviewView(url: url)
+            } else {
+                Color.clear.onAppear { showPreview = false }
             }
-            .onChange(of: startDate) { _, _ in renderedPDF = nil; updateFilteredCount() }
-            .onChange(of: endDate) { _, _ in renderedPDF = nil; updateFilteredCount() }
-            .onChange(of: selectedTemplate) { _, _ in renderedPDF = nil }
+        }
+        .onAppear {
+            if !hasInitialized {
+                selectedMetrics.formUnion(dataStore.availableMetricTypes)
+                hasInitialized = true
+            }
+            applyExportRequestIfNeeded()
+            updateFilteredCount()
+        }
+        .onChange(of: startDate) { _, _ in renderedPDF = nil; updateFilteredCount() }
+        .onChange(of: endDate) { _, _ in renderedPDF = nil; updateFilteredCount() }
+        .onChange(of: exportRequest) { _, _ in applyExportRequestIfNeeded() }
+        .onChange(of: selectedTemplate) { _, _ in renderedPDF = nil }
+        .navigationTitle("Reports")
+        .withProfileButton()
+    }
+
+    // MARK: - Sticky Bottom Overlay
+
+    @ViewBuilder
+    private var generateOverlay: some View {
+        if let pdfURL = renderedPDF {
+            HStack(spacing: 12) {
+                Button {
+                    showPreview = true
+                } label: {
+                    Label("Preview", systemImage: "doc.text.magnifyingglass")
+                        .font(.subheadline.bold())
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+
+                ShareLink(item: pdfURL) {
+                    Label("Share", systemImage: "square.and.arrow.up")
+                        .font(.subheadline.bold())
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+
+                Button {
+                    renderedPDF = nil
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .buttonStyle(.bordered)
+            }
+        } else {
+            Button {
+                generatePDF()
+            } label: {
+                HStack {
+                    Spacer()
+                    if isGenerating {
+                        VStack(spacing: 6) {
+                            ProgressView()
+                            if !generationStatus.isEmpty {
+                                Text(generationStatus)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    } else {
+                        Label("Generate PDF Report", systemImage: "doc.badge.plus")
+                            .font(.headline)
+                    }
+                    Spacer()
+                }
+                .padding(.vertical, 4)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(isGenerating || cachedFilteredCount == 0 || selectedAndAvailable.isEmpty)
+        }
     }
 
     // MARK: - Sections
@@ -229,74 +305,6 @@ struct ReportBuilderView: View {
         }
     }
 
-    @ViewBuilder
-    private var generateSection: some View {
-        Section {
-            if let pdfURL = renderedPDF {
-                Button {
-                    showPreview = true
-                } label: {
-                    HStack {
-                        Spacer()
-                        Label("Preview Report", systemImage: "doc.text.magnifyingglass")
-                            .font(.headline)
-                        Spacer()
-                    }
-                }
-                .fullScreenCover(isPresented: $showPreview) {
-                    if let url = renderedPDF {
-                        PDFPreviewView(url: url)
-                    } else {
-                        // PDF was invalidated while preview was open — dismiss
-                        Color.clear.onAppear { showPreview = false }
-                    }
-                }
-
-                ShareLink(item: pdfURL) {
-                    HStack {
-                        Spacer()
-                        Label("Share PDF Report", systemImage: "square.and.arrow.up")
-                            .font(.subheadline)
-                        Spacer()
-                    }
-                }
-                Button {
-                    renderedPDF = nil
-                } label: {
-                    HStack {
-                        Spacer()
-                        Label("Regenerate", systemImage: "arrow.clockwise")
-                            .font(.subheadline)
-                        Spacer()
-                    }
-                }
-            } else {
-                Button {
-                    generatePDF()
-                } label: {
-                    HStack {
-                        Spacer()
-                        if isGenerating {
-                            VStack(spacing: 6) {
-                                ProgressView()
-                                if !generationStatus.isEmpty {
-                                    Text(generationStatus)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                        } else {
-                            Label("Generate PDF Report", systemImage: "doc.badge.plus")
-                                .font(.headline)
-                        }
-                        Spacer()
-                    }
-                }
-                .disabled(isGenerating || cachedFilteredCount == 0 || selectedAndAvailable.isEmpty)
-            }
-        }
-    }
-
     // MARK: - PDF Generation
 
     private func generatePDF() {
@@ -350,5 +358,15 @@ struct ReportBuilderView: View {
 
     private func updateFilteredCount() {
         cachedFilteredCount = dataStore.fetchRecords(from: startDate, to: endDate).count
+    }
+
+    private func applyExportRequestIfNeeded() {
+        guard let request = exportRequest else { return }
+        startDate = request.startDate
+        endDate = request.endDate
+        selectedMetrics = request.metrics
+        renderedPDF = nil
+        exportRequest = nil
+        updateFilteredCount()
     }
 }
