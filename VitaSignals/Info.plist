@@ -42,5 +42,7 @@
 	</array>
 	<key>NSHealthShareUsageDescription</key>
 	<string>VitaSignals reads your health and wellness data from Apple Health — including vitals, blood pressure, heart rate, respiratory metrics, activity, sleep, nutrition, body measurements, mobility, and other available metrics — to generate comprehensive health reports for your healthcare provider. All data remains on your device.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>

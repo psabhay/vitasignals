@@ -54,19 +54,19 @@
 
 /* Begin PBXFileReference section */
 		0401E498B9398A1FA50CDBD8 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		0444FA5C2AE8C27EB9EA1D4D /* VitaSignalsTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VitaSignalsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		0444FA5C2AE8C27EB9EA1D4D /* VitaSignalsTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = VitaSignalsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0EAE27D6BD3DF2F085C39746 /* CustomMetric.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomMetric.swift; sourceTree = "<group>"; };
 		0FD6BAA66081D81CB6ACEF9F /* ComparisonChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComparisonChartView.swift; sourceTree = "<group>"; };
 		121FC977B86C0C65B31358FD /* HealthRecordFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthRecordFormView.swift; sourceTree = "<group>"; };
 		29B0F6ABD97D1B4653A179AF /* HealthKitCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitCatalog.swift; sourceTree = "<group>"; };
-		2E8E220BD8EBCA6DE58ACE4F /* VitaSignals.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VitaSignals.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		2E8E220BD8EBCA6DE58ACE4F /* VitaSignals.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = VitaSignals.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3ACCAF3D89EC4920FC968A81 /* SavedChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedChartView.swift; sourceTree = "<group>"; };
 		3DC87D7DC488B0CD1A683ACE /* DataBrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataBrowserView.swift; sourceTree = "<group>"; };
 		3F7A02F66FDA9ED71DB27665 /* UserProfileTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfileTests.swift; sourceTree = "<group>"; };
 		40DDEBAE896F7EAC3A40FC7F /* MetricDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricDetailView.swift; sourceTree = "<group>"; };
 		454755B6D90C45668AB66500 /* RecordDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordDetailView.swift; sourceTree = "<group>"; };
 		464EFE9272545D856F49956D /* ReportBuilderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportBuilderView.swift; sourceTree = "<group>"; };
-		53AAB761CEE172302837C10D /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		53AAB761CEE172302837C10D /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		55A0D1A6FD95AFDF2D4CF508 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		6AF26C85BFA36731B99CC353 /* UserProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfile.swift; sourceTree = "<group>"; };
 		7423D69069AC5D9761D1BAA5 /* ChartsContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartsContainerView.swift; sourceTree = "<group>"; };
@@ -246,7 +246,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 2630;
+				LastUpgradeCheck = 1600;
 				TargetAttributes = {
 					8E890471974944037A4C7D8A = {
 						DevelopmentTeam = U433W77Z44;
@@ -361,7 +361,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.abhaysingh.vitasignals;
+				PRODUCT_BUNDLE_IDENTIFIER = com.vitasignals.app;
 				SDKROOT = iphoneos;
 				SUPPORTS_XR_DESIGNED_FOR = NO;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -406,7 +406,6 @@
 				DEVELOPMENT_TEAM = U433W77Z44;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -427,7 +426,6 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.9;
@@ -466,7 +464,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.abhaysingh.vitasignals;
+				PRODUCT_BUNDLE_IDENTIFIER = com.vitasignals.app;
 				SDKROOT = iphoneos;
 				SUPPORTS_XR_DESIGNED_FOR = NO;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -511,7 +509,6 @@
 				DEVELOPMENT_TEAM = U433W77Z44;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -525,7 +522,6 @@
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.9;

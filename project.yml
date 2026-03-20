@@ -24,7 +24,7 @@ targets:
       - VitaSignals
     settings:
       INFOPLIST_FILE: VitaSignals/Info.plist
-      PRODUCT_BUNDLE_IDENTIFIER: com.abhaysingh.vitasignals
+      PRODUCT_BUNDLE_IDENTIFIER: com.vitasignals.app
       MARKETING_VERSION: "1.0.0"
       CURRENT_PROJECT_VERSION: 1
       DEVELOPMENT_TEAM: U433W77Z44
