@@ -231,7 +231,7 @@ struct DashboardView: View {
                 VStack(spacing: 20) {
                     greetingHeader
 
-                    if syncManager.permissionDenied {
+                    if syncManager.permissionDenied && dataStore.recordCount == 0 {
                         permissionWarning
                     }
 
@@ -319,6 +319,25 @@ struct DashboardView: View {
                         .font(.caption)
                 }
                 .foregroundStyle(.tertiary)
+            }
+
+            if syncManager.permissionDenied && dataStore.recordCount > 0 {
+                Button {
+                    Task {
+                        await syncManager.syncAll(container: modelContext.container, dataStore: dataStore)
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "heart.circle")
+                            .foregroundStyle(.pink)
+                        Text("Connect Apple Health for more insights")
+                            .foregroundStyle(.secondary)
+                        Image(systemName: "chevron.right")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                    .font(.caption)
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
