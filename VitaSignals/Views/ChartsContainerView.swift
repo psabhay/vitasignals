@@ -42,6 +42,7 @@ struct ChartsContainerView: View {
     @State private var showFilterSheet = false
     @State private var hasInitializedMetrics = false
     @State private var showSaveViewAlert = false
+    @State private var showSavedViewsSheet = false
     @State private var saveViewName = ""
     @State private var activeViewID: UUID?
 
@@ -179,7 +180,7 @@ struct ChartsContainerView: View {
             .withProfileButton()
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    savedViewsMenu
+                    savedViewsButton
                 }
             }
             .alert("Save Current View", isPresented: $showSaveViewAlert) {
@@ -197,6 +198,18 @@ struct ChartsContainerView: View {
                     selectedMetrics: $selectedMetrics
                 )
                 .onDisappear { resetZoom() }
+            }
+            .sheet(isPresented: $showSavedViewsSheet) {
+                SavedViewsSheet(
+                    activeViewID: $activeViewID,
+                    onLoad: { loadSavedView($0) },
+                    onUpdate: { updateSavedView($0) },
+                    onSaveNew: {
+                        saveViewName = ""
+                        showSaveViewAlert = true
+                    },
+                    canSave: !selectedMetrics.isEmpty
+                )
             }
             .onAppear {
                 if !hasInitializedMetrics {
@@ -352,72 +365,15 @@ struct ChartsContainerView: View {
         steadyPan = 0
     }
 
-    // MARK: - Saved Views Menu
+    // MARK: - Saved Views
 
-    private var savedViewsMenu: some View {
-        Menu {
-            if let viewID = activeViewID,
-               let activeView = savedViews.first(where: { $0.id == viewID }) {
-                Button {
-                    updateSavedView(activeView)
-                } label: {
-                    Label("Update \"\(activeView.name)\"", systemImage: "arrow.triangle.2.circlepath")
-                }
-            }
-
-            Button {
-                saveViewName = ""
-                showSaveViewAlert = true
-            } label: {
-                Label("Save as New View", systemImage: "square.and.arrow.down")
-            }
-            .disabled(selectedMetrics.isEmpty)
-
-            if !savedViews.isEmpty {
-                Divider()
-
-                ForEach(savedViews) { view in
-                    Button {
-                        loadSavedView(view)
-                    } label: {
-                        Label {
-                            VStack(alignment: .leading) {
-                                Text(view.name)
-                                Text(savedViewSubtitle(view))
-                                    .font(.caption2)
-                            }
-                        } icon: {
-                            if activeViewID == view.id {
-                                Image(systemName: "checkmark.circle.fill")
-                            } else {
-                                Image(systemName: "bookmark")
-                            }
-                        }
-                    }
-                }
-
-                Divider()
-
-                Menu("Delete...") {
-                    ForEach(savedViews) { view in
-                        Button(role: .destructive) {
-                            deleteSavedView(view)
-                        } label: {
-                            Text(view.name)
-                        }
-                    }
-                }
-            }
+    private var savedViewsButton: some View {
+        Button {
+            showSavedViewsSheet = true
         } label: {
             Image(systemName: activeViewID != nil ? "bookmark.fill" : "bookmark")
                 .font(.body)
         }
-    }
-
-    private func savedViewSubtitle(_ view: SavedChartView) -> String {
-        let range = ChartTimeRange(rawValue: view.timeRangeRaw)?.rawValue ?? view.timeRangeRaw
-        let count = view.selectedMetrics.count
-        return "\(range) · \(count) metric\(count == 1 ? "" : "s")"
     }
 
     private func saveCurrentView() {
@@ -661,6 +617,192 @@ struct ChartsContainerView: View {
             }
         }
         .padding(.horizontal)
+    }
+}
+
+// MARK: - Saved Views Sheet
+
+struct SavedViewsSheet: View {
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+    @Query(sort: \SavedChartView.createdAt, order: .reverse) private var savedViews: [SavedChartView]
+    @Binding var activeViewID: UUID?
+    var onLoad: (SavedChartView) -> Void
+    var onUpdate: (SavedChartView) -> Void
+    var onSaveNew: () -> Void
+    var canSave: Bool
+
+    @State private var renamingView: SavedChartView?
+    @State private var renameText = ""
+
+    var body: some View {
+        NavigationStack {
+            List {
+                // Save / Update actions
+                Section {
+                    if let viewID = activeViewID,
+                       let activeView = savedViews.first(where: { $0.id == viewID }) {
+                        Button {
+                            onUpdate(activeView)
+                            dismiss()
+                        } label: {
+                            Label("Update \"\(activeView.name)\"", systemImage: "arrow.triangle.2.circlepath")
+                        }
+                    }
+
+                    Button {
+                        dismiss()
+                        // Small delay so the sheet dismisses before the alert appears
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            onSaveNew()
+                        }
+                    } label: {
+                        Label("Save Current View", systemImage: "plus.circle")
+                    }
+                    .disabled(!canSave)
+                }
+
+                // Saved views list
+                if savedViews.isEmpty {
+                    Section {
+                        VStack(spacing: 8) {
+                            Image(systemName: "bookmark")
+                                .font(.title2)
+                                .foregroundStyle(.secondary)
+                            Text("No Saved Views")
+                                .font(.subheadline.bold())
+                            Text("Save your chart configuration to quickly reload it later.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 20)
+                        .listRowBackground(Color.clear)
+                    }
+                } else {
+                    Section {
+                        ForEach(savedViews) { view in
+                            savedViewRow(view)
+                        }
+                        .onDelete { offsets in
+                            for index in offsets {
+                                let view = savedViews[index]
+                                if activeViewID == view.id { activeViewID = nil }
+                                modelContext.delete(view)
+                            }
+                            try? modelContext.save()
+                        }
+                    } header: {
+                        Text("Saved Views (\(savedViews.count))")
+                    } footer: {
+                        Text("Tap to load. Swipe left to delete. Long-press to rename.")
+                    }
+                }
+            }
+            .navigationTitle("Bookmarks")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .alert("Rename", isPresented: Binding(
+                get: { renamingView != nil },
+                set: { if !$0 { renamingView = nil } }
+            )) {
+                TextField("View name", text: $renameText)
+                Button("Save") {
+                    if let view = renamingView {
+                        let trimmed = renameText.trimmingCharacters(in: .whitespaces)
+                        if !trimmed.isEmpty {
+                            view.name = trimmed
+                            try? modelContext.save()
+                        }
+                    }
+                    renamingView = nil
+                }
+                Button("Cancel", role: .cancel) { renamingView = nil }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    private func savedViewRow(_ view: SavedChartView) -> some View {
+        let isActive = activeViewID == view.id
+        return Button {
+            onLoad(view)
+            dismiss()
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: isActive ? "bookmark.fill" : "bookmark")
+                    .foregroundStyle(isActive ? Color.accentColor : .secondary)
+                    .font(.subheadline)
+                    .frame(width: 24)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(view.name)
+                        .font(.subheadline.bold())
+                        .foregroundStyle(isActive ? Color.accentColor : .primary)
+
+                    Text(viewDateLabel(view))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    Text(viewMetricNames(view))
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(2)
+                }
+
+                Spacer()
+
+                if isActive {
+                    Text("Active")
+                        .font(.caption2.bold())
+                        .foregroundStyle(Color.accentColor)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Color.accentColor.opacity(0.12), in: Capsule())
+                }
+            }
+            .padding(.vertical, 2)
+        }
+        .tint(.primary)
+        .contextMenu {
+            Button {
+                renameText = view.name
+                renamingView = view
+            } label: {
+                Label("Rename", systemImage: "pencil")
+            }
+
+            Button(role: .destructive) {
+                if activeViewID == view.id { activeViewID = nil }
+                modelContext.delete(view)
+                try? modelContext.save()
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+    }
+
+    private func viewDateLabel(_ view: SavedChartView) -> String {
+        if let range = ChartTimeRange(rawValue: view.timeRangeRaw) {
+            if range == .custom {
+                let fmt = Date.FormatStyle().month(.abbreviated).day()
+                return "\(view.customStartDate.formatted(fmt)) – \(view.customEndDate.formatted(fmt))"
+            }
+            return range.rawValue
+        }
+        return view.timeRangeRaw
+    }
+
+    private func viewMetricNames(_ view: SavedChartView) -> String {
+        let names = view.selectedMetrics.compactMap { MetricRegistry.definition(for: $0)?.name }
+        if names.isEmpty { return "No metrics" }
+        if names.count <= 3 { return names.joined(separator: ", ") }
+        return "\(names.prefix(3).joined(separator: ", ")) + \(names.count - 3) more"
     }
 }
 
