@@ -45,6 +45,12 @@ struct ChartsContainerView: View {
     @State private var saveViewName = ""
     @State private var activeViewID: UUID?
 
+    // Zoom & pan state
+    @State private var zoomScale: CGFloat = 1.0
+    @State private var steadyZoom: CGFloat = 1.0
+    @State private var panOffset: CGFloat = 0.0 // -0.5...0.5, fraction of total range
+    @State private var steadyPan: CGFloat = 0.0
+
     var onExport: ((ChartExportRequest) -> Void)?
 
     private var effectiveDateRange: (start: Date, end: Date) {
@@ -98,9 +104,23 @@ struct ChartsContainerView: View {
             .filter { !filteredRecords(for: $0).isEmpty }
     }
 
+    private var isZoomed: Bool { zoomScale > 1.01 }
+
     private var xDomain: ClosedRange<Date> {
-        let range = effectiveDateRange
-        return range.start...range.end
+        let full = effectiveDateRange
+        guard isZoomed else { return full.start...full.end }
+
+        let total = full.end.timeIntervalSince(full.start)
+        let visible = total / Double(zoomScale)
+        let center = total * (0.5 + Double(panOffset))
+
+        var start = full.start.addingTimeInterval(center - visible / 2)
+        var end = start.addingTimeInterval(visible)
+
+        if start < full.start { start = full.start; end = start.addingTimeInterval(visible) }
+        if end > full.end { end = full.end; start = max(full.start, end.addingTimeInterval(-visible)) }
+
+        return start...end
     }
 
     private var dateRangeLabel: String {
@@ -127,6 +147,10 @@ struct ChartsContainerView: View {
                     // Inline filter bar — always visible, tappable
                     filterBar
 
+                    if isZoomed {
+                        zoomIndicator
+                    }
+
                     if allMetricsWithData.isEmpty {
                         ContentUnavailableView(
                             "No Data",
@@ -148,6 +172,8 @@ struct ChartsContainerView: View {
                     }
                 }
                 .padding(.bottom)
+                .simultaneousGesture(pinchGesture)
+                .simultaneousGesture(panGesture)
             }
             .navigationTitle("Charts")
             .withProfileButton()
@@ -170,6 +196,7 @@ struct ChartsContainerView: View {
                     customEndDate: $customEndDate,
                     selectedMetrics: $selectedMetrics
                 )
+                .onDisappear { resetZoom() }
             }
             .onAppear {
                 if !hasInitializedMetrics {
@@ -232,11 +259,11 @@ struct ChartsContainerView: View {
 
             if let onExport, !visibleMetricTypes.isEmpty {
                 Button {
-                    let range = effectiveDateRange
+                    let domain = xDomain
                     onExport(ChartExportRequest(
                         metrics: Set(visibleMetricTypes),
-                        startDate: range.start,
-                        endDate: range.end
+                        startDate: domain.lowerBound,
+                        endDate: domain.upperBound
                     ))
                 } label: {
                     Image(systemName: "square.and.arrow.up")
@@ -249,6 +276,80 @@ struct ChartsContainerView: View {
             }
         }
         .padding(.horizontal)
+    }
+
+    // MARK: - Zoom & Pan
+
+    private var zoomIndicator: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "magnifyingglass")
+                .font(.caption.bold())
+                .foregroundStyle(Color.accentColor)
+
+            let domain = xDomain
+            let fmt = Date.FormatStyle().month(.abbreviated).day()
+            Text("\(domain.lowerBound.formatted(fmt)) – \(domain.upperBound.formatted(fmt))")
+                .font(.caption.bold())
+                .foregroundStyle(.primary)
+
+            Text("\(String(format: "%.1f", zoomScale))x")
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+
+            Spacer()
+
+            Button {
+                withAnimation(.easeOut(duration: 0.3)) { resetZoom() }
+            } label: {
+                Text("Reset")
+                    .font(.caption.bold())
+                    .foregroundStyle(Color.accentColor)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+        .padding(.horizontal)
+    }
+
+    private var pinchGesture: some Gesture {
+        MagnifyGesture()
+            .onChanged { value in
+                zoomScale = max(1.0, min(steadyZoom * value.magnification, 20.0))
+            }
+            .onEnded { value in
+                zoomScale = max(1.0, min(steadyZoom * value.magnification, 20.0))
+                steadyZoom = zoomScale
+                if zoomScale < 1.05 { resetZoom() }
+            }
+    }
+
+    private var panGesture: some Gesture {
+        DragGesture(minimumDistance: 20)
+            .onChanged { value in
+                guard isZoomed else { return }
+                let h = abs(value.translation.width)
+                let v = abs(value.translation.height)
+                guard h > v * 1.3 else { return }
+                let delta = -value.translation.width / 400.0 / zoomScale
+                panOffset = clampPan(steadyPan + delta)
+            }
+            .onEnded { value in
+                guard isZoomed else { return }
+                steadyPan = panOffset
+            }
+    }
+
+    private func clampPan(_ value: CGFloat) -> CGFloat {
+        let maxPan: CGFloat = 0.5 - 0.5 / zoomScale
+        return max(-maxPan, min(maxPan, value))
+    }
+
+    private func resetZoom() {
+        zoomScale = 1.0
+        steadyZoom = 1.0
+        panOffset = 0
+        steadyPan = 0
     }
 
     // MARK: - Saved Views Menu
