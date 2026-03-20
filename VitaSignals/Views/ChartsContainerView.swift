@@ -915,54 +915,46 @@ struct ChartFilterSheet: View {
     // MARK: - Metric Selection
 
     private var metricSelectionSection: some View {
-        Section {
-            ForEach(MetricCategory.allCases) { category in
-                categoryRow(for: category)
-            }
-        } header: {
-            HStack {
-                Text("Metrics")
-                Spacer()
-                if allSelected {
-                    Button("Deselect All") {
-                        selectedMetrics.subtract(allMetricsWithData)
+        ForEach(categoriesWithData, id: \.category) { group in
+            Section {
+                ForEach(group.definitions, id: \.type) { def in
+                    metricToggle(for: def)
+                }
+            } header: {
+                HStack {
+                    Label(group.category.rawValue, systemImage: group.category.icon)
+                        .foregroundStyle(group.category.color)
+                        .font(.caption.bold())
+                    Spacer()
+                    if group.category == categoriesWithData.first?.category {
+                        if allSelected {
+                            Button("Deselect All") {
+                                selectedMetrics.subtract(allMetricsWithData)
+                            }
+                            .font(.caption)
+                        } else {
+                            Button("Select All") {
+                                selectedMetrics.formUnion(allMetricsWithData)
+                            }
+                            .font(.caption)
+                        }
                     }
-                    .font(.caption)
-                } else {
-                    Button("Select All") {
-                        selectedMetrics.formUnion(allMetricsWithData)
-                    }
-                    .font(.caption)
                 }
             }
         }
     }
 
-    @ViewBuilder
-    private func categoryRow(for category: MetricCategory) -> some View {
-        let defs = MetricRegistry.definitions(for: category)
-            .filter { allMetricsWithData.contains($0.type) }
+    private struct CategoryGroup {
+        let category: MetricCategory
+        let definitions: [MetricDefinition]
+    }
 
-        if !defs.isEmpty {
-            let selectedCount = defs.filter { selectedMetrics.contains($0.type) }.count
-            DisclosureGroup {
-                ForEach(defs, id: \.type) { def in
-                    metricToggle(for: def)
-                }
-            } label: {
-                Label {
-                    HStack {
-                        Text(category.rawValue)
-                        Spacer()
-                        Text("\(selectedCount)/\(defs.count)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                } icon: {
-                    Image(systemName: category.icon)
-                        .foregroundStyle(category.color)
-                }
-            }
+    private var categoriesWithData: [CategoryGroup] {
+        MetricCategory.allCases.compactMap { category in
+            let defs = MetricRegistry.definitions(for: category)
+                .filter { allMetricsWithData.contains($0.type) }
+            guard !defs.isEmpty else { return nil }
+            return CategoryGroup(category: category, definitions: defs)
         }
     }
 

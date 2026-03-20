@@ -242,66 +242,58 @@ struct ReportBuilderView: View {
     }
 
     private var metricSelectionSection: some View {
-        Section {
-            ForEach(MetricCategory.allCases) { category in
-                let defs = MetricRegistry.definitions(for: category)
-                    .filter { availableMetricTypes.contains($0.type) }
+        let categories = MetricCategory.allCases.compactMap { category -> (MetricCategory, [MetricDefinition])? in
+            let defs = MetricRegistry.definitions(for: category)
+                .filter { availableMetricTypes.contains($0.type) }
+            guard !defs.isEmpty else { return nil }
+            return (category, defs)
+        }
 
-                if !defs.isEmpty {
-                    DisclosureGroup {
-                        ForEach(defs, id: \.type) { def in
-                            Toggle(isOn: Binding(
-                                get: { selectedMetrics.contains(def.type) },
-                                set: { newValue in
-                                    if newValue {
-                                        selectedMetrics.insert(def.type)
-                                    } else {
-                                        selectedMetrics.remove(def.type)
-                                    }
-                                    renderedPDF = nil
-                                }
-                            )) {
-                                Label(def.name, systemImage: def.icon)
-                                    .foregroundStyle(def.color)
+        return ForEach(categories, id: \.0) { category, defs in
+            Section {
+                ForEach(defs, id: \.type) { def in
+                    Toggle(isOn: Binding(
+                        get: { selectedMetrics.contains(def.type) },
+                        set: { newValue in
+                            if newValue {
+                                selectedMetrics.insert(def.type)
+                            } else {
+                                selectedMetrics.remove(def.type)
                             }
+                            renderedPDF = nil
                         }
-                    } label: {
-                        Label {
-                            HStack {
-                                Text(category.rawValue)
-                                Spacer()
-                                let count = defs.filter { selectedMetrics.contains($0.type) }.count
-                                Text("\(count)/\(defs.count)")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                    )) {
+                        Label(def.name, systemImage: def.icon)
+                            .foregroundStyle(def.color)
+                    }
+                }
+            } header: {
+                HStack {
+                    Label(category.rawValue, systemImage: category.icon)
+                        .foregroundStyle(category.color)
+                        .font(.caption.bold())
+                    Spacer()
+                    if category == categories.first?.0 {
+                        if availableMetricTypes.isSubset(of: selectedMetrics) {
+                            Button("Deselect All") {
+                                selectedMetrics.removeAll()
+                                renderedPDF = nil
                             }
-                        } icon: {
-                            Image(systemName: category.icon)
-                                .foregroundStyle(category.color)
+                            .font(.caption)
+                        } else {
+                            Button("Select All") {
+                                selectedMetrics = availableMetricTypes
+                                renderedPDF = nil
+                            }
+                            .font(.caption)
                         }
                     }
                 }
-            }
-        } header: {
-            HStack {
-                Text("Metrics to Include")
-                Spacer()
-                if availableMetricTypes.isSubset(of: selectedMetrics) {
-                    Button("Deselect All") {
-                        selectedMetrics.removeAll()
-                        renderedPDF = nil
-                    }
-                    .font(.caption)
-                } else {
-                    Button("Select All") {
-                        selectedMetrics = availableMetricTypes
-                        renderedPDF = nil
-                    }
-                    .font(.caption)
+            } footer: {
+                if category == categories.last?.0 {
+                    Text("Only metrics with data in the selected date range are shown.")
                 }
             }
-        } footer: {
-            Text("Only metrics with data in the selected date range are shown. Metrics with no data will be skipped.")
         }
     }
 
