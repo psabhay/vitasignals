@@ -9,6 +9,12 @@ struct ComparisonMetricChart: View {
     let xDomain: ClosedRange<Date>
     var onTap: (() -> Void)? = nil
 
+    private var yMin: Double {
+        let dataMin = records.map(\.primaryValue).min() ?? 0
+        let refMin = definition.referenceMin ?? dataMin
+        return min(dataMin, refMin)
+    }
+
     var body: some View {
         Button {
             onTap?()
@@ -53,14 +59,15 @@ struct ComparisonMetricChart: View {
                                 y: .value(definition.unit, record.primaryValue)
                             )
                             .foregroundStyle(definition.color)
-                            .interpolationMethod(.catmullRom)
+                            .interpolationMethod(.monotone)
 
                             AreaMark(
                                 x: .value("Date", record.timestamp),
-                                y: .value(definition.unit, record.primaryValue)
+                                yStart: .value("min", yMin),
+                                yEnd: .value(definition.unit, record.primaryValue)
                             )
                             .foregroundStyle(definition.color.opacity(0.08))
-                            .interpolationMethod(.catmullRom)
+                            .interpolationMethod(.monotone)
                         }
                     }
 
@@ -84,6 +91,7 @@ struct ComparisonMetricChart: View {
                 }
                 .chartYAxis { AxisMarks(position: .leading) }
                 .frame(height: 180)
+                .clipped()
             } else if records.count == 1 {
                 HStack {
                     Text(definition.formatValue(records[0].primaryValue))
@@ -170,7 +178,7 @@ struct ComparisonBPChart: View {
                             series: .value("Type", "Systolic")
                         )
                         .foregroundStyle(.red)
-                        .interpolationMethod(.catmullRom)
+                        .interpolationMethod(.monotone)
 
                         LineMark(
                             x: .value("Date", record.timestamp),
@@ -178,7 +186,7 @@ struct ComparisonBPChart: View {
                             series: .value("Type", "Diastolic")
                         )
                         .foregroundStyle(.blue)
-                        .interpolationMethod(.catmullRom)
+                        .interpolationMethod(.monotone)
                     }
 
                     RuleMark(y: .value("Ref", 120))
@@ -198,6 +206,7 @@ struct ComparisonBPChart: View {
                 .chartYAxis { AxisMarks(position: .leading) }
                 .chartLegend(position: .bottom)
                 .frame(height: 180)
+                .clipped()
             } else if records.count == 1 {
                 HStack {
                     Text("\(records[0].systolic)/\(records[0].diastolic)")

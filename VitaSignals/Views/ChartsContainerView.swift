@@ -632,7 +632,7 @@ struct GenericMetricChart: View {
                             y: .value(definition.unit, record.primaryValue)
                         )
                         .foregroundStyle(definition.color)
-                        .interpolationMethod(.catmullRom)
+                        .interpolationMethod(.monotone)
 
                         PointMark(
                             x: .value("Date", record.timestamp),
@@ -656,6 +656,7 @@ struct GenericMetricChart: View {
             }
             .frame(height: 220)
             .chartYAxis { AxisMarks(position: .leading) }
+            .clipped()
 
             if !records.isEmpty {
                 let avg = records.map(\.primaryValue).reduce(0, +) / Double(records.count)
@@ -695,7 +696,7 @@ struct BPTrendChart: View {
                     )
                     .foregroundStyle(.red)
                     .symbol(.circle)
-                    .interpolationMethod(.catmullRom)
+                    .interpolationMethod(.monotone)
 
                     LineMark(
                         x: .value("Date", record.timestamp),
@@ -704,7 +705,7 @@ struct BPTrendChart: View {
                     )
                     .foregroundStyle(.blue)
                     .symbol(.diamond)
-                    .interpolationMethod(.catmullRom)
+                    .interpolationMethod(.monotone)
                 }
 
                 RuleMark(y: .value("Target Sys", 120))
@@ -722,6 +723,7 @@ struct BPTrendChart: View {
             }
             .frame(height: 220)
             .chartYAxis { AxisMarks(position: .leading) }
+            .clipped()
             .chartLegend(position: .bottom)
 
             HStack(spacing: 16) {
@@ -763,7 +765,7 @@ struct PulseChart: View {
                             y: .value("BPM", record.pulse)
                         )
                         .foregroundStyle(.pink.opacity(0.15))
-                        .interpolationMethod(.catmullRom)
+                        .interpolationMethod(.monotone)
 
                         LineMark(
                             x: .value("Date", record.timestamp),
@@ -771,11 +773,12 @@ struct PulseChart: View {
                         )
                         .foregroundStyle(.pink)
                         .symbol(.circle)
-                        .interpolationMethod(.catmullRom)
+                        .interpolationMethod(.monotone)
                     }
                 }
                 .frame(height: 160)
                 .chartYAxis { AxisMarks(position: .leading) }
+            .clipped()
             }
             .padding()
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
@@ -945,6 +948,7 @@ struct WeeklyAveragesChart: View {
                 }
                 .frame(height: 220)
                 .chartYAxis { AxisMarks(position: .leading) }
+            .clipped()
             }
             .padding()
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
@@ -1053,7 +1057,7 @@ struct MAPTrendChart: View {
                     )
                     .foregroundStyle(.purple)
                     .symbol(.circle)
-                    .interpolationMethod(.catmullRom)
+                    .interpolationMethod(.monotone)
 
                     LineMark(
                         x: .value("Date", record.timestamp),
@@ -1062,7 +1066,7 @@ struct MAPTrendChart: View {
                     )
                     .foregroundStyle(.orange)
                     .symbol(.diamond)
-                    .interpolationMethod(.catmullRom)
+                    .interpolationMethod(.monotone)
                 }
 
                 RuleMark(y: .value("MAP High", 100))
@@ -1074,6 +1078,7 @@ struct MAPTrendChart: View {
             }
             .frame(height: 200)
             .chartYAxis { AxisMarks(position: .leading) }
+            .clipped()
 
             HStack(spacing: 16) {
                 Label("MAP", systemImage: "circle.fill").font(.caption2).foregroundStyle(.purple)

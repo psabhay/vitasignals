@@ -423,6 +423,7 @@ struct DashboardView: View {
             }
 
             if summary.sparkline.count >= 2 {
+                let sparkMin = summary.sparkline.map(\.1).min() ?? 0
                 Chart {
                     ForEach(summary.sparkline, id: \.0) { point in
                         LineMark(
@@ -430,19 +431,21 @@ struct DashboardView: View {
                             y: .value("Value", point.1)
                         )
                         .foregroundStyle(summary.color.opacity(0.6))
-                        .interpolationMethod(.catmullRom)
+                        .interpolationMethod(.monotone)
 
                         AreaMark(
                             x: .value("Date", point.0),
-                            y: .value("Value", point.1)
+                            yStart: .value("min", sparkMin),
+                            yEnd: .value("Value", point.1)
                         )
                         .foregroundStyle(summary.color.opacity(0.08))
-                        .interpolationMethod(.catmullRom)
+                        .interpolationMethod(.monotone)
                     }
                 }
                 .chartXAxis(.hidden)
                 .chartYAxis(.hidden)
                 .frame(height: 36)
+                .clipped()
             } else {
                 Spacer().frame(height: 36)
             }
@@ -514,9 +517,9 @@ struct DashboardView: View {
             Chart {
                 ForEach(last7DaysBP.reversed()) { record in
                     LineMark(x: .value("Time", record.timestamp), y: .value("Sys", record.systolic))
-                        .foregroundStyle(.red).interpolationMethod(.catmullRom)
+                        .foregroundStyle(.red).interpolationMethod(.monotone)
                     LineMark(x: .value("Time", record.timestamp), y: .value("Dia", record.diastolic))
-                        .foregroundStyle(.blue).interpolationMethod(.catmullRom)
+                        .foregroundStyle(.blue).interpolationMethod(.monotone)
                 }
                 RuleMark(y: .value("Ref", 120))
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 3])).foregroundStyle(.green.opacity(0.4))
@@ -525,6 +528,7 @@ struct DashboardView: View {
             }
             .frame(height: 140)
             .chartYAxis { AxisMarks(position: .leading) }
+            .clipped()
 
             HStack(spacing: 16) {
                 Label("Systolic", systemImage: "circle.fill").font(.caption2).foregroundStyle(.red)

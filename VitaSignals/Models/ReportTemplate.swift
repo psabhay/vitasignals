@@ -64,7 +64,7 @@ struct ReportTemplate: Sendable, Identifiable, Hashable {
         blocks: [
             .header, .patientInfo, .bpSummary, .classificationBreakdown,
             .metricsSummary, .bpChart, .pulseChart, .timeOfDayAnalysis,
-            .metricCharts(categories: nil), .disclaimer, .bpReadingsTable
+            .metricCharts(categories: nil), .disclaimer
         ]
     )
 
@@ -89,7 +89,7 @@ struct ReportTemplate: Sendable, Identifiable, Hashable {
         blocks: [
             .header, .patientInfo, .bpSummary, .classificationBreakdown,
             .bpChart, .pulseChart, .timeOfDayAnalysis,
-            .metricCharts(categories: [.cardioFitness]), .disclaimer, .bpReadingsTable
+            .metricCharts(categories: [.cardioFitness]), .disclaimer
         ]
     )
 
@@ -102,7 +102,7 @@ struct ReportTemplate: Sendable, Identifiable, Hashable {
         blocks: [
             .header, .patientInfo, .bpSummary, .classificationBreakdown,
             .metricsSummary, .bpChart, .pulseChart, .timeOfDayAnalysis,
-            .disclaimer, .bpReadingsTable
+            .disclaimer
         ]
     )
 

@@ -145,7 +145,7 @@ struct MetricDetailView: View {
                             )
                             .foregroundStyle(def.color)
                             .symbol(.circle)
-                            .interpolationMethod(.catmullRom)
+                            .interpolationMethod(.monotone)
                         }
                     }
 
@@ -162,6 +162,7 @@ struct MetricDetailView: View {
                 }
                 .frame(height: 220)
                 .chartYAxis { AxisMarks(position: .leading) }
+                .clipped()
 
                 let values = sortedForChart.map(\.primaryValue)
                 let avg = values.reduce(0, +) / Double(max(values.count, 1))

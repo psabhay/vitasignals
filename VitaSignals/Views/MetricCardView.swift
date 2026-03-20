@@ -47,12 +47,13 @@ struct MetricCardView: View {
                                 y: .value("Value", point.1)
                             )
                             .foregroundStyle(def.color.opacity(0.6))
-                            .interpolationMethod(.catmullRom)
+                            .interpolationMethod(.monotone)
                         }
                     }
                     .chartXAxis(.hidden)
                     .chartYAxis(.hidden)
                     .frame(height: 30)
+                    .clipped()
                 }
             }
             .padding(12)

@@ -164,7 +164,7 @@ struct PDFGenerator {
             drawBPChart(s, records: bpRecords)
             endChartContainer(s, startY: startY, contentH: contentH)
         case .pulseChart:
-            guard hasBP, bpRecords.count >= 2 else { return }
+            guard hasBP, bpRecords.filter({ $0.tertiaryValue != nil }).count >= 2 else { return }
             pageBreak(s, chartContainerH(s, 124))
             let startY = beginChartContainer(s, contentH: 124)
             section(s, "Heart Rate Trend")
@@ -919,25 +919,36 @@ struct PDFGenerator {
     }
 
     private static func drawPulseChart(_ s: State, records: [HealthRecord]) {
-        guard records.count >= 2 else { return }
+        guard records.filter({ $0.tertiaryValue != nil }).count >= 2 else { return }
         let cx = m + 28, cw2 = cw - 36, ch: CGFloat = 90, cy = s.y
-        let pv = records.map(\.pulse)
+        let pv = records.compactMap(\.tertiaryValue).map { Int($0) }
         let lo = max((pv.min() ?? 50) - 5, 30), hi = (pv.max() ?? 120) + 5
         let r = CGFloat(hi - lo)
+        // Use full records array for X positioning to match BP chart's date range
         func xp(_ i: Int) -> CGFloat { cx + CGFloat(i) / CGFloat(records.count - 1) * cw2 }
         func yp(_ v: Int) -> CGFloat { cy + ch - CGFloat(v - lo) / r * ch }
         grid(s, cx: cx, cy: cy, cw: cw2, ch: ch, lo: lo, hi: hi, step: 10)
+
+        // Collect indices that have pulse data
+        let pulseIndices = records.indices.filter { records[$0].tertiaryValue != nil }
+
+        // Area fill — only between points with pulse data
         s.ctx.saveGState()
         let ap = CGMutablePath()
-        ap.move(to: CGPoint(x: xp(0), y: cy + ch))
-        for i in 0..<records.count { ap.addLine(to: CGPoint(x: xp(i), y: yp(records[i].pulse))) }
-        ap.addLine(to: CGPoint(x: xp(records.count - 1), y: cy + ch))
+        ap.move(to: CGPoint(x: xp(pulseIndices[0]), y: cy + ch))
+        for i in pulseIndices { ap.addLine(to: CGPoint(x: xp(i), y: yp(records[i].pulse))) }
+        ap.addLine(to: CGPoint(x: xp(pulseIndices.last!), y: cy + ch))
         ap.closeSubpath()
         s.ctx.addPath(ap)
         s.ctx.setFillColor(pink.withAlphaComponent(s.style.chartFillOpacity).cgColor)
         s.ctx.fillPath()
         s.ctx.restoreGState()
-        drawIntLine(s, records: records, getValue: { $0.pulse }, xp: xp, yp: yp, color: pink)
+
+        // Line — only connect points with pulse data
+        let pulseRecords = pulseIndices.map { records[$0] }
+        func pxp(_ i: Int) -> CGFloat { xp(pulseIndices[i]) }
+        drawIntLine(s, records: pulseRecords, getValue: { $0.pulse }, xp: pxp, yp: yp, color: pink)
+
         xLabelsFromRecords(s, records: records, xp: xp, baseY: cy + ch)
         s.y = cy + ch + 16
     }
