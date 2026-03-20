@@ -36,6 +36,7 @@
 		E2C5FAB2F96442778AF7EE08 /* SyncState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B949F18A10A020DF4DA57DBF /* SyncState.swift */; };
 		E8B9F008C103CA863A076CDA /* DataBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DC87D7DC488B0CD1A683ACE /* DataBrowserView.swift */; };
 		E9E56F97E2A950D0A20934C7 /* HealthDataStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F13BAD08ABAC6886239ADB53 /* HealthDataStore.swift */; };
+		EDB10CCC70319F8C1DE017CF /* SavedChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ACCAF3D89EC4920FC968A81 /* SavedChartView.swift */; };
 		EE9E8EC513A451026AA1C738 /* HealthRecordTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAB8659A6B2A4456ED4D6C56 /* HealthRecordTests.swift */; };
 		FBF025042B24621D597226AC /* MetricRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E2C221240579153FDB928F7 /* MetricRegistry.swift */; };
 		FBFEB40D61812E69CCEF5F3E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 55A0D1A6FD95AFDF2D4CF508 /* Assets.xcassets */; };
@@ -53,18 +54,19 @@
 
 /* Begin PBXFileReference section */
 		0401E498B9398A1FA50CDBD8 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		0444FA5C2AE8C27EB9EA1D4D /* VitaSignalsTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = VitaSignalsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		0444FA5C2AE8C27EB9EA1D4D /* VitaSignalsTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VitaSignalsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0EAE27D6BD3DF2F085C39746 /* CustomMetric.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomMetric.swift; sourceTree = "<group>"; };
 		0FD6BAA66081D81CB6ACEF9F /* ComparisonChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComparisonChartView.swift; sourceTree = "<group>"; };
 		121FC977B86C0C65B31358FD /* HealthRecordFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthRecordFormView.swift; sourceTree = "<group>"; };
 		29B0F6ABD97D1B4653A179AF /* HealthKitCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitCatalog.swift; sourceTree = "<group>"; };
-		2E8E220BD8EBCA6DE58ACE4F /* VitaSignals.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = VitaSignals.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		2E8E220BD8EBCA6DE58ACE4F /* VitaSignals.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VitaSignals.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3ACCAF3D89EC4920FC968A81 /* SavedChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedChartView.swift; sourceTree = "<group>"; };
 		3DC87D7DC488B0CD1A683ACE /* DataBrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataBrowserView.swift; sourceTree = "<group>"; };
 		3F7A02F66FDA9ED71DB27665 /* UserProfileTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfileTests.swift; sourceTree = "<group>"; };
 		40DDEBAE896F7EAC3A40FC7F /* MetricDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricDetailView.swift; sourceTree = "<group>"; };
 		454755B6D90C45668AB66500 /* RecordDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordDetailView.swift; sourceTree = "<group>"; };
 		464EFE9272545D856F49956D /* ReportBuilderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportBuilderView.swift; sourceTree = "<group>"; };
-		53AAB761CEE172302837C10D /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		53AAB761CEE172302837C10D /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		55A0D1A6FD95AFDF2D4CF508 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		6AF26C85BFA36731B99CC353 /* UserProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfile.swift; sourceTree = "<group>"; };
 		7423D69069AC5D9761D1BAA5 /* ChartsContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartsContainerView.swift; sourceTree = "<group>"; };
@@ -130,6 +132,7 @@
 				7E2C221240579153FDB928F7 /* MetricRegistry.swift */,
 				B2029A1BE29CE1DAD6CB4407 /* ReportStyle.swift */,
 				E6872E5491FF1CDAF5451408 /* ReportTemplate.swift */,
+				3ACCAF3D89EC4920FC968A81 /* SavedChartView.swift */,
 				B949F18A10A020DF4DA57DBF /* SyncState.swift */,
 				6AF26C85BFA36731B99CC353 /* UserProfile.swift */,
 			);
@@ -243,7 +246,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1600;
+				LastUpgradeCheck = 2630;
 				TargetAttributes = {
 					8E890471974944037A4C7D8A = {
 						DevelopmentTeam = U433W77Z44;
@@ -313,6 +316,7 @@
 				64EDF51A7E22B974CEF08790 /* ReportBuilderView.swift in Sources */,
 				CA859B899594ED67E7AF6490 /* ReportStyle.swift in Sources */,
 				915A8DFFDF80D88725A56E86 /* ReportTemplate.swift in Sources */,
+				EDB10CCC70319F8C1DE017CF /* SavedChartView.swift in Sources */,
 				E2C5FAB2F96442778AF7EE08 /* SyncState.swift in Sources */,
 				CF287322F06D839EACF4F481 /* SyntheticDataGenerator.swift in Sources */,
 				8556CAD69E0C12F5EAADFF16 /* UserProfile.swift in Sources */,
@@ -402,6 +406,7 @@
 				DEVELOPMENT_TEAM = U433W77Z44;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -422,6 +427,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.9;
@@ -505,6 +511,7 @@
 				DEVELOPMENT_TEAM = U433W77Z44;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -518,6 +525,7 @@
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.9;

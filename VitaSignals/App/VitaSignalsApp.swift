@@ -14,6 +14,7 @@ struct VitaSignalsApp: App {
             UserProfile.self,
             SyncState.self,
             CustomMetric.self,
+            SavedChartView.self,
         ])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {

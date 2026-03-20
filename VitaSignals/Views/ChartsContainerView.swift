@@ -31,7 +31,9 @@ struct ChartExportRequest: Equatable {
 }
 
 struct ChartsContainerView: View {
+    @Environment(\.modelContext) private var modelContext
     @EnvironmentObject var dataStore: HealthDataStore
+    @Query(sort: \SavedChartView.createdAt, order: .reverse) private var savedViews: [SavedChartView]
     @State private var timeRange: ChartTimeRange = .week
     @State private var customStartDate: Date = Calendar.current.date(byAdding: .month, value: -1, to: .now) ?? .now
     @State private var customEndDate: Date = .now
@@ -39,6 +41,9 @@ struct ChartsContainerView: View {
     @State private var selectedMetrics: Set<String> = []
     @State private var showFilterSheet = false
     @State private var hasInitializedMetrics = false
+    @State private var showSaveViewAlert = false
+    @State private var saveViewName = ""
+    @State private var activeViewID: UUID?
 
     var onExport: ((ChartExportRequest) -> Void)?
 
@@ -146,6 +151,18 @@ struct ChartsContainerView: View {
             }
             .navigationTitle("Charts")
             .withProfileButton()
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    savedViewsMenu
+                }
+            }
+            .alert("Save Current View", isPresented: $showSaveViewAlert) {
+                TextField("View name", text: $saveViewName)
+                Button("Save") { saveCurrentView() }
+                Button("Cancel", role: .cancel) { saveViewName = "" }
+            } message: {
+                Text("Give this chart configuration a name so you can quickly load it later.")
+            }
             .sheet(isPresented: $showFilterSheet) {
                 ChartFilterSheet(
                     timeRange: $timeRange,
@@ -183,12 +200,22 @@ struct ChartsContainerView: View {
                         .foregroundStyle(Color.accentColor)
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(dateRangeLabel)
-                            .font(.subheadline.bold())
-                            .foregroundStyle(.primary)
-                        Text(metricsFilterLabel)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        if let viewID = activeViewID,
+                           let activeView = savedViews.first(where: { $0.id == viewID }) {
+                            Text(activeView.name)
+                                .font(.subheadline.bold())
+                                .foregroundStyle(.primary)
+                            Text("\(dateRangeLabel) · \(metricsFilterLabel)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text(dateRangeLabel)
+                                .font(.subheadline.bold())
+                                .foregroundStyle(.primary)
+                            Text(metricsFilterLabel)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
 
                     Spacer()
@@ -222,6 +249,117 @@ struct ChartsContainerView: View {
             }
         }
         .padding(.horizontal)
+    }
+
+    // MARK: - Saved Views Menu
+
+    private var savedViewsMenu: some View {
+        Menu {
+            if let viewID = activeViewID,
+               let activeView = savedViews.first(where: { $0.id == viewID }) {
+                Button {
+                    updateSavedView(activeView)
+                } label: {
+                    Label("Update \"\(activeView.name)\"", systemImage: "arrow.triangle.2.circlepath")
+                }
+            }
+
+            Button {
+                saveViewName = ""
+                showSaveViewAlert = true
+            } label: {
+                Label("Save as New View", systemImage: "square.and.arrow.down")
+            }
+            .disabled(selectedMetrics.isEmpty)
+
+            if !savedViews.isEmpty {
+                Divider()
+
+                ForEach(savedViews) { view in
+                    Button {
+                        loadSavedView(view)
+                    } label: {
+                        Label {
+                            VStack(alignment: .leading) {
+                                Text(view.name)
+                                Text(savedViewSubtitle(view))
+                                    .font(.caption2)
+                            }
+                        } icon: {
+                            if activeViewID == view.id {
+                                Image(systemName: "checkmark.circle.fill")
+                            } else {
+                                Image(systemName: "bookmark")
+                            }
+                        }
+                    }
+                }
+
+                Divider()
+
+                Menu("Delete...") {
+                    ForEach(savedViews) { view in
+                        Button(role: .destructive) {
+                            deleteSavedView(view)
+                        } label: {
+                            Text(view.name)
+                        }
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: activeViewID != nil ? "bookmark.fill" : "bookmark")
+                .font(.body)
+        }
+    }
+
+    private func savedViewSubtitle(_ view: SavedChartView) -> String {
+        let range = ChartTimeRange(rawValue: view.timeRangeRaw)?.rawValue ?? view.timeRangeRaw
+        let count = view.selectedMetrics.count
+        return "\(range) · \(count) metric\(count == 1 ? "" : "s")"
+    }
+
+    private func saveCurrentView() {
+        let name = saveViewName.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty else { return }
+        let view = SavedChartView(
+            name: name,
+            timeRange: timeRange.rawValue,
+            customStartDate: customStartDate,
+            customEndDate: customEndDate,
+            selectedMetrics: Array(selectedMetrics)
+        )
+        modelContext.insert(view)
+        try? modelContext.save()
+        activeViewID = view.id
+        saveViewName = ""
+    }
+
+    private func updateSavedView(_ view: SavedChartView) {
+        view.timeRangeRaw = timeRange.rawValue
+        view.customStartDate = customStartDate
+        view.customEndDate = customEndDate
+        view.selectedMetrics = Array(selectedMetrics)
+        try? modelContext.save()
+    }
+
+    private func loadSavedView(_ view: SavedChartView) {
+        if let range = ChartTimeRange(rawValue: view.timeRangeRaw) {
+            timeRange = range
+        }
+        customStartDate = view.customStartDate
+        customEndDate = view.customEndDate
+        selectedMetrics = Set(view.selectedMetrics)
+        expandedMetric = nil
+        activeViewID = view.id
+    }
+
+    private func deleteSavedView(_ view: SavedChartView) {
+        if activeViewID == view.id {
+            activeViewID = nil
+        }
+        modelContext.delete(view)
+        try? modelContext.save()
     }
 
     // MARK: - Chart Card
