@@ -55,9 +55,11 @@ struct ChartsContainerView: View {
     @GestureState private var activeZoom: CGFloat = 1.0
     @GestureState private var activePan: CGFloat = 0.0
 
-    // Cached computed values (Items 25 & 26)
+    // Cached computed values
     @State private var cachedVisibleTypes: [String] = []
     @State private var cachedEarliestDate: Date?
+    @State private var cachedHasData = false
+    @State private var cachedRecords: [String: [HealthRecord]] = [:]
 
     var onExport: ((ChartExportRequest) -> Void)?
 
@@ -102,12 +104,25 @@ struct ChartsContainerView: View {
         return ordered
     }
 
-    /// Recompute cached visible metric types.
+    /// Recompute cached visible metric types and their records.
     /// Called from .onAppear and .onChange — NOT on every render.
     private func recomputeVisible() {
-        cachedVisibleTypes = allMetricsWithData
-            .filter { selectedMetrics.contains($0) }
-            .filter { !filteredRecords(for: $0).isEmpty }
+        let metrics = allMetricsWithData
+        cachedHasData = !metrics.isEmpty
+
+        var visible: [String] = []
+        var records: [String: [HealthRecord]] = [:]
+
+        for type in metrics where selectedMetrics.contains(type) {
+            let filtered = filteredRecords(for: type)
+            if !filtered.isEmpty {
+                visible.append(type)
+                records[type] = Array(filtered.reversed())
+            }
+        }
+
+        cachedVisibleTypes = visible
+        cachedRecords = records
     }
 
     /// Recompute earliest date — only needed for "All Time" mode. Expensive.
@@ -146,8 +161,8 @@ struct ChartsContainerView: View {
     }
 
     private var metricsFilterLabel: String {
-        let selected = allMetricsWithData.filter { selectedMetrics.contains($0) }.count
-        let total = allMetricsWithData.count
+        let selected = cachedVisibleTypes.count
+        let total = dataStore.availableMetricTypes.count
         if selected == total {
             return "All \(total) metrics"
         }
@@ -157,7 +172,7 @@ struct ChartsContainerView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 16) {
+                LazyVStack(spacing: 16) {
                     // Inline filter bar — always visible, tappable
                     filterBar
 
@@ -169,7 +184,7 @@ struct ChartsContainerView: View {
                         zoomIndicator
                     }
 
-                    if allMetricsWithData.isEmpty {
+                    if !cachedHasData {
                         VStack(spacing: 16) {
                             ContentUnavailableView(
                                 "No Data",
@@ -490,7 +505,7 @@ struct ChartsContainerView: View {
     @ViewBuilder
     private func chartCard(for metricType: String) -> some View {
         let isExpanded = expandedMetric == metricType
-        let records = Array(filteredRecords(for: metricType).reversed())
+        let records = cachedRecords[metricType] ?? []
 
         if isExpanded {
             expandedContent(for: metricType, records: records)
