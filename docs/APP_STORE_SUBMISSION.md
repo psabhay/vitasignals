@@ -10,7 +10,7 @@ Everything you need to fill in on App Store Connect to submit VitaSignals.
 |---|---|
 | **App Name** | VitaSignals |
 | **Subtitle** | Health Tracking & Reports |
-| **Bundle ID** | `com.vitasignals.app` |
+| **Bundle ID** | `com.weblerai.vitasignals` |
 | **SKU** | `vitasignals-ios-001` |
 | **Primary Language** | English (U.S.) |
 | **Primary Category** | Health & Fitness |

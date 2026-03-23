@@ -4,6 +4,7 @@ import SwiftData
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject var dataStore: HealthDataStore
+    @EnvironmentObject var storeManager: StoreManager
     @Query private var profiles: [UserProfile]
     @State private var selectedTab = 0
     @State private var showProfile = false
@@ -17,6 +18,16 @@ struct ContentView: View {
     }
 
     var body: some View {
+        Group {
+            if !storeManager.isPremium {
+                PaywallView()
+            } else {
+                mainContent
+            }
+        }
+    }
+
+    private var mainContent: some View {
         TabView(selection: $selectedTab) {
             DashboardView(syncManager: syncManager)
                 .tabItem { Label("Dashboard", systemImage: "heart.text.square") }
@@ -290,6 +301,7 @@ struct OnboardingView: View {
 struct ProfileSection: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject var dataStore: HealthDataStore
+    @EnvironmentObject var storeManager: StoreManager
     @Query private var profiles: [UserProfile]
     @Query(sort: \CustomMetric.createdAt) private var customMetrics: [CustomMetric]
     @FocusState private var focusedField: Field?
@@ -328,6 +340,8 @@ struct ProfileSection: View {
         } else {
             editView
         }
+
+        subscriptionSection
 
         customMetricsSection
 
@@ -498,6 +512,56 @@ struct ProfileSection: View {
             loadProfile()
             if !hasProfile { isEditing = true }
         }
+    }
+
+    // MARK: - Subscription
+
+    @State private var showManageSubscription = false
+
+    private var subscriptionSection: some View {
+        Section("Subscription") {
+            HStack {
+                Image(systemName: subscriptionIcon)
+                    .foregroundStyle(subscriptionIconColor)
+                    .frame(width: 28)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Plan: \(storeManager.currentPlan)")
+                        .font(.subheadline)
+                    if storeManager.isTrialActive {
+                        Text("\(storeManager.trialDaysRemaining) days remaining in free trial")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            if !storeManager.purchasedProductIDs.isEmpty {
+                Button {
+                    showManageSubscription = true
+                } label: {
+                    Label("Manage or Change Plan", systemImage: "creditcard")
+                }
+            }
+
+            Button {
+                Task { await storeManager.restorePurchases() }
+            } label: {
+                Label("Restore Purchases", systemImage: "arrow.clockwise")
+            }
+        }
+        .manageSubscriptionsSheet(isPresented: $showManageSubscription)
+    }
+
+    private var subscriptionIcon: String {
+        if !storeManager.purchasedProductIDs.isEmpty { return "checkmark.seal.fill" }
+        if storeManager.isTrialActive { return "clock" }
+        return "xmark.circle"
+    }
+
+    private var subscriptionIconColor: Color {
+        if !storeManager.purchasedProductIDs.isEmpty { return .green }
+        if storeManager.isTrialActive { return .orange }
+        return .red
     }
 
     // MARK: - Custom Metrics Management

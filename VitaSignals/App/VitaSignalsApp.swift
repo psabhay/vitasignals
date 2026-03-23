@@ -6,6 +6,10 @@ struct VitaSignalsApp: App {
     @State private var showDataLossAlert = false
 
     private static var didResetDatabase = false
+    private static let applicationSupportDirectory: URL = {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+    }()
 
     var sharedModelContainer: ModelContainer? = {
         let schema = Schema([
@@ -18,6 +22,11 @@ struct VitaSignalsApp: App {
         ])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {
+            try FileManager.default.createDirectory(
+                at: applicationSupportDirectory,
+                withIntermediateDirectories: true,
+                attributes: nil
+            )
             return try ModelContainer(for: schema, configurations: [config])
         } catch {
             let url = config.url
@@ -26,6 +35,11 @@ struct VitaSignalsApp: App {
             #endif
             try? FileManager.default.removeItem(at: url)
             do {
+                try FileManager.default.createDirectory(
+                    at: applicationSupportDirectory,
+                    withIntermediateDirectories: true,
+                    attributes: nil
+                )
                 let container = try ModelContainer(for: schema, configurations: [config])
                 VitaSignalsApp.didResetDatabase = true
                 return container
@@ -39,12 +53,14 @@ struct VitaSignalsApp: App {
     }()
 
     @StateObject private var dataStore = HealthDataStore()
+    @StateObject private var storeManager = StoreManager()
 
     var body: some Scene {
         WindowGroup {
             if let container = sharedModelContainer {
                 ContentView()
                     .environmentObject(dataStore)
+                    .environmentObject(storeManager)
                     .onAppear {
                         dataStore.setup(container: container)
                         if Self.didResetDatabase {

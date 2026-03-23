@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		0018365A82017DF7CA684B27 /* RecordDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 454755B6D90C45668AB66500 /* RecordDetailView.swift */; };
+		02AAA5CD6647E2FC5E7AB086 /* StoreManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61240306A5E7AC6BFAD85EE7 /* StoreManager.swift */; };
 		19B6F4A21D1FEB63A6624061 /* ComparisonChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FD6BAA66081D81CB6ACEF9F /* ComparisonChartView.swift */; };
 		45E1B8BD3BA8D777C3EEEB03 /* PDFGeneratorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90E7B688762C7F674020D7CD /* PDFGeneratorTests.swift */; };
 		540254F1927AB996697C2DA1 /* CustomMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EAE27D6BD3DF2F085C39746 /* CustomMetric.swift */; };
@@ -19,6 +20,7 @@
 		8556CAD69E0C12F5EAADFF16 /* UserProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AF26C85BFA36731B99CC353 /* UserProfile.swift */; };
 		857DA8815E97151D3C5D6641 /* MetricCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9C2CBE06CC51831F3DA795 /* MetricCardView.swift */; };
 		86BDB5B8C533B311824623F9 /* PDFGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0EB46E1158A0192546A827B /* PDFGenerator.swift */; };
+		8A8A8BE9A6697D04A1795F8F /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 838317482C710995251F4539 /* PaywallView.swift */; };
 		8F74D97C40470952E817A452 /* HealthSyncManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD41DBFB8AD04D869E99A061 /* HealthSyncManager.swift */; };
 		915A8DFFDF80D88725A56E86 /* ReportTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6872E5491FF1CDAF5451408 /* ReportTemplate.swift */; };
 		9ABDE8DA3815DF0D096257F3 /* ChartsContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7423D69069AC5D9761D1BAA5 /* ChartsContainerView.swift */; };
@@ -66,11 +68,15 @@
 		40DDEBAE896F7EAC3A40FC7F /* MetricDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricDetailView.swift; sourceTree = "<group>"; };
 		454755B6D90C45668AB66500 /* RecordDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordDetailView.swift; sourceTree = "<group>"; };
 		464EFE9272545D856F49956D /* ReportBuilderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportBuilderView.swift; sourceTree = "<group>"; };
-		53AAB761CEE172302837C10D /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		53AAB761CEE172302837C10D /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		55A0D1A6FD95AFDF2D4CF508 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		61240306A5E7AC6BFAD85EE7 /* StoreManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreManager.swift; sourceTree = "<group>"; };
 		6AF26C85BFA36731B99CC353 /* UserProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfile.swift; sourceTree = "<group>"; };
 		7423D69069AC5D9761D1BAA5 /* ChartsContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartsContainerView.swift; sourceTree = "<group>"; };
 		7E2C221240579153FDB928F7 /* MetricRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricRegistry.swift; sourceTree = "<group>"; };
+		7F8DA2982F71353900178693 /* VitaSignals.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; name = VitaSignals.storekit; path = VitaSignals/VitaSignals.storekit; sourceTree = "<group>"; };
+		838317482C710995251F4539 /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallView.swift; sourceTree = "<group>"; };
+		84E896CD5AE44CF6B411FD95 /* VitaSignals.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = VitaSignals.storekit; sourceTree = "<group>"; };
 		90E7B688762C7F674020D7CD /* PDFGeneratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFGeneratorTests.swift; sourceTree = "<group>"; };
 		98446B1DF1D8D826831B2E87 /* CustomMetricFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomMetricFormView.swift; sourceTree = "<group>"; };
 		9CC6068B927C5D5F1C191CB7 /* AddRecordPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddRecordPickerSheet.swift; sourceTree = "<group>"; };
@@ -116,6 +122,7 @@
 		6ED141700C397BF02F9C0920 = {
 			isa = PBXGroup;
 			children = (
+				7F8DA2982F71353900178693 /* VitaSignals.storekit */,
 				D3ADD849911957102401B8C3 /* VitaSignals */,
 				376163E601A612C9328EF606 /* VitaSignalsTests */,
 				B927A02C443C5382FB94FC22 /* Products */,
@@ -160,6 +167,7 @@
 				121FC977B86C0C65B31358FD /* HealthRecordFormView.swift */,
 				DA9C2CBE06CC51831F3DA795 /* MetricCardView.swift */,
 				40DDEBAE896F7EAC3A40FC7F /* MetricDetailView.swift */,
+				838317482C710995251F4539 /* PaywallView.swift */,
 				454755B6D90C45668AB66500 /* RecordDetailView.swift */,
 				464EFE9272545D856F49956D /* ReportBuilderView.swift */,
 			);
@@ -181,6 +189,7 @@
 				F13BAD08ABAC6886239ADB53 /* HealthDataStore.swift */,
 				DD41DBFB8AD04D869E99A061 /* HealthSyncManager.swift */,
 				B0EB46E1158A0192546A827B /* PDFGenerator.swift */,
+				61240306A5E7AC6BFAD85EE7 /* StoreManager.swift */,
 				E0BB7E618B6201FF79C0CE93 /* SyntheticDataGenerator.swift */,
 			);
 			path = Helpers;
@@ -191,6 +200,7 @@
 			children = (
 				0401E498B9398A1FA50CDBD8 /* Info.plist */,
 				E8A6F6285521249C5D2AF076 /* VitaSignals.entitlements */,
+				84E896CD5AE44CF6B411FD95 /* VitaSignals.storekit */,
 				AB30B0742E3BEA9D5DF5B11D /* App */,
 				CDE61C30EA36FFEE7EB37A0E /* Helpers */,
 				7DE302C931F9CD147C6BDDA5 /* Models */,
@@ -312,11 +322,13 @@
 				A4FA8C700F97935DEDC5CDBB /* MetricDetailView.swift in Sources */,
 				FBF025042B24621D597226AC /* MetricRegistry.swift in Sources */,
 				86BDB5B8C533B311824623F9 /* PDFGenerator.swift in Sources */,
+				8A8A8BE9A6697D04A1795F8F /* PaywallView.swift in Sources */,
 				0018365A82017DF7CA684B27 /* RecordDetailView.swift in Sources */,
 				64EDF51A7E22B974CEF08790 /* ReportBuilderView.swift in Sources */,
 				CA859B899594ED67E7AF6490 /* ReportStyle.swift in Sources */,
 				915A8DFFDF80D88725A56E86 /* ReportTemplate.swift in Sources */,
 				EDB10CCC70319F8C1DE017CF /* SavedChartView.swift in Sources */,
+				02AAA5CD6647E2FC5E7AB086 /* StoreManager.swift in Sources */,
 				E2C5FAB2F96442778AF7EE08 /* SyncState.swift in Sources */,
 				CF287322F06D839EACF4F481 /* SyntheticDataGenerator.swift in Sources */,
 				8556CAD69E0C12F5EAADFF16 /* UserProfile.swift in Sources */,
@@ -361,7 +373,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.vitasignals.app;
+				PRODUCT_BUNDLE_IDENTIFIER = com.weblerai.vitasignals;
 				SDKROOT = iphoneos;
 				SUPPORTS_XR_DESIGNED_FOR = NO;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -442,7 +454,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.vitasignals.VitaSignalsTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.weblerai.VitaSignalsTests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VitaSignals.app/VitaSignals";
@@ -464,7 +476,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.vitasignals.app;
+				PRODUCT_BUNDLE_IDENTIFIER = com.weblerai.vitasignals;
 				SDKROOT = iphoneos;
 				SUPPORTS_XR_DESIGNED_FOR = NO;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -538,7 +550,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.vitasignals.VitaSignalsTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.weblerai.VitaSignalsTests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VitaSignals.app/VitaSignals";
