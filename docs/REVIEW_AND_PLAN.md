@@ -140,7 +140,65 @@ Comprehensive review covering bugs, performance, UX, and App Store readiness.
 
 ---
 
-## 6. Feature Ideas (Post-Launch)
+## 6. Contextual Help, Info & Descriptions
+
+The app currently shows data without explaining what it means. Users see numbers, charts, and classifications but have no way to understand them without prior medical knowledge. Every screen should help the user understand what they're looking at.
+
+### Charts & Metrics
+
+| # | Where | What to Add |
+|---|-------|-------------|
+| 1 | **Every metric chart card** (Charts tab) | An info button (ⓘ) in the header that shows the metric description from `MetricDefinition.description`. E.g., tapping ⓘ on "Resting Heart Rate" shows: "Heart rate measured when you've been inactive and calm for at least 10 minutes." |
+| 2 | **Reference range lines** on charts | A small label or legend explaining what the green dashed lines mean. E.g., "Normal range: 60–100 bpm" — currently these lines appear with no explanation. |
+| 3 | **Trend badges** (up/down arrows on Dashboard) | Tooltip or info popover explaining: "Compared to the previous 7 days. Green = improving for this metric, orange = worth watching." |
+| 4 | **BP classification badge** (Normal/Elevated/High) | Tappable badge that shows the AHA classification table — what each category means and its thresholds. Users see "High Stage 1" but don't know what that implies. |
+| 5 | **Chart zoom indicator** | Add text: "Pinch to zoom, drag to pan" below the zoom bar, not just the date range and reset button. |
+| 6 | **Sparklines on Dashboard** | A small "7d" label to indicate these show the last 7 days, not all time. |
+
+### Data Entry
+
+| # | Where | What to Add |
+|---|-------|-------------|
+| 7 | **HealthRecordFormView** — generic metric form | Show the metric description below the metric name section header. E.g., when logging VO2 Max, show: "Maximum oxygen your body can use during exercise, a key indicator of cardiorespiratory fitness." |
+| 8 | **BP activity context picker** | Brief helper text: "Select the context that best describes your activity when this reading was taken." |
+| 9 | **Custom metric creation form** | Explain "Tracking Style" more clearly. Current footer text is good but add an example: "Tally: coffee cups per day. Readings: mood rating each entry." |
+| 10 | **Input range fields** (min/max/step) | Helper text explaining what these control: "These values set the range and increment for the stepper when you log entries." |
+
+### Reports
+
+| # | Where | What to Add |
+|---|-------|-------------|
+| 11 | **Report template picker** | Show a 1-line description for each template directly in the picker, not just the name. E.g., "Comprehensive — All charts, statistics, and every metric with data." |
+| 12 | **Report style picker** | Preview thumbnail or description of each style. Users don't know what "Classic" vs "Clinical" looks like until they generate. |
+| 13 | **Generated PDF** | Add a "How to read this report" section at the top of the PDF explaining what the charts show, what reference lines mean, and how to interpret BP classifications. |
+
+### Dashboard
+
+| # | Where | What to Add |
+|---|-------|-------------|
+| 14 | **Health Overview section header** | Add subtitle: "Tap any card to see details" |
+| 15 | **Highlights card** | Brief explanation of how trends are calculated: "Based on your last 7 days compared to the 7 days before." |
+| 16 | **BP trend card** | Label the reference lines (120/80 mmHg) directly on the chart, and add "AHA Normal Range" text. |
+
+### Profile & Settings
+
+| # | Where | What to Add |
+|---|-------|-------------|
+| 17 | **BMI display** | Tappable info showing BMI category ranges (Underweight < 18.5, Normal 18.5–25, Overweight 25–30, Obese > 30) |
+| 18 | **Subscription section** | Brief text explaining what the subscription includes: "Premium gives you unlimited access to all features including charts, reports, and custom metrics." |
+| 19 | **Delete All Records** | Clearer warning: "This will permanently delete all your health records. Data synced from Apple Health can be re-imported, but manually entered data will be lost forever." |
+| 20 | **Reset Import History** | Explain what this means: "This clears the record of which Apple Health entries have already been imported. Next sync will re-import all available data." |
+
+### General Approach
+
+- Use a consistent pattern across the app: **ⓘ info buttons** that show a popover or sheet with the explanation
+- Metric descriptions already exist in `MetricDefinition.description` for all 60+ metrics — they just aren't surfaced anywhere in the UI
+- Keep help text concise (1-2 sentences max) — don't overwhelm, just inform
+- Consider a "Learn More" section in Profile that links to a help page on the website
+
+---
+
+## 7. Feature Ideas (Post-Launch)
 
 | # | Feature | Value |
 |---|---------|-------|
@@ -171,17 +229,26 @@ Comprehensive review covering bugs, performance, UX, and App Store readiness.
 7. Move `fetchRecords` off main thread for PDF generation
 8. Show error on PDF generation failure
 9. Add action buttons to empty states
+10. Add ⓘ info buttons on chart cards showing metric descriptions
+11. Add BP classification info (tappable badge → AHA thresholds table)
+12. Label reference range lines on charts ("Normal range: X–Y")
+13. Add metric descriptions to data entry forms
+14. Add "How to read this report" section to PDF
 
 ### First Update (UX Polish)
-10. Change default chart range to 30 days
-11. After onboarding → land on Charts tab
-12. Replace Stepper with TextField for large-range metrics
-13. One-time "pinch to zoom" tip on Charts tab
-14. Add accessibility labels to all toolbar buttons
-15. Dashboard metric cards → Charts tab navigation
+15. Change default chart range to 30 days
+16. After onboarding → land on Charts tab
+17. Replace Stepper with TextField for large-range metrics
+18. One-time "pinch to zoom" tip on Charts tab
+19. Add accessibility labels to all toolbar buttons
+20. Dashboard metric cards → Charts tab navigation
+21. Add trend badge explanations (tooltip/popover)
+22. Add report template and style descriptions/previews
+23. Add helper text to Dashboard sections ("Tap any card to see details")
+24. Add BMI category info popover in Profile
 
 ### Second Update (Performance)
-16. Cache filteredRecords and visibleMetricTypes
-17. Cache "All Time" earliest date
-18. Debounce zoom gesture re-renders
-19. Downsample chart data for large datasets
+25. Cache filteredRecords and visibleMetricTypes
+26. Cache "All Time" earliest date
+27. Debounce zoom gesture re-renders
+28. Downsample chart data for large datasets
