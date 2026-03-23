@@ -68,13 +68,23 @@ struct DataBrowserView: View {
                 categoryFilterBar
                 Group {
                     if result.totalCount == 0 {
-                        ContentUnavailableView(
-                            "No Records",
-                            systemImage: "list.bullet.clipboard",
-                            description: Text(selectedMetricType != nil || selectedCategory != nil
-                                ? "No records match this filter"
-                                : "Your health records will appear here")
-                        )
+                        VStack(spacing: 16) {
+                            ContentUnavailableView(
+                                "No Records",
+                                systemImage: "list.bullet.clipboard",
+                                description: Text(selectedMetricType != nil || selectedCategory != nil
+                                    ? "No records match this filter"
+                                    : "Tap + to add your first health record.")
+                            )
+                            if selectedMetricType == nil && selectedCategory == nil {
+                                Button {
+                                    activeSheet = .metricPicker
+                                } label: {
+                                    Label("Add Record", systemImage: "plus.circle.fill")
+                                        .font(.subheadline.bold())
+                                }
+                            }
+                        }
                     } else {
                         List {
                             ForEach(result.grouped, id: \.0) { date, dayRecords in

@@ -45,20 +45,25 @@ struct PaywallView: View {
     // MARK: - Trial Banner
 
     private var trialExpiredBanner: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "clock.badge.exclamationmark")
-                .foregroundStyle(.orange)
+        let hasExpiredTrial = !storeManager.isTrialActive && storeManager.trialDaysRemaining == 0
+            && UserDefaults.standard.object(forKey: "firstLaunchDate") != nil
+
+        return HStack(spacing: 10) {
+            Image(systemName: hasExpiredTrial ? "clock.badge.exclamationmark" : "gift")
+                .foregroundStyle(hasExpiredTrial ? .orange : .green)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Free trial ended")
+                Text(hasExpiredTrial ? "Free trial ended" : "Start your free trial")
                     .font(.subheadline.bold())
-                Text("Your 30-day free trial has expired. Subscribe to keep using VitaSignals.")
+                Text(hasExpiredTrial
+                    ? "Your 30-day free trial has expired. Subscribe to keep using VitaSignals."
+                    : "Subscribe now and enjoy 30 days free. Cancel anytime.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+        .background((hasExpiredTrial ? Color.orange : Color.green).opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
     }
 
     // MARK: - Plan Cards

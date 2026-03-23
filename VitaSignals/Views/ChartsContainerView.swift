@@ -153,18 +153,26 @@ struct ChartsContainerView: View {
                     }
 
                     if allMetricsWithData.isEmpty {
-                        ContentUnavailableView(
-                            "No Data",
-                            systemImage: "chart.xyaxis.line",
-                            description: Text("No health data recorded yet. Add records or sync from Apple Health.")
-                        )
+                        VStack(spacing: 16) {
+                            ContentUnavailableView(
+                                "No Data",
+                                systemImage: "chart.xyaxis.line",
+                                description: Text("Add records or sync from Apple Health to see charts.")
+                            )
+                        }
                         .padding(.top, 60)
                     } else if visibleMetricTypes.isEmpty {
-                        ContentUnavailableView(
-                            "No Matching Data",
-                            systemImage: "chart.xyaxis.line",
-                            description: Text("No records match the current filters. Tap the filter bar to adjust.")
-                        )
+                        VStack(spacing: 16) {
+                            ContentUnavailableView(
+                                "No Matching Data",
+                                systemImage: "chart.xyaxis.line",
+                                description: Text("No records match the current filters.")
+                            )
+                            Button("Adjust Filters") {
+                                showFilterSheet = true
+                            }
+                            .font(.subheadline.bold())
+                        }
                         .padding(.top, 40)
                     } else {
                         ForEach(visibleMetricTypes, id: \.self) { type in

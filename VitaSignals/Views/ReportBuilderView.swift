@@ -108,6 +108,11 @@ struct ReportBuilderView: View {
         .onChange(of: selectedTemplate) { _, _ in renderedPDF = nil }
         .navigationTitle("Reports")
         .withProfileButton()
+        .alert("Report Generation Failed", isPresented: $showGenerationError) {
+            Button("OK") {}
+        } message: {
+            Text("The report could not be generated. Please try again or select a different date range.")
+        }
     }
 
     // MARK: - Sticky Bottom Overlay
@@ -299,51 +304,63 @@ struct ReportBuilderView: View {
 
     // MARK: - PDF Generation
 
+    @State private var showGenerationError = false
+
     private func generatePDF() {
         isGenerating = true
-        generationStatus = "Generating report..."
+        generationStatus = "Preparing data..."
 
-        let records = dataStore.fetchRecords(from: startDate, to: endDate, metricTypes: selectedMetrics)
-        let periodLabel = "\(startDate.formatted(date: .abbreviated, time: .omitted)) – \(endDate.formatted(date: .abbreviated, time: .omitted))"
+        let start = startDate
+        let end = endDate
+        let metrics = selectedAndAvailable
+        let style = selectedStyle
+        let template = selectedTemplate
         let profileData: PDFGenerator.ProfileData? = {
             guard let p = profiles.first, !p.name.isEmpty else { return nil }
             return PDFGenerator.ProfileData(from: p)
         }()
+        let periodLabel = "\(start.formatted(date: .abbreviated, time: .omitted)) – \(end.formatted(date: .abbreviated, time: .omitted))"
 
-        // Snapshot records to detach from SwiftData
-        let snapshots = records.map { r in
-            HealthRecord(
-                metricType: r.metricType,
-                timestamp: r.timestamp,
-                primaryValue: r.primaryValue,
-                secondaryValue: r.secondaryValue,
-                tertiaryValue: r.tertiaryValue,
-                stringValue: r.stringValue,
-                durationSeconds: r.durationSeconds,
-                healthKitUUID: r.healthKitUUID,
-                source: r.source,
-                isManualEntry: r.isManualEntry,
-                activityContext: r.activityContext,
-                notes: r.notes
-            )
-        }
-        let metrics = selectedAndAvailable
-        let style = selectedStyle
-        let template = selectedTemplate
+        Task {
+            // Fetch records off the immediate render path
+            let records = dataStore.fetchRecords(from: start, to: end, metricTypes: selectedMetrics)
 
-        Task.detached(priority: .background) {
-            let url = PDFGenerator.generate(
-                records: snapshots,
-                selectedMetrics: metrics,
-                periodLabel: periodLabel,
-                profile: profileData,
-                style: style,
-                template: template
-            )
-            await MainActor.run {
-                renderedPDF = url
-                isGenerating = false
-                generationStatus = ""
+            // Snapshot records to detach from SwiftData
+            let snapshots = records.map { r in
+                HealthRecord(
+                    metricType: r.metricType,
+                    timestamp: r.timestamp,
+                    primaryValue: r.primaryValue,
+                    secondaryValue: r.secondaryValue,
+                    tertiaryValue: r.tertiaryValue,
+                    stringValue: r.stringValue,
+                    durationSeconds: r.durationSeconds,
+                    healthKitUUID: r.healthKitUUID,
+                    source: r.source,
+                    isManualEntry: r.isManualEntry,
+                    activityContext: r.activityContext,
+                    notes: r.notes
+                )
+            }
+
+            generationStatus = "Generating report..."
+
+            let url = await Task.detached(priority: .background) {
+                PDFGenerator.generate(
+                    records: snapshots,
+                    selectedMetrics: metrics,
+                    periodLabel: periodLabel,
+                    profile: profileData,
+                    style: style,
+                    template: template
+                )
+            }.value
+
+            renderedPDF = url
+            isGenerating = false
+            generationStatus = ""
+            if url == nil {
+                showGenerationError = true
             }
         }
     }

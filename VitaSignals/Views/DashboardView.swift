@@ -646,8 +646,28 @@ struct DashboardView: View {
             Image(systemName: "heart.text.square")
                 .font(.system(size: 60)).foregroundStyle(.secondary)
             Text("No Health Data Yet").font(.title2.bold())
-            Text("Tap + to log data or sync from Apple Health")
+            Text("Log data manually or connect Apple Health to get started.")
                 .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
+
+            HStack(spacing: 16) {
+                Button {
+                    activeSheet = .metricPicker
+                } label: {
+                    Label("Add Record", systemImage: "plus.circle.fill")
+                        .font(.subheadline.bold())
+                }
+
+                Button {
+                    Task {
+                        await syncManager.syncAll(container: modelContext.container, dataStore: dataStore)
+                    }
+                } label: {
+                    Label("Connect Health", systemImage: "heart.circle")
+                        .font(.subheadline.bold())
+                }
+            }
+            .padding(.top, 8)
+
             #if DEBUG
             debugGenerateButton
                 .padding(.top, 8)
