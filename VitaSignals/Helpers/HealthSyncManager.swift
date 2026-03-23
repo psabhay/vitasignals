@@ -72,13 +72,22 @@ final class HealthSyncManager: ObservableObject {
         let discovered = await worker.discoverAvailableMetrics(store: store)
         availableMetrics = discovered
 
-        if discovered.isEmpty {
+        // Check actual authorization status — empty discovery may just mean no data
+        let authStatus = store.authorizationStatus(for: HKQuantityType(.heartRate))
+        if discovered.isEmpty && authStatus == .sharingDenied {
             permissionDenied = true
             syncProgress = ""
             isSyncing = false
             return
         }
-        permissionDenied = false
+        permissionDenied = (authStatus == .sharingDenied)
+
+        if discovered.isEmpty {
+            syncProgress = ""
+            isSyncing = false
+            lastSyncDate = .now
+            return
+        }
 
         // Build list of quantity defs to sync
         let quantityDefs = discovered.compactMap { type -> MetricDefinition? in
@@ -247,7 +256,8 @@ private final class SyncWorker: Sendable {
                 excludedUUIDs = dismissedHealthKitUUIDs(for: def.type, context: context)
             } else {
                 // Incremental: only check UUIDs in the overlap window (lastSync - 1hr to lastSync)
-                excludedUUIDs = existingHealthKitUUIDs(for: def.type, from: startDate, to: lastSync!, context: context)
+                guard let syncDate = lastSync else { return }
+                excludedUUIDs = existingHealthKitUUIDs(for: def.type, from: startDate, to: syncDate, context: context)
                     .union(dismissedHealthKitUUIDs(for: def.type, context: context))
             }
 
@@ -308,7 +318,8 @@ private final class SyncWorker: Sendable {
         if isFirstSync {
             excludedUUIDs = dismissedHealthKitUUIDs(for: MetricType.bloodPressure, context: context)
         } else {
-            excludedUUIDs = existingHealthKitUUIDs(for: MetricType.bloodPressure, from: startDate, to: lastSync!, context: context)
+            guard let syncDate = lastSync else { return }
+            excludedUUIDs = existingHealthKitUUIDs(for: MetricType.bloodPressure, from: startDate, to: syncDate, context: context)
                 .union(dismissedHealthKitUUIDs(for: MetricType.bloodPressure, context: context))
         }
 

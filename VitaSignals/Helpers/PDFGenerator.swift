@@ -587,10 +587,16 @@ struct PDFGenerator {
 
     // MARK: - BP Summary (3 variants)
 
+    /// Rounded integer average — avoids integer division truncation.
+    private static func avgInt(_ values: [Int]) -> Int {
+        guard !values.isEmpty else { return 0 }
+        return Int((Double(values.reduce(0, +)) / Double(values.count)).rounded())
+    }
+
     private static func drawBPSummaryTable(_ s: State, records: [HealthRecord]) {
-        let avgSys = records.map(\.systolic).reduce(0, +) / records.count
-        let avgDia = records.map(\.diastolic).reduce(0, +) / records.count
-        let avgPulse = records.map(\.pulse).reduce(0, +) / records.count
+        let avgSys = avgInt(records.map(\.systolic))
+        let avgDia = avgInt(records.map(\.diastolic))
+        let avgPulse = avgInt(records.map(\.pulse))
         let cat = BPCategory.classify(systolic: avgSys, diastolic: avgDia)
         let mapVal = Int(Double(avgDia) + Double(avgSys - avgDia) / 3.0)
         let pp = avgSys - avgDia
@@ -692,8 +698,8 @@ struct PDFGenerator {
                 let pct = Double(count) / Double(records.count)
                 let color = catColor(cat)
                 let avg = groups[cat]!
-                let avgS = avg.map(\.systolic).reduce(0, +) / count
-                let avgD = avg.map(\.diastolic).reduce(0, +) / count
+                let avgS = avgInt(avg.map(\.systolic))
+                let avgD = avgInt(avg.map(\.diastolic))
                 if i > 0 {
                     s.ctx.setStrokeColor(s.style.borderColor.cgColor)
                     s.ctx.setLineWidth(0.2)
@@ -731,8 +737,8 @@ struct PDFGenerator {
                 guard count > 0 else { continue }
                 let pct = Int(Double(count) / Double(records.count) * 100)
                 let avg = groups[cat]!
-                let avgS = avg.map(\.systolic).reduce(0, +) / count
-                let avgD = avg.map(\.diastolic).reduce(0, +) / count
+                let avgS = avgInt(avg.map(\.systolic))
+                let avgD = avgInt(avg.map(\.diastolic))
                 if i % 2 == 0 { fillRect(s, x: m, w: cw, h: rowH, color: s.style.stripeColor) }
                 s.ctx.setFillColor(catColor(cat).cgColor)
                 s.ctx.fillEllipse(in: CGRect(x: m + 6, y: s.y + 3, width: 7, height: 7))
@@ -1031,9 +1037,9 @@ struct PDFGenerator {
 
         for (i, period) in periods.enumerated() {
             guard let recs = grouped[period], !recs.isEmpty else { continue }
-            let avgSys = recs.map(\.systolic).reduce(0, +) / recs.count
-            let avgDia = recs.map(\.diastolic).reduce(0, +) / recs.count
-            let avgPulse = recs.map(\.pulse).reduce(0, +) / recs.count
+            let avgSys = avgInt(recs.map(\.systolic))
+            let avgDia = avgInt(recs.map(\.diastolic))
+            let avgPulse = avgInt(recs.map(\.pulse))
             let cat = BPCategory.classify(systolic: avgSys, diastolic: avgDia)
             let pct = Int(Double(recs.count) / Double(totalCount) * 100)
             if s.style.layoutVariant == .document && i % 2 == 0 {
@@ -1055,8 +1061,8 @@ struct PDFGenerator {
             s.y += 4
             let morningRecs = grouped[.morning]!
             let eveningRecs = grouped[.evening]!
-            let mornAvgSys = morningRecs.map(\.systolic).reduce(0, +) / morningRecs.count
-            let eveAvgSys = eveningRecs.map(\.systolic).reduce(0, +) / eveningRecs.count
+            let mornAvgSys = avgInt(morningRecs.map(\.systolic))
+            let eveAvgSys = avgInt(eveningRecs.map(\.systolic))
             let diff = mornAvgSys - eveAvgSys
             let note: String
             let noteColor: UIColor
