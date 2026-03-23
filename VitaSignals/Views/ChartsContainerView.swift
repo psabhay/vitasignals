@@ -102,19 +102,17 @@ struct ChartsContainerView: View {
         return ordered
     }
 
-    /// Recompute cached visible metric types and earliest date.
+    /// Recompute cached visible metric types.
     /// Called from .onAppear and .onChange — NOT on every render.
     private func recomputeVisible() {
-        // Recompute earliest date for "All Time" mode
-        cachedEarliestDate = allMetricsWithData
-            .flatMap { dataStore.records(for: $0) }
-            .map(\.timestamp)
-            .min()
-
-        // Recompute visible metric types (selected + has data in range)
         cachedVisibleTypes = allMetricsWithData
             .filter { selectedMetrics.contains($0) }
             .filter { !filteredRecords(for: $0).isEmpty }
+    }
+
+    /// Recompute earliest date — only needed for "All Time" mode. Expensive.
+    private func recomputeEarliestDate() {
+        cachedEarliestDate = dataStore.allRecords.last?.timestamp ?? .now
     }
 
     private var effectiveZoom: CGFloat { zoomScale * activeZoom }
@@ -201,7 +199,6 @@ struct ChartsContainerView: View {
                 }
                 .padding(.bottom)
                 .simultaneousGesture(pinchGesture)
-                .simultaneousGesture(panGesture)
             }
             .navigationTitle("Charts")
             .withProfileButton()
@@ -243,6 +240,7 @@ struct ChartsContainerView: View {
                     selectedMetrics = Set(allMetricsWithData)
                     hasInitializedMetrics = true
                 }
+                recomputeEarliestDate()
                 recomputeVisible()
             }
             .onChange(of: timeRange) { _, _ in recomputeVisible() }
@@ -250,11 +248,11 @@ struct ChartsContainerView: View {
             .onChange(of: customStartDate) { _, _ in recomputeVisible() }
             .onChange(of: customEndDate) { _, _ in recomputeVisible() }
             .onChange(of: dataStore.availableMetricTypes) { oldTypes, newTypes in
-                // Auto-select newly added metric types (e.g. first record for a custom metric)
                 let newlyAdded = newTypes.subtracting(oldTypes)
                 if !newlyAdded.isEmpty {
                     selectedMetrics.formUnion(newlyAdded)
                 }
+                recomputeEarliestDate()
                 recomputeVisible()
             }
         }
@@ -382,6 +380,7 @@ struct ChartsContainerView: View {
         .padding(.vertical, 8)
         .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
         .padding(.horizontal)
+        .gesture(panGesture)
     }
 
     private var pinchGesture: some Gesture {
