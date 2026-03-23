@@ -217,6 +217,10 @@ struct ChartsContainerView: View {
             }
             .navigationTitle("Charts")
             .withProfileButton()
+            .navigationDestination(item: $expandedMetric) { metricType in
+                let records = cachedRecords[metricType] ?? []
+                expandedContent(for: metricType, records: records)
+            }
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     savedViewsButton
@@ -504,29 +508,14 @@ struct ChartsContainerView: View {
 
     @ViewBuilder
     private func chartCard(for metricType: String) -> some View {
-        let isExpanded = expandedMetric == metricType
         let records = cachedRecords[metricType] ?? []
-
-        if isExpanded {
-            expandedContent(for: metricType, records: records)
-        } else {
-            compactCard(for: metricType, records: records)
-        }
-    }
-
-    @ViewBuilder
-    private func compactCard(for metricType: String, records: [HealthRecord]) -> some View {
         if metricType == MetricType.bloodPressure {
             ComparisonBPChart(records: records, xDomain: xDomain) {
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    expandedMetric = metricType
-                }
+                expandedMetric = metricType
             }
         } else if let def = MetricRegistry.definition(for: metricType) {
             ComparisonMetricChart(records: records, definition: def, xDomain: xDomain) {
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    expandedMetric = metricType
-                }
+                expandedMetric = metricType
             }
         }
     }

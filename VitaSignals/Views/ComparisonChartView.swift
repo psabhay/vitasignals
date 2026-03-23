@@ -1,6 +1,21 @@
 import SwiftUI
 import Charts
 
+// MARK: - Downsample Helper
+
+/// Thin an array of records to at most `maxPoints` evenly spaced entries.
+/// Keeps first and last for accurate range display.
+private func downsample(_ records: [HealthRecord], maxPoints: Int = 60) -> [HealthRecord] {
+    guard records.count > maxPoints else { return records }
+    let step = Double(records.count - 1) / Double(maxPoints - 1)
+    var result: [HealthRecord] = []
+    for i in 0..<maxPoints {
+        let index = Int((Double(i) * step).rounded())
+        result.append(records[index])
+    }
+    return result
+}
+
 // MARK: - Comparison Metric Chart
 
 struct ComparisonMetricChart: View {
@@ -63,8 +78,9 @@ struct ComparisonMetricChart: View {
             }
 
             if records.count >= 2 {
+                let chartData = downsample(records)
                 Chart {
-                    ForEach(records) { record in
+                    ForEach(chartData) { record in
                         if definition.chartStyle == .bar {
                             BarMark(
                                 x: .value("Date", record.timestamp, unit: .day),
@@ -77,14 +93,6 @@ struct ComparisonMetricChart: View {
                                 y: .value(definition.unit, record.primaryValue)
                             )
                             .foregroundStyle(definition.color)
-                            .interpolationMethod(.monotone)
-
-                            AreaMark(
-                                x: .value("Date", record.timestamp),
-                                yStart: .value("min", yMin),
-                                yEnd: .value(definition.unit, record.primaryValue)
-                            )
-                            .foregroundStyle(definition.color.opacity(0.08))
                             .interpolationMethod(.monotone)
                         }
                     }
@@ -198,8 +206,9 @@ struct ComparisonBPChart: View {
             }
 
             if records.count >= 2 {
+                let chartData = downsample(records)
                 Chart {
-                    ForEach(records) { record in
+                    ForEach(chartData) { record in
                         LineMark(
                             x: .value("Date", record.timestamp),
                             y: .value("mmHg", record.systolic),
