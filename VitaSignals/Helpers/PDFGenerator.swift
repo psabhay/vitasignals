@@ -145,6 +145,8 @@ struct PDFGenerator {
         case .patientInfo:
             guard let profile, !profile.name.isEmpty else { return }
             drawPatientInfo(s, profile: profile)
+        case .howToRead:
+            drawHowToRead(s)
         case .bpSummary:
             guard hasBP else { return }
             drawBPSummaryTable(s, records: bpRecords)
@@ -583,6 +585,26 @@ struct PDFGenerator {
             }
             s.y += 8
         }
+    }
+
+    // MARK: - How to Read This Report
+
+    private static func drawHowToRead(_ s: State) {
+        let lines = [
+            "\u{2022} Trend lines show your readings over time",
+            "\u{2022} Green dashed lines indicate the normal reference range",
+            "\u{2022} BP classifications follow American Heart Association (AHA) guidelines",
+            "\u{2022} All data is from Apple Health or manually entered"
+        ]
+        pageBreak(s, 80)
+        section(s, "How to Read This Report")
+        let font = s.style.bodyFont
+        let color = s.style.secondaryTextColor
+        for line in lines {
+            text(s, line, font: font, color: color)
+            s.y += 2
+        }
+        s.y += 8
     }
 
     // MARK: - BP Summary (3 variants)

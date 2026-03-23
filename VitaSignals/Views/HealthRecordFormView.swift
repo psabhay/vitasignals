@@ -250,6 +250,15 @@ struct HealthRecordFormView: View {
         }
     }
 
+    // Generic text field binding for large-range metrics
+    @State private var primaryValueText: String = ""
+    @State private var hasInitializedText = false
+
+    private var isLargeRange: Bool {
+        guard let def = definition else { return false }
+        return (def.inputMax - def.inputMin) > 200
+    }
+
     // MARK: - Generic Form
 
     @ViewBuilder
@@ -268,15 +277,48 @@ struct HealthRecordFormView: View {
                 .padding(.vertical, 8)
             }
 
+            if let desc = def.description {
+                Text(desc)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             if !isHealthKitRecord {
                 Section(def.name) {
-                    Stepper(value: $primaryValue, in: def.inputMin...def.inputMax, step: def.inputStep) {
+                    if isLargeRange {
                         HStack {
                             Text("Value")
                             Spacer()
-                            Text(def.formatValue(primaryValue))
+                            TextField("Value", text: $primaryValueText)
+                                .keyboardType(.decimalPad)
+                                .multilineTextAlignment(.trailing)
                                 .font(.headline.monospacedDigit())
                                 .foregroundStyle(def.color)
+                                .frame(maxWidth: 120)
+                                .onChange(of: primaryValueText) { _, newValue in
+                                    if let parsed = Double(newValue) {
+                                        primaryValue = min(max(parsed, def.inputMin), def.inputMax)
+                                    }
+                                }
+                                .onAppear {
+                                    if !hasInitializedText {
+                                        primaryValueText = def.formatValue(primaryValue)
+                                        hasInitializedText = true
+                                    }
+                                }
+                            Text(def.unit)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    } else {
+                        Stepper(value: $primaryValue, in: def.inputMin...def.inputMax, step: def.inputStep) {
+                            HStack {
+                                Text("Value")
+                                Spacer()
+                                Text(def.formatValue(primaryValue))
+                                    .font(.headline.monospacedDigit())
+                                    .foregroundStyle(def.color)
+                            }
                         }
                     }
                 }

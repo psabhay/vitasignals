@@ -387,6 +387,9 @@ struct DashboardView: View {
                         .foregroundStyle(.primary)
                 }
             }
+            Text("Trends compare your last 7 days to the previous 7 days.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
@@ -397,9 +400,14 @@ struct DashboardView: View {
 
     private var metricStrip: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Health Overview")
-                .font(.subheadline.bold())
-                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Health Overview")
+                    .font(.subheadline.bold())
+                    .foregroundStyle(.secondary)
+                Text("Tap any card to see details")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
@@ -542,8 +550,18 @@ struct DashboardView: View {
                 }
                 RuleMark(y: .value("Ref", 120))
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 3])).foregroundStyle(.green.opacity(0.4))
+                    .annotation(position: .bottomLeading, alignment: .leading) {
+                        Text("Normal max: 120 mmHg")
+                            .font(.caption2)
+                            .foregroundStyle(.green)
+                    }
                 RuleMark(y: .value("Ref", 80))
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 3])).foregroundStyle(.green.opacity(0.3))
+                    .annotation(position: .bottomLeading, alignment: .leading) {
+                        Text("Normal max: 80 mmHg")
+                            .font(.caption2)
+                            .foregroundStyle(.green)
+                    }
             }
             .frame(height: 140)
             .chartYAxis { AxisMarks(position: .leading) }
@@ -700,6 +718,8 @@ struct DashboardView: View {
 
 struct CategoryBadge: View {
     let category: BPCategory
+    @State private var showClassification = false
+
     var badgeColor: Color {
         switch category {
         case .normal: return .green
@@ -710,12 +730,58 @@ struct CategoryBadge: View {
         }
     }
     var body: some View {
-        Text(category.rawValue)
-            .font(.caption.bold())
-            .padding(.horizontal, 12).padding(.vertical, 4)
-            .background(badgeColor.opacity(0.15), in: Capsule())
-            .foregroundStyle(badgeColor)
-            .accessibilityLabel("Blood pressure category: \(category.rawValue)")
+        Button {
+            showClassification = true
+        } label: {
+            Text(category.rawValue)
+                .font(.caption.bold())
+                .padding(.horizontal, 12).padding(.vertical, 4)
+                .background(badgeColor.opacity(0.15), in: Capsule())
+                .foregroundStyle(badgeColor)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Blood pressure category: \(category.rawValue). Tap for classification details.")
+        .popover(isPresented: $showClassification) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("AHA BP Classification")
+                    .font(.subheadline.bold())
+                ClassificationRow(label: "Normal", systolic: "< 120", diastolic: "< 80", color: .green)
+                ClassificationRow(label: "Elevated", systolic: "120-129", diastolic: "< 80", color: .yellow)
+                ClassificationRow(label: "High Stage 1", systolic: "130-139", diastolic: "80-89", color: .orange)
+                ClassificationRow(label: "High Stage 2", systolic: "\u{2265} 140", diastolic: "\u{2265} 90", color: .red)
+                ClassificationRow(label: "Crisis", systolic: "> 180", diastolic: "> 120", color: .purple)
+            }
+            .padding()
+            .frame(idealWidth: 300)
+            .presentationCompactAdaptation(.popover)
+        }
+    }
+}
+
+private struct ClassificationRow: View {
+    let label: String
+    let systolic: String
+    let diastolic: String
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(color)
+                .frame(width: 8, height: 8)
+            Text(label)
+                .font(.caption.bold())
+                .frame(width: 90, alignment: .leading)
+            Text(systolic)
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+            Text("and")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+            Text(diastolic)
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+        }
     }
 }
 

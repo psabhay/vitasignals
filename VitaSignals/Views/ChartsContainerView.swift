@@ -34,7 +34,7 @@ struct ChartsContainerView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject var dataStore: HealthDataStore
     @Query(sort: \SavedChartView.createdAt, order: .reverse) private var savedViews: [SavedChartView]
-    @State private var timeRange: ChartTimeRange = .week
+    @State private var timeRange: ChartTimeRange = .month
     @State private var customStartDate: Date = Calendar.current.date(byAdding: .month, value: -1, to: .now) ?? .now
     @State private var customEndDate: Date = .now
     @State private var expandedMetric: String?
@@ -45,12 +45,19 @@ struct ChartsContainerView: View {
     @State private var showSavedViewsSheet = false
     @State private var saveViewName = ""
     @State private var activeViewID: UUID?
+    @AppStorage("hasSeenZoomTip") private var hasSeenZoomTip = false
 
     // Zoom & pan state
     @State private var zoomScale: CGFloat = 1.0
     @State private var steadyZoom: CGFloat = 1.0
     @State private var panOffset: CGFloat = 0.0 // -0.5...0.5, fraction of total range
     @State private var steadyPan: CGFloat = 0.0
+    @GestureState private var activeZoom: CGFloat = 1.0
+    @GestureState private var activePan: CGFloat = 0.0
+
+    // Cached computed values (Items 25 & 26)
+    @State private var cachedVisibleTypes: [String] = []
+    @State private var cachedEarliestDate: Date?
 
     var onExport: ((ChartExportRequest) -> Void)?
 
@@ -63,11 +70,8 @@ struct ChartsContainerView: View {
             let start = Calendar.current.date(byAdding: .day, value: -days, to: end) ?? end
             return (start, end)
         }
-        // "All Time" — find earliest record
-        let earliest = allMetricsWithData
-            .flatMap { dataStore.records(for: $0) }
-            .map(\.timestamp)
-            .min() ?? end
+        // "All Time" — use cached earliest date
+        let earliest = cachedEarliestDate ?? end
         return (earliest, end)
     }
 
@@ -98,22 +102,33 @@ struct ChartsContainerView: View {
         return ordered
     }
 
-    /// Metrics the user selected AND that have data in the current date range.
-    private var visibleMetricTypes: [String] {
-        allMetricsWithData
+    /// Recompute cached visible metric types and earliest date.
+    /// Called from .onAppear and .onChange — NOT on every render.
+    private func recomputeVisible() {
+        // Recompute earliest date for "All Time" mode
+        cachedEarliestDate = allMetricsWithData
+            .flatMap { dataStore.records(for: $0) }
+            .map(\.timestamp)
+            .min()
+
+        // Recompute visible metric types (selected + has data in range)
+        cachedVisibleTypes = allMetricsWithData
             .filter { selectedMetrics.contains($0) }
             .filter { !filteredRecords(for: $0).isEmpty }
     }
 
-    private var isZoomed: Bool { zoomScale > 1.01 }
+    private var effectiveZoom: CGFloat { zoomScale * activeZoom }
+    private var effectivePan: CGFloat { panOffset + activePan }
+    private var isZoomed: Bool { effectiveZoom > 1.01 }
 
     private var xDomain: ClosedRange<Date> {
         let full = effectiveDateRange
         guard isZoomed else { return full.start...full.end }
 
+        let zoom = effectiveZoom
         let total = full.end.timeIntervalSince(full.start)
-        let visible = total / Double(zoomScale)
-        let center = total * (0.5 + Double(panOffset))
+        let visible = total / Double(zoom)
+        let center = total * (0.5 + Double(effectivePan))
 
         var start = full.start.addingTimeInterval(center - visible / 2)
         var end = start.addingTimeInterval(visible)
@@ -148,6 +163,10 @@ struct ChartsContainerView: View {
                     // Inline filter bar — always visible, tappable
                     filterBar
 
+                    if !hasSeenZoomTip && !cachedVisibleTypes.isEmpty {
+                        zoomTipBanner
+                    }
+
                     if isZoomed {
                         zoomIndicator
                     }
@@ -161,7 +180,7 @@ struct ChartsContainerView: View {
                             )
                         }
                         .padding(.top, 60)
-                    } else if visibleMetricTypes.isEmpty {
+                    } else if cachedVisibleTypes.isEmpty {
                         VStack(spacing: 16) {
                             ContentUnavailableView(
                                 "No Matching Data",
@@ -175,7 +194,7 @@ struct ChartsContainerView: View {
                         }
                         .padding(.top, 40)
                     } else {
-                        ForEach(visibleMetricTypes, id: \.self) { type in
+                        ForEach(cachedVisibleTypes, id: \.self) { type in
                             chartCard(for: type)
                         }
                     }
@@ -224,13 +243,19 @@ struct ChartsContainerView: View {
                     selectedMetrics = Set(allMetricsWithData)
                     hasInitializedMetrics = true
                 }
+                recomputeVisible()
             }
+            .onChange(of: timeRange) { _, _ in recomputeVisible() }
+            .onChange(of: selectedMetrics) { _, _ in recomputeVisible() }
+            .onChange(of: customStartDate) { _, _ in recomputeVisible() }
+            .onChange(of: customEndDate) { _, _ in recomputeVisible() }
             .onChange(of: dataStore.availableMetricTypes) { oldTypes, newTypes in
                 // Auto-select newly added metric types (e.g. first record for a custom metric)
                 let newlyAdded = newTypes.subtracting(oldTypes)
                 if !newlyAdded.isEmpty {
                     selectedMetrics.formUnion(newlyAdded)
                 }
+                recomputeVisible()
             }
         }
     }
@@ -278,11 +303,11 @@ struct ChartsContainerView: View {
             }
             .buttonStyle(.plain)
 
-            if let onExport, !visibleMetricTypes.isEmpty {
+            if let onExport, !cachedVisibleTypes.isEmpty {
                 Button {
                     let domain = xDomain
                     onExport(ChartExportRequest(
-                        metrics: Set(visibleMetricTypes),
+                        metrics: Set(cachedVisibleTypes),
                         startDate: domain.lowerBound,
                         endDate: domain.upperBound
                     ))
@@ -294,8 +319,34 @@ struct ChartsContainerView: View {
                         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Export to Reports")
             }
         }
+        .padding(.horizontal)
+    }
+
+    // MARK: - Zoom Tip Banner
+
+    private var zoomTipBanner: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "hand.pinch")
+                .font(.caption)
+                .foregroundStyle(Color.accentColor)
+            Text("Pinch to zoom into any date range. Drag to pan.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button {
+                withAnimation { hasSeenZoomTip = true }
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.caption2.bold())
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
         .padding(.horizontal)
     }
 
@@ -313,7 +364,7 @@ struct ChartsContainerView: View {
                 .font(.caption.bold())
                 .foregroundStyle(.primary)
 
-            Text("\(String(format: "%.1f", zoomScale))x")
+            Text("\(String(format: "%.1f", effectiveZoom))x")
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(.secondary)
 
@@ -335,8 +386,8 @@ struct ChartsContainerView: View {
 
     private var pinchGesture: some Gesture {
         MagnifyGesture()
-            .onChanged { value in
-                zoomScale = max(1.0, min(steadyZoom * value.magnification, 20.0))
+            .updating($activeZoom) { value, state, _ in
+                state = max(1.0 / steadyZoom, min(value.magnification, 20.0 / steadyZoom))
             }
             .onEnded { value in
                 zoomScale = max(1.0, min(steadyZoom * value.magnification, 20.0))
@@ -347,22 +398,29 @@ struct ChartsContainerView: View {
 
     private var panGesture: some Gesture {
         DragGesture(minimumDistance: 20)
-            .onChanged { value in
-                guard isZoomed else { return }
+            .updating($activePan) { value, state, _ in
+                guard effectiveZoom > 1.01 else { return }
+                let h = abs(value.translation.width)
+                let v = abs(value.translation.height)
+                guard h > v * 1.3 else { return }
+                let delta = -value.translation.width / 400.0 / effectiveZoom
+                let candidate = steadyPan + delta
+                let maxPan: CGFloat = 0.5 - 0.5 / effectiveZoom
+                state = max(-maxPan, min(maxPan, candidate)) - panOffset
+            }
+            .onEnded { value in
+                guard effectiveZoom > 1.01 else { return }
                 let h = abs(value.translation.width)
                 let v = abs(value.translation.height)
                 guard h > v * 1.3 else { return }
                 let delta = -value.translation.width / 400.0 / zoomScale
                 panOffset = clampPan(steadyPan + delta)
-            }
-            .onEnded { value in
-                guard isZoomed else { return }
                 steadyPan = panOffset
             }
     }
 
     private func clampPan(_ value: CGFloat) -> CGFloat {
-        let maxPan: CGFloat = 0.5 - 0.5 / zoomScale
+        let maxPan: CGFloat = 0.5 - 0.5 / effectiveZoom
         return max(-maxPan, min(maxPan, value))
     }
 
@@ -382,6 +440,7 @@ struct ChartsContainerView: View {
             Image(systemName: activeViewID != nil ? "bookmark.fill" : "bookmark")
                 .font(.body)
         }
+        .accessibilityLabel("Saved Chart Views")
     }
 
     private func saveCurrentView() {
@@ -988,11 +1047,31 @@ struct ChartFilterSheet: View {
 struct GenericMetricChart: View {
     let records: [HealthRecord]
     let definition: MetricDefinition
+    @State private var showInfo = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(definition.name)
-                .font(.headline)
+            HStack(spacing: 8) {
+                Text(definition.name)
+                    .font(.headline)
+                if definition.description != nil {
+                    Button {
+                        showInfo = true
+                    } label: {
+                        Image(systemName: "info.circle")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .popover(isPresented: $showInfo) {
+                        Text(definition.description ?? "")
+                            .font(.subheadline)
+                            .padding()
+                            .frame(idealWidth: 260)
+                            .presentationCompactAdaptation(.popover)
+                    }
+                }
+            }
             if let refMin = definition.referenceMin, let refMax = definition.referenceMax {
                 Text("Normal: \(definition.formatValue(refMin))–\(definition.formatValue(refMax)) \(definition.unit)")
                     .font(.caption)
@@ -1028,11 +1107,21 @@ struct GenericMetricChart: View {
                     RuleMark(y: .value("Ref Min", refMin))
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 3]))
                         .foregroundStyle(.green.opacity(0.5))
+                        .annotation(position: .topLeading, alignment: .leading) {
+                            Text("Normal min: \(definition.formatValue(refMin)) \(definition.unit)")
+                                .font(.caption2)
+                                .foregroundStyle(.green)
+                        }
                 }
                 if let refMax = definition.referenceMax {
                     RuleMark(y: .value("Ref Max", refMax))
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 3]))
                         .foregroundStyle(.green.opacity(0.5))
+                        .annotation(position: .bottomLeading, alignment: .leading) {
+                            Text("Normal max: \(definition.formatValue(refMax)) \(definition.unit)")
+                                .font(.caption2)
+                                .foregroundStyle(.green)
+                        }
                 }
             }
             .frame(height: 220)

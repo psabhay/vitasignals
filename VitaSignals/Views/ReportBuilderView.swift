@@ -221,6 +221,10 @@ struct ReportBuilderView: View {
             }
             .pickerStyle(.segmented)
             .onChange(of: selectedStyle) { _, _ in renderedPDF = nil }
+
+            Text(selectedStyle.previewDescription)
+                .font(.caption)
+                .foregroundStyle(.secondary)
         } header: {
             Text("Report Style")
         }

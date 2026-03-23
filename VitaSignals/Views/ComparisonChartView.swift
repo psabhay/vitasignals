@@ -8,6 +8,7 @@ struct ComparisonMetricChart: View {
     let definition: MetricDefinition
     let xDomain: ClosedRange<Date>
     var onTap: (() -> Void)? = nil
+    @State private var showInfo = false
 
     private var yMin: Double {
         let dataMin = records.map(\.primaryValue).min() ?? 0
@@ -33,6 +34,23 @@ struct ComparisonMetricChart: View {
                     .font(.subheadline)
                 Text(definition.name)
                     .font(.subheadline.bold())
+                if definition.description != nil {
+                    Button {
+                        showInfo = true
+                    } label: {
+                        Image(systemName: "info.circle")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .popover(isPresented: $showInfo) {
+                        Text(definition.description ?? "")
+                            .font(.subheadline)
+                            .padding()
+                            .frame(idealWidth: 260)
+                            .presentationCompactAdaptation(.popover)
+                    }
+                }
                 Spacer()
                 if let latest = records.last {
                     Text("\(definition.formatValue(latest.primaryValue)) \(definition.unit)")
@@ -75,11 +93,21 @@ struct ComparisonMetricChart: View {
                         RuleMark(y: .value("Min", refMin))
                             .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
                             .foregroundStyle(.green.opacity(0.4))
+                            .annotation(position: .topLeading, alignment: .leading) {
+                                Text("Normal min: \(definition.formatValue(refMin)) \(definition.unit)")
+                                    .font(.caption2)
+                                    .foregroundStyle(.green)
+                            }
                     }
                     if let refMax = definition.referenceMax {
                         RuleMark(y: .value("Max", refMax))
                             .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
                             .foregroundStyle(.green.opacity(0.4))
+                            .annotation(position: .bottomLeading, alignment: .leading) {
+                                Text("Normal max: \(definition.formatValue(refMax)) \(definition.unit)")
+                                    .font(.caption2)
+                                    .foregroundStyle(.green)
+                            }
                     }
                 }
                 .chartXScale(domain: xDomain)
@@ -192,9 +220,19 @@ struct ComparisonBPChart: View {
                     RuleMark(y: .value("Ref", 120))
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
                         .foregroundStyle(.red.opacity(0.3))
+                        .annotation(position: .bottomLeading, alignment: .leading) {
+                            Text("Systolic max: 120 mmHg")
+                                .font(.caption2)
+                                .foregroundStyle(.green)
+                        }
                     RuleMark(y: .value("Ref", 80))
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
                         .foregroundStyle(.blue.opacity(0.3))
+                        .annotation(position: .bottomLeading, alignment: .leading) {
+                            Text("Diastolic max: 80 mmHg")
+                                .font(.caption2)
+                                .foregroundStyle(.green)
+                        }
                 }
                 .chartXScale(domain: xDomain)
                 .chartXAxis {

@@ -14,6 +14,7 @@ enum ReportBlock: Sendable, Hashable, Identifiable {
     case pulseChart
     case timeOfDayAnalysis
     case metricCharts(categories: Set<MetricCategory>?)
+    case howToRead
     case disclaimer
     case bpReadingsTable
 
@@ -21,6 +22,7 @@ enum ReportBlock: Sendable, Hashable, Identifiable {
         switch self {
         case .header: return "header"
         case .patientInfo: return "patientInfo"
+        case .howToRead: return "howToRead"
         case .bpSummary: return "bpSummary"
         case .classificationBreakdown: return "classificationBreakdown"
         case .metricsSummary: return "metricsSummary"
@@ -62,7 +64,7 @@ struct ReportTemplate: Sendable, Identifiable, Hashable {
         icon: "doc.text.fill",
         description: "All charts, tables, and detailed annexure",
         blocks: [
-            .header, .patientInfo, .bpSummary, .classificationBreakdown,
+            .header, .patientInfo, .howToRead, .bpSummary, .classificationBreakdown,
             .metricsSummary, .bpChart, .pulseChart, .timeOfDayAnalysis,
             .metricCharts(categories: nil), .disclaimer
         ]
@@ -75,7 +77,7 @@ struct ReportTemplate: Sendable, Identifiable, Hashable {
         icon: "list.bullet.rectangle",
         description: "Tables and statistics only, no charts",
         blocks: [
-            .header, .patientInfo, .bpSummary, .classificationBreakdown,
+            .header, .patientInfo, .howToRead, .bpSummary, .classificationBreakdown,
             .metricsSummary, .disclaimer
         ]
     )
@@ -87,7 +89,7 @@ struct ReportTemplate: Sendable, Identifiable, Hashable {
         icon: "heart.text.square",
         description: "Blood pressure and heart rate deep dive",
         blocks: [
-            .header, .patientInfo, .bpSummary, .classificationBreakdown,
+            .header, .patientInfo, .howToRead, .bpSummary, .classificationBreakdown,
             .bpChart, .pulseChart, .timeOfDayAnalysis,
             .metricCharts(categories: [.cardioFitness]), .disclaimer
         ]
@@ -100,7 +102,7 @@ struct ReportTemplate: Sendable, Identifiable, Hashable {
         icon: "stethoscope",
         description: "Summaries, BP charts, and raw data for clinicians",
         blocks: [
-            .header, .patientInfo, .bpSummary, .classificationBreakdown,
+            .header, .patientInfo, .howToRead, .bpSummary, .classificationBreakdown,
             .metricsSummary, .bpChart, .pulseChart, .timeOfDayAnalysis,
             .disclaimer
         ]

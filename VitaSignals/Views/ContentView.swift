@@ -60,6 +60,7 @@ struct ContentView: View {
         .fullScreenCover(isPresented: .constant(!hasProfile && !hasCompletedOnboarding)) {
             OnboardingView {
                 hasCompletedOnboarding = true
+                selectedTab = 2
                 Task {
                     await syncManager.syncAll(container: modelContext.container, dataStore: dataStore)
                 }
@@ -318,6 +319,7 @@ struct ProfileSection: View {
     @State private var showResetDismissedConfirmation = false
     @State private var showSaved = false
     @State private var isEditing = false
+    @State private var showBMIInfo = false
     @State private var editingCustomMetric: CustomMetric?
     @State private var showCreateCustomMetric = false
     @State private var showDeleteCustomMetricConfirmation = false
@@ -386,7 +388,33 @@ struct ProfileSection: View {
                     if p.heightCm > 0 { LabeledContent("Height", value: p.heightFormatted) }
                     if p.weightKg > 0 { LabeledContent("Weight", value: p.weightFormatted) }
                     if let bmi = p.bmi {
-                        LabeledContent("BMI") {
+                        HStack {
+                            Text("BMI")
+                            Button {
+                                showBMIInfo = true
+                            } label: {
+                                Image(systemName: "info.circle")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                            .popover(isPresented: $showBMIInfo) {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("BMI Categories")
+                                        .font(.subheadline.bold())
+                                    Group {
+                                        Text("Underweight: < 18.5")
+                                        Text("Normal: 18.5 - 24.9")
+                                        Text("Overweight: 25 - 29.9")
+                                        Text("Obese: \u{2265} 30")
+                                    }
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                }
+                                .padding()
+                                .presentationCompactAdaptation(.popover)
+                            }
+                            Spacer()
                             Text(String(format: "%.1f", bmi)).bold()
                             + Text("  \(p.bmiCategory)").foregroundColor(.secondary)
                         }
