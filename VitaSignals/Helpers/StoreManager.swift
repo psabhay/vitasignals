@@ -30,8 +30,7 @@ final class StoreManager: ObservableObject {
 
     var trialDaysRemaining: Int {
         let elapsed = Calendar.current.dateComponents([.day], from: firstLaunchDate, to: .now).day ?? 0
-//        return max(Self.trialDurationDays - elapsed, 0)
-        return 0
+        return max(Self.trialDurationDays - elapsed, 0)
     }
 
     var isTrialActive: Bool {
