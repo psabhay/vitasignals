@@ -101,18 +101,25 @@ final class HealthSyncManager: ObservableObject {
 
         syncProgress = "Syncing \(total) metrics..."
 
-        // Sync all metrics in parallel with concurrency limit
-        await worker.syncMetricsBatched(quantityDefs, store: store, container: container)
+        // Sync everything in parallel — quantity metrics, BP, and sleep all at once
+        let hasBP = discovered.contains(MetricType.bloodPressure)
+        let hasSleep = discovered.contains(MetricType.sleepDuration)
 
-        // Sync BP and sleep (these need special handling)
-        if discovered.contains(MetricType.bloodPressure) {
-            syncProgress = "Syncing Blood Pressure..."
-            await worker.syncBloodPressure(store: store, container: container)
-        }
-
-        if discovered.contains(MetricType.sleepDuration) {
-            syncProgress = "Syncing Sleep..."
-            await worker.syncSleep(store: store, container: container)
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask {
+                await self.worker.syncMetricsBatched(quantityDefs, store: self.store, container: container)
+            }
+            if hasBP {
+                group.addTask {
+                    await self.worker.syncBloodPressure(store: self.store, container: container)
+                }
+            }
+            if hasSleep {
+                group.addTask {
+                    await self.worker.syncSleep(store: self.store, container: container)
+                }
+            }
+            await group.waitForAll()
         }
 
         // Refresh the shared data store once — all views update from this single source
@@ -190,7 +197,7 @@ private final class SyncWorker: Sendable {
         // Process metrics in parallel with concurrency limit of 6
         await withTaskGroup(of: Void.self) { group in
             var inFlight = 0
-            let maxConcurrency = 6
+            let maxConcurrency = 10
 
             for def in defs {
                 // Wait if we've hit concurrency limit
