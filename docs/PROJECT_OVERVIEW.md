@@ -2,12 +2,12 @@
 
 A fully offline iOS health tracking and visualization app. Its core feature is **multi-metric comparison** — users can see all their health metrics (blood pressure, heart rate, steps, sleep, weight, and 50+ more) charted side-by-side with aligned time axes, making it easy to spot correlations and trends across metrics. The app imports data from Apple Health, lets users manually log readings, surfaces smart trend insights on the dashboard, and can export PDF reports to share with a doctor.
 
-No accounts, no servers, no tracking — everything stays on-device.
+No accounts, no servers, no tracking — everything stays on-device. 30-day free trial, then monthly or yearly subscription.
 
-**Bundle ID:** `com.abhaysingh.vitasignals`
+**Bundle ID:** `com.weblerai.vitasignals`
 **Platform:** iOS 17.0+
-**Architecture:** SwiftUI + SwiftData
-**Dependencies:** Zero third-party — Apple frameworks only (HealthKit, PDFKit, Swift Charts)
+**Architecture:** SwiftUI + SwiftData + StoreKit 2
+**Dependencies:** Zero third-party — Apple frameworks only (HealthKit, StoreKit, PDFKit, Swift Charts)
 
 ---
 
@@ -43,7 +43,7 @@ No accounts, no servers, no tracking — everything stays on-device.
   - 7-day mini chart (systolic red, diastolic blue, reference lines at 120/80)
   - 7-day average and reading count footer
 - **Recent Activity feed** — cross-metric list of the last 8 records showing metric icon, formatted value, metric name, timestamp (time-only for today, date + time otherwise), and BP category badge where applicable
-- Permission-denied banner with "Open Settings" link when HealthKit access is blocked
+- **HealthKit permission handling** — full warning when no data, subtle tappable hint ("Connect Apple Health for more insights") when user has data. Tapping triggers the HealthKit permission dialog directly.
 - Sync progress indicator during active sync
 - Empty state with sample data generator (debug builds)
 
@@ -56,8 +56,10 @@ The Charts tab is the centerpiece of the app. It enables users to **visually com
 - **Inline filter bar** — always-visible tappable bar at the top showing current date range and metric count (e.g., "7 Days · All 8 metrics · Edit"). Opens the filter sheet on tap.
 - **Filter sheet** (half-sheet / full-sheet):
   - **Date range:** preset options (7 Days / 14 Days / 30 Days / 90 Days / All Time) with checkmark selection, plus expandable "Custom Range" with From/To date pickers
-  - **Metric selection:** organized by category (`DisclosureGroup`), individual toggles per metric, Select All / Deselect All in the header. Shows ALL metrics with any data regardless of date range — metric availability is decoupled from date filtering to avoid circular dependencies.
-- **Export button** — in the filter bar area, passes current visible metrics and date range to the Reports tab for PDF generation
+  - **Metric selection:** flat list grouped by category headers with individual toggles per metric, Select All / Deselect All. Shows ALL metrics with any data regardless of date range — metric availability is decoupled from date filtering to avoid circular dependencies.
+- **Pinch-to-zoom** — pinch to zoom into a narrower time window across all charts. Horizontal drag pans the visible window when zoomed. Zoom indicator bar shows the visible date range with a Reset button.
+- **Export button** — in the filter bar area, passes current visible metrics and **zoomed date range** to the Reports tab for PDF generation (exports exactly what you see)
+- **Saved Chart Views (Bookmarks)** — save the current chart configuration (time range + selected metrics) as a named view. Load, update, rename, and delete saved views from a dedicated sheet. Bookmark icon in toolbar (filled when active).
 - **Compact chart cards** (`ComparisonBPChart` / `ComparisonMetricChart`):
   - Header with metric icon, name, latest value, and chevron
   - 180pt chart with shared X-axis domain (`chartXScale`)
@@ -90,7 +92,7 @@ The Charts tab is the centerpiece of the app. It enables users to **visually com
 ### Reports (Tab 4)
 
 - Configurable date range (From / To date pickers)
-- Per-metric selection with expandable category disclosure groups and individual toggles
+- Per-metric selection with flat list grouped by category headers and individual toggles
 - Select All / Deselect All for quick toggling
 - Preview summary: record count in range, metric type count, patient name
 - **Charts → Reports handoff:** tapping "Export" on the Charts tab switches to Reports and pre-populates the date range and metric selection from the current chart filters
@@ -116,7 +118,6 @@ The generated report is US Letter size (612×792 pt) with 48pt margins and inclu
 7. **Time of Day Analysis** — comparison table by Morning/Afternoon/Evening with clinical note (flags morning surge if morning systolic ≥ 10 mmHg above evening)
 8. **Per-Category Metric Pages** — for each category with ≥2 data points: section header, per-metric description, chart, and summary stats
 9. **Medical Disclaimer** — informational purpose notice
-10. **Blood Pressure Annexure** — full detailed readings table with Date/Time, SYS, DIA, HR, MAP, and Context columns
 
 ### Manual Data Entry
 
@@ -128,6 +129,26 @@ The generated report is US Letter size (612×792 pt) with 48pt margins and inclu
   - **Generic metrics:** stepper with per-metric min/max/step bounds and value display in metric color
 - All forms include: date/time picker, optional notes text field
 - Edit mode pre-populates from the existing record
+
+### Custom User-Defined Metrics
+
+- Users can create their own metrics for anything Apple Health doesn't cover (e.g., coffee consumption, mood, medication doses)
+- Creation form: name, unit, icon (24 SF Symbols), color (12-color palette), tracking style (tally/sum per day vs individual readings), input range (min/max/step)
+- Custom metrics appear in the "Custom" category across all tabs (Dashboard, Charts, Data Browser, Reports)
+- Metric type key uses `custom_<uuid>` to avoid collisions with HealthKit types
+- Management (edit, rename, delete) in Profile sheet
+- Deleting a custom metric deletes all its recorded data (with confirmation)
+
+### Subscription System
+
+- **30-day free trial** — starts on first launch, tracked via `firstLaunchDate` in UserDefaults
+- **Paywall** — shown after trial expires, blocks access to all tabs until subscribed
+- **Plans:** Monthly ($9.99/month), Yearly ($69.99/year — save 42%)
+- Built with **StoreKit 2** — on-device JWS verification, transaction listener for renewals/refunds
+- **Restore Purchases** button on paywall and in Profile
+- **Manage or Change Plan** in Profile — uses Apple's native `manageSubscriptionsSheet`
+- Legal: auto-renewal disclosure text, Privacy Policy and Terms of Service links on paywall
+- StoreKit configuration file (`VitaSignals.storekit`) for local testing in Xcode
 
 ### Activity Contexts (Blood Pressure)
 
@@ -215,6 +236,8 @@ The higher category always wins.
 | `UserProfile` | Single-row user info (name, age, gender, height, weight, doctor, medical notes) used in onboarding, profile display, and PDF reports |
 | `SyncState` | Per-metric incremental sync tracking (metricType, lastSyncDate, isAvailable) |
 | `DismissedHealthKitRecord` | Tombstone for HealthKit records the user deleted (metricType, healthKitUUID) to prevent re-import |
+| `CustomMetric` | User-defined metric definitions (name, unit, icon, colorIndex, isCumulative, inputMin/Max/Step, metricType) |
+| `SavedChartView` | Saved chart configurations (name, timeRangeRaw, customStartDate/EndDate, selectedMetrics) |
 
 ### HealthRecord Value Encoding
 
@@ -259,7 +282,7 @@ All SwiftUI Views (via @EnvironmentObject)
 
 ### Privacy & Security
 
-- **Fully offline** — zero network calls, no analytics, no crash reporting, no third-party SDKs
+- **Fully offline** — no analytics, no crash reporting, no third-party SDKs. Only network calls are StoreKit (Apple subscription verification)
 - **Read-only HealthKit access** — `toShare: []`, only reads data
 - **All data on-device** in SwiftData (SQLite)
 - **Privacy manifest** (`PrivacyInfo.xcprivacy`) declares HealthKit data collection (not linked, not for tracking) and UserDefaults access
@@ -293,17 +316,21 @@ VitaSignals/
 ├── Models/
 │   ├── HealthRecord.swift                    — Core entity, BPCategory, ActivityContext, MetricType
 │   ├── HealthKitCatalog.swift                — ~55 extended HK metric entries
-│   ├── MetricRegistry.swift                  — Metric definitions, categories, chart styles
+│   ├── MetricRegistry.swift                  — Metric definitions, categories, chart styles, custom metric support
+│   ├── CustomMetric.swift                    — User-defined metric model with icon/color palette
+│   ├── SavedChartView.swift                  — Saved chart configuration (bookmarks)
 │   ├── ReportStyle.swift                     — Classic/Modern/Clinical PDF themes
 │   ├── ReportTemplate.swift                  — Comprehensive/Summary/Cardio/Provider templates
 │   ├── UserProfile.swift                     — User profile entity with BMI
 │   ├── SyncState.swift                       — Per-metric sync timestamp
 │   └── DismissedHealthKitRecord.swift        — Tombstone for deleted HK records
 ├── Views/
-│   ├── ContentView.swift                     — Tab shell, onboarding, profile sheet, export handoff
+│   ├── ContentView.swift                     — Tab shell, onboarding, profile sheet, subscription management
+│   ├── PaywallView.swift                     — Subscription paywall with plan cards and legal text
 │   ├── DashboardView.swift                   — Greeting, highlights, metric strip, BP trend, activity feed
 │   ├── DataBrowserView.swift                 — Filterable record list, FilterChip
-│   ├── ChartsContainerView.swift             — Comparison chart cards, filter sheet, ChartTimeRange, ChartExportRequest
+│   ├── ChartsContainerView.swift             — Comparison charts, filter sheet, saved views, pinch-to-zoom
+│   ├── CustomMetricFormView.swift            — Create/edit custom metric with icon/color picker
 │   ├── ComparisonChartView.swift             — Compact BP and metric chart cards with tap-to-expand
 │   ├── MetricDetailView.swift                — Per-metric detail with summary + chart
 │   ├── MetricCardView.swift                  — Compact metric card with sparkline (legacy)
@@ -313,11 +340,13 @@ VitaSignals/
 │   └── RecordDetailView.swift                — Record inspector with edit/delete
 ├── Helpers/
 │   ├── HealthSyncManager.swift               — HealthKit auth, discovery, incremental sync
-│   ├── HealthDataStore.swift                 — Shared in-memory record cache
+│   ├── HealthDataStore.swift                 — Shared in-memory record cache, custom metric loading
+│   ├── StoreManager.swift                    — StoreKit 2 subscription management, trial tracking
 │   ├── PDFGenerator.swift                    — CoreGraphics PDF renderer
 │   └── SyntheticDataGenerator.swift          — Debug-only sample data generator
 ├── Resources/
 │   ├── Assets.xcassets/                      — App icon, accent color
 │   └── PrivacyInfo.xcprivacy                 — Privacy manifest
+├── VitaSignals.storekit                      — StoreKit testing configuration
 └── Info.plist                                — Usage descriptions, orientation, display name
 ```
