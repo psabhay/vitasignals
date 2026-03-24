@@ -44,6 +44,9 @@
 		FBFEB40D61812E69CCEF5F3E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 55A0D1A6FD95AFDF2D4CF508 /* Assets.xcassets */; };
 		4A0A2F1040B7482EA7BB8530 /* DashboardCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A46EE7EDD2149AF92CBC2E8 /* DashboardCard.swift */; };
 		AEFD7E512F014EABB595A282 /* DashboardChartCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBAFF4F8797D43269E181212 /* DashboardChartCard.swift */; };
+		C9917D3E60FD44319161E0E6 /* MetricGoal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38F219B49153461EAC0A5C52 /* MetricGoal.swift */; };
+		AFBEFC949A264DEC9261F2CE /* DashboardEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 454183B3E4AD40D99A7E09E5 /* DashboardEngine.swift */; };
+		9BADBA63E03740BD83EBB1A6 /* DashboardCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4350C46D24B4BF7917C73A6 /* DashboardCards.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -100,6 +103,9 @@
 		F13BAD08ABAC6886239ADB53 /* HealthDataStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthDataStore.swift; sourceTree = "<group>"; };
 		8A46EE7EDD2149AF92CBC2E8 /* DashboardCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardCard.swift; sourceTree = "<group>"; };
 		FBAFF4F8797D43269E181212 /* DashboardChartCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardChartCard.swift; sourceTree = "<group>"; };
+		38F219B49153461EAC0A5C52 /* MetricGoal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricGoal.swift; sourceTree = "<group>"; };
+		454183B3E4AD40D99A7E09E5 /* DashboardEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardEngine.swift; sourceTree = "<group>"; };
+		F4350C46D24B4BF7917C73A6 /* DashboardCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardCards.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -144,6 +150,7 @@
 				B2029A1BE29CE1DAD6CB4407 /* ReportStyle.swift */,
 				E6872E5491FF1CDAF5451408 /* ReportTemplate.swift */,
 				3ACCAF3D89EC4920FC968A81 /* SavedChartView.swift */,
+				38F219B49153461EAC0A5C52 /* MetricGoal.swift */,
 				8A46EE7EDD2149AF92CBC2E8 /* DashboardCard.swift */,
 				B949F18A10A020DF4DA57DBF /* SyncState.swift */,
 				6AF26C85BFA36731B99CC353 /* UserProfile.swift */,
@@ -166,6 +173,7 @@
 				7423D69069AC5D9761D1BAA5 /* ChartsContainerView.swift */,
 				0FD6BAA66081D81CB6ACEF9F /* ComparisonChartView.swift */,
 				FBAFF4F8797D43269E181212 /* DashboardChartCard.swift */,
+				F4350C46D24B4BF7917C73A6 /* DashboardCards.swift */,
 				EA9133A2DDC9EB088CBCF2DE /* ContentView.swift */,
 				98446B1DF1D8D826831B2E87 /* CustomMetricFormView.swift */,
 				BE0C68685E1BF9E16E65FFCA /* DashboardView.swift */,
@@ -193,6 +201,7 @@
 			isa = PBXGroup;
 			children = (
 				F13BAD08ABAC6886239ADB53 /* HealthDataStore.swift */,
+				454183B3E4AD40D99A7E09E5 /* DashboardEngine.swift */,
 				DD41DBFB8AD04D869E99A061 /* HealthSyncManager.swift */,
 				B0EB46E1158A0192546A827B /* PDFGenerator.swift */,
 				61240306A5E7AC6BFAD85EE7 /* StoreManager.swift */,
@@ -320,6 +329,7 @@
 				E8B9F008C103CA863A076CDA /* DataBrowserView.swift in Sources */,
 				AFC61E8AD97B45338C4B2C5D /* DismissedHealthKitRecord.swift in Sources */,
 				E9E56F97E2A950D0A20934C7 /* HealthDataStore.swift in Sources */,
+				AFBEFC949A264DEC9261F2CE /* DashboardEngine.swift in Sources */,
 				D56565033ACB3F1A5F94728E /* HealthKitCatalog.swift in Sources */,
 				60F0077C4EC0E8DA032B9A62 /* HealthRecord.swift in Sources */,
 				6B140A52CE3DE3AC5E1C7342 /* HealthRecordFormView.swift in Sources */,
@@ -334,7 +344,9 @@
 				CA859B899594ED67E7AF6490 /* ReportStyle.swift in Sources */,
 				915A8DFFDF80D88725A56E86 /* ReportTemplate.swift in Sources */,
 				EDB10CCC70319F8C1DE017CF /* SavedChartView.swift in Sources */,
+				C9917D3E60FD44319161E0E6 /* MetricGoal.swift in Sources */,
 				AEFD7E512F014EABB595A282 /* DashboardChartCard.swift in Sources */,
+				9BADBA63E03740BD83EBB1A6 /* DashboardCards.swift in Sources */,
 				4A0A2F1040B7482EA7BB8530 /* DashboardCard.swift in Sources */,
 				02AAA5CD6647E2FC5E7AB086 /* StoreManager.swift in Sources */,
 				E2C5FAB2F96442778AF7EE08 /* SyncState.swift in Sources */,

@@ -8,11 +8,11 @@ struct DashboardView: View {
     @ObservedObject var syncManager: HealthSyncManager
     @Query private var profiles: [UserProfile]
     @Query(sort: \DashboardCard.sortIndex) private var dashboardCards: [DashboardCard]
+    @Query(sort: \CustomMetric.createdAt) private var customMetrics: [CustomMetric]
+    @Query private var goals: [MetricGoal]
+    @StateObject private var engine = DashboardEngine()
     @State private var activeSheet: DashboardSheet?
     @State private var addMetricType: String = MetricType.bloodPressure
-    @State private var cachedHighlights: [Highlight] = []
-    @State private var cachedDashboardCards: [ResolvedDashboardCard] = []
-    @State private var showManageDashboard = false
     @State private var dashboardNavMetric: String?
     #if DEBUG
     @State private var isGeneratingData = false
@@ -21,98 +21,32 @@ struct DashboardView: View {
     private enum DashboardSheet: Identifiable {
         case metricPicker
         case addForm(String)
+        case setGoal
+        case manageDashboard
         var id: String {
             switch self {
             case .metricPicker: return "picker"
             case .addForm(let type): return "add-\(type)"
+            case .setGoal: return "setGoal"
+            case .manageDashboard: return "manage"
             }
         }
     }
 
-    // MARK: - Data Models
-
-    struct Highlight: Identifiable {
-        let id = UUID()
-        let icon: String
-        let text: String
-        let color: Color
-    }
-
-    // MARK: - Computed Properties
-
     private var userName: String? {
         guard let p = profiles.first, !p.name.isEmpty else { return nil }
-        let first = p.name.split(separator: " ").first.map(String.init)
-        return first
+        return p.name.split(separator: " ").first.map(String.init)
     }
-
-    private var greeting: String {
-        let hour = Calendar.current.component(.hour, from: .now)
-        if hour < 12 { return "Good morning" }
-        else if hour < 17 { return "Good afternoon" }
-        else { return "Good evening" }
-    }
-
-
-    // MARK: - Recompute Cached Data
 
     private func recompute() {
-        // Compute highlights
-        var highlights: [Highlight] = []
-
-        // Total readings today
-        let todayCount = dataStore.allRecords.filter { Calendar.current.isDateInToday($0.timestamp) }.count
-        if todayCount > 0 {
-            highlights.append(Highlight(
-                icon: "checkmark.circle.fill",
-                text: "\(todayCount) reading\(todayCount == 1 ? "" : "s") recorded today",
-                color: .green
-            ))
-        }
-
-        // Streak — consecutive days with any reading
-        let streak = computeStreak()
-        if streak >= 3 {
-            highlights.append(Highlight(
-                icon: "flame.fill",
-                text: "\(streak)-day logging streak",
-                color: .orange
-            ))
-        }
-
-        cachedHighlights = highlights
-
-        // Sync dashboard cards with available metrics, then resolve
-        DashboardCardResolver.syncCards(
-            existingCards: dashboardCards,
-            availableMetrics: dataStore.availableMetricTypes,
-            context: modelContext
-        )
-        cachedDashboardCards = DashboardCardResolver.resolve(
+        engine.recompute(
+            dataStore: dataStore,
+            userName: userName,
+            goals: goals,
+            customMetrics: customMetrics,
             cards: dashboardCards,
-            dataStore: dataStore
+            modelContext: modelContext
         )
-    }
-
-    private func computeStreak() -> Int {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: .now)
-        // Records are sorted newest-first; walk until we find a gap
-        var daysWithData = Set<Date>()
-        for record in dataStore.allRecords {
-            let day = calendar.startOfDay(for: record.timestamp)
-            daysWithData.insert(day)
-            // No need to look beyond 365 days for a streak starting from today
-            if today.timeIntervalSince(day) > 366 * 86400 { break }
-        }
-        var streak = 0
-        var day = today
-        while daysWithData.contains(day) {
-            streak += 1
-            guard let prev = calendar.date(byAdding: .day, value: -1, to: day) else { break }
-            day = prev
-        }
-        return streak
     }
 
     // MARK: - Body
@@ -120,25 +54,85 @@ struct DashboardView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 20) {
-                    greetingHeader
+                VStack(spacing: 16) {
+                    // 1. Smart Summary (replaces greeting)
+                    SmartSummaryView(data: engine.smartSummary, syncManager: syncManager)
 
+                    // 2. Permission warning
                     if syncManager.permissionDenied && dataStore.recordCount == 0 {
                         permissionWarning
                     }
 
-                    if !cachedHighlights.isEmpty {
+                    // 3. Nudge cards
+                    ForEach(engine.nudgeItems) { nudge in
+                        NudgeCardView(item: nudge) {
+                            activeSheet = .addForm(nudge.id)
+                        } onDismiss: {
+                            let key = "nudge_dismissed_\(nudge.id)"
+                            UserDefaults.standard.set(Date.now.formatted(.dateTime.year().month().day()), forKey: key)
+                            recompute()
+                        }
+                    }
+
+                    // 4. Hero Card
+                    if let hero = engine.heroCard {
+                        HeroCardView(data: hero) {
+                            dashboardNavMetric = hero.metricType
+                        }
+                    }
+
+                    // 5. Highlights
+                    if !engine.highlights.isEmpty {
                         highlightsCard
                     }
 
+                    // 6. Quick Log
+                    if !engine.quickLogMetrics.isEmpty {
+                        QuickLogRowView(metrics: engine.quickLogMetrics) { type in
+                            activeSheet = .addForm(type)
+                        }
+                    }
+
+                    // 7. Goal Progress
+                    if !engine.goalProgress.isEmpty {
+                        goalSection
+                    }
+
+                    // 8. My Charts
                     if dataStore.recordCount > 0 {
                         dashboardChartsHeader
 
-                        ForEach(cachedDashboardCards) { card in
+                        ForEach(engine.dashboardCards) { card in
                             dashboardChartView(for: card)
                         }
                     }
 
+                    // 9. Moving Averages
+                    if !engine.movingAverages.isEmpty {
+                        MovingAveragesCardView(rows: engine.movingAverages)
+                    }
+
+                    // 10. Weekly Recap
+                    if let recap = engine.weeklyRecap {
+                        WeeklyRecapCardView(data: recap)
+                    }
+
+                    // 11. Add Goal entry point
+                    if dataStore.recordCount > 0 && goals.filter(\.isActive).count < 3 {
+                        Button {
+                            activeSheet = .setGoal
+                        } label: {
+                            Label("Set a Health Goal", systemImage: "target")
+                                .font(.subheadline)
+                                .foregroundStyle(Color.accentColor)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    // 12. Empty state
                     if dataStore.recordCount == 0 {
                         emptyStateView
                     }
@@ -167,126 +161,54 @@ struct DashboardView: View {
                     }
                 case .addForm(let type):
                     HealthRecordFormView(metricType: type)
+                case .setGoal:
+                    SetGoalSheet()
+                case .manageDashboard:
+                    ManageDashboardSheet()
+                        .onDisappear { recompute() }
                 }
-            }
-            .navigationDestination(for: String.self) { metricType in
-                MetricDetailView(metricType: metricType)
             }
             .navigationDestination(item: $dashboardNavMetric) { metricType in
                 MetricDetailView(metricType: metricType)
             }
-            .sheet(isPresented: $showManageDashboard) {
-                ManageDashboardSheet()
-                    .onDisappear { recompute() }
-            }
-            .onChange(of: dataStore.recordCount) { _, _ in
-                recompute()
-            }
-            .onAppear {
-                recompute()
-            }
+            .onChange(of: dataStore.recordCount) { _, _ in recompute() }
+            .onChange(of: goals.count) { _, _ in recompute() }
+            .onAppear { recompute() }
         }
-    }
-
-    // MARK: - Greeting Header
-
-    private var greetingHeader: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            if let name = userName {
-                Text("\(greeting), \(name)")
-                    .font(.title2.bold())
-            } else {
-                Text(greeting)
-                    .font(.title2.bold())
-            }
-
-            if syncManager.isSyncing {
-                HStack(spacing: 6) {
-                    ProgressView().scaleEffect(0.7)
-                    Text(syncManager.syncProgress)
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-            } else if let lastSync = syncManager.lastSyncDate {
-                HStack(spacing: 4) {
-                    Image(systemName: "arrow.triangle.2.circlepath")
-                        .font(.caption2)
-                    Text("Synced \(lastSync, format: .relative(presentation: .named))")
-                        .font(.caption)
-                }
-                .foregroundStyle(.tertiary)
-            } else if syncManager.permissionDenied {
-                Button {
-                    Task {
-                        await syncManager.syncAll(container: modelContext.container, dataStore: dataStore)
-                    }
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "heart.circle")
-                            .foregroundStyle(.pink)
-                        Text("Connect Apple Health for more insights")
-                            .foregroundStyle(.secondary)
-                        Image(systemName: "chevron.right")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                    }
-                    .font(.caption)
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    // MARK: - Permission Warning
-
-    private var permissionWarning: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "lock.shield")
-                .font(.title2).foregroundStyle(.orange)
-            Text("Health Data Access Required")
-                .font(.subheadline.bold())
-            Text("Enable access in Settings to display metrics and generate reports.")
-                .font(.caption).foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-            Button("Open Settings") {
-                if let url = URL(string: UIApplication.openSettingsURLString) {
-                    UIApplication.shared.open(url)
-                }
-            }
-            .font(.subheadline.bold())
-            .padding(.top, 4)
-
-            #if DEBUG
-            Divider().padding(.vertical, 4)
-            debugGenerateButton
-            #endif
-        }
-        .padding()
-        .frame(maxWidth: .infinity)
-        .background(.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
     }
 
     // MARK: - Highlights Card
 
     private var highlightsCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            ForEach(cachedHighlights) { highlight in
+            ForEach(engine.highlights) { item in
                 HStack(spacing: 10) {
-                    Image(systemName: highlight.icon)
+                    Image(systemName: item.icon)
                         .font(.subheadline)
-                        .foregroundStyle(highlight.color)
+                        .foregroundStyle(item.color)
                         .frame(width: 24)
-                    Text(highlight.text)
+                    Text(item.text)
                         .font(.subheadline)
                         .foregroundStyle(.primary)
                 }
             }
-            Text("Trends compare your last 7 days to the previous 7 days.")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    // MARK: - Goal Section
+
+    private var goalSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Goals")
+                .font(.subheadline.bold())
+                .foregroundStyle(.secondary)
+            ForEach(engine.goalProgress) { goal in
+                GoalProgressCardView(data: goal)
+            }
+        }
     }
 
     // MARK: - Dashboard Charts
@@ -303,7 +225,7 @@ struct DashboardView: View {
             }
             Spacer()
             Button {
-                showManageDashboard = true
+                activeSheet = .manageDashboard
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: "slider.horizontal.3")
@@ -333,6 +255,35 @@ struct DashboardView: View {
                 onTap: { dashboardNavMetric = card.metricType }
             )
         }
+    }
+
+    // MARK: - Permission Warning
+
+    private var permissionWarning: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "lock.shield")
+                .font(.title2).foregroundStyle(.orange)
+            Text("Health Data Access Required")
+                .font(.subheadline.bold())
+            Text("Enable access in Settings to display metrics and generate reports.")
+                .font(.caption).foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            Button("Open Settings") {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            }
+            .font(.subheadline.bold())
+            .padding(.top, 4)
+
+            #if DEBUG
+            Divider().padding(.vertical, 4)
+            debugGenerateButton
+            #endif
+        }
+        .padding()
+        .frame(maxWidth: .infinity)
+        .background(.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
     }
 
     // MARK: - Empty State

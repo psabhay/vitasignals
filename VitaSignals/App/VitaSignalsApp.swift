@@ -20,6 +20,7 @@ struct VitaSignalsApp: App {
             CustomMetric.self,
             SavedChartView.self,
             DashboardCard.self,
+            MetricGoal.self,
         ])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {
