@@ -10,6 +10,7 @@ struct ContentView: View {
     @State private var showProfile = false
     @State private var hasCompletedOnboarding = false
     @State private var chartExportRequest: ChartExportRequest?
+    @State private var showFirstSyncOverlay = false
     @StateObject private var syncManager = HealthSyncManager()
 
     private var hasProfile: Bool {
@@ -57,21 +58,86 @@ struct ContentView: View {
         .sheet(isPresented: $showProfile) {
             ProfileSheet()
         }
+        .overlay {
+            if showFirstSyncOverlay {
+                FirstSyncOverlayView(syncManager: syncManager)
+            }
+        }
         .fullScreenCover(isPresented: .constant(!hasProfile && !hasCompletedOnboarding)) {
             OnboardingView {
                 hasCompletedOnboarding = true
-                selectedTab = 2
-                Task {
-                    await syncManager.syncAll(container: modelContext.container, dataStore: dataStore)
-                }
+                selectedTab = 0
+                performFirstSync()
             }
         }
         .task {
             guard hasProfile else { return }
             hasCompletedOnboarding = true
-            await syncManager.syncAll(container: modelContext.container, dataStore: dataStore)
+            // Only show overlay on first ever sync (no lastSyncDate)
+            if syncManager.lastSyncDate == nil {
+                performFirstSync()
+            } else {
+                // Silent background sync for returning users
+                await syncManager.syncAll(container: modelContext.container, dataStore: dataStore)
+            }
         }
         .environment(\.showProfile, $showProfile)
+    }
+
+    private func performFirstSync() {
+        showFirstSyncOverlay = true
+        Task {
+            await syncManager.syncAll(container: modelContext.container, dataStore: dataStore)
+            withAnimation(.easeOut(duration: 0.4)) {
+                showFirstSyncOverlay = false
+            }
+        }
+    }
+}
+
+// MARK: - First Sync Overlay
+
+struct FirstSyncOverlayView: View {
+    @ObservedObject var syncManager: HealthSyncManager
+
+    var body: some View {
+        ZStack {
+            Color(.systemBackground)
+                .ignoresSafeArea()
+
+            VStack(spacing: 24) {
+                Spacer()
+
+                Image(systemName: "heart.text.square.fill")
+                    .font(.system(size: 72))
+                    .foregroundStyle(Color.accentColor)
+                    .symbolEffect(.pulse, options: .repeating)
+
+                Text("Setting Up Your Dashboard")
+                    .font(.title2.bold())
+
+                Text("Connecting to Apple Health and importing your data. This only takes a moment.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 40)
+
+                VStack(spacing: 12) {
+                    ProgressView()
+                        .scaleEffect(1.2)
+
+                    Text(syncManager.syncProgress.isEmpty ? "Getting ready..." : syncManager.syncProgress)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .animation(.easeInOut, value: syncManager.syncProgress)
+                }
+                .padding(.top, 8)
+
+                Spacer()
+                Spacer()
+            }
+        }
+        .transition(.opacity)
     }
 }
 
