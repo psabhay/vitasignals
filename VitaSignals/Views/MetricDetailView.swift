@@ -6,23 +6,20 @@ struct MetricDetailView: View {
     @EnvironmentObject var dataStore: HealthDataStore
     @State private var timeRange: ChartTimeRange = .month
     @State private var selectedRecord: HealthRecord?
+    @State private var cachedFiltered: [HealthRecord] = []
 
     private var definition: MetricDefinition? {
         MetricRegistry.definition(for: metricType)
     }
 
-    private var records: [HealthRecord] {
-        dataStore.records(for: metricType)
-    }
-
-    private var filteredRecords: [HealthRecord] {
-        guard let days = timeRange.days else { return records }
-        let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: .now) ?? .now
-        return records.filter { $0.timestamp >= cutoff }
-    }
-
-    private var sortedForChart: [HealthRecord] {
-        filteredRecords.reversed()
+    private func recomputeFiltered() {
+        let records = dataStore.records(for: metricType)
+        if let days = timeRange.days {
+            let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: .now) ?? .now
+            cachedFiltered = records.filter { $0.timestamp >= cutoff }
+        } else {
+            cachedFiltered = records
+        }
     }
 
     var body: some View {
@@ -36,7 +33,7 @@ struct MetricDetailView: View {
                 .pickerStyle(.segmented)
                 .padding(.horizontal)
 
-                if filteredRecords.isEmpty {
+                if cachedFiltered.isEmpty {
                     ContentUnavailableView(
                         "No Data",
                         systemImage: definition?.icon ?? "chart.xyaxis.line",
@@ -53,6 +50,9 @@ struct MetricDetailView: View {
         }
         .navigationTitle(definition?.name ?? "Metric")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear { recomputeFiltered() }
+        .onChange(of: timeRange) { _, _ in recomputeFiltered() }
+        .onChange(of: dataStore.recordCount) { _, _ in recomputeFiltered() }
         .sheet(item: $selectedRecord) { record in
             RecordDetailView(record: record)
         }
@@ -61,7 +61,7 @@ struct MetricDetailView: View {
     // MARK: - Summary Card
 
     private var summaryCard: some View {
-        let values = filteredRecords.map(\.primaryValue)
+        let values = cachedFiltered.map(\.primaryValue)
         let count = Double(max(values.count, 1))
         let avg = values.reduce(0, +) / count
         let minV = values.min() ?? 0
@@ -76,7 +76,7 @@ struct MetricDetailView: View {
                 Text("Summary")
                     .font(.headline)
                 Spacer()
-                Text("\(filteredRecords.count) records")
+                Text("\(cachedFiltered.count) records")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -121,7 +121,9 @@ struct MetricDetailView: View {
 
     @ViewBuilder
     private var chartCard: some View {
+        let sortedForChart = Array(cachedFiltered.reversed())
         if let def = definition, sortedForChart.count >= 2 {
+            let chartData = downsample(sortedForChart, maxPoints: 120)
             VStack(alignment: .leading, spacing: 12) {
                 Text("Trend").font(.headline)
 
@@ -131,7 +133,7 @@ struct MetricDetailView: View {
                 }
 
                 Chart {
-                    ForEach(sortedForChart) { record in
+                    ForEach(chartData) { record in
                         if def.chartStyle == .bar {
                             BarMark(
                                 x: .value("Date", record.timestamp, unit: .day),
@@ -144,7 +146,6 @@ struct MetricDetailView: View {
                                 y: .value(def.unit, record.primaryValue)
                             )
                             .foregroundStyle(def.color)
-                            .symbol(.circle)
                             .interpolationMethod(.monotone)
                         }
                     }
@@ -164,12 +165,12 @@ struct MetricDetailView: View {
                 .chartYAxis { AxisMarks(position: .leading) }
                 .clipped()
 
-                let values = sortedForChart.map(\.primaryValue)
+                let values = cachedFiltered.map(\.primaryValue)
                 let avg = values.reduce(0, +) / Double(max(values.count, 1))
                 HStack {
                     Text("Avg: \(def.formatValue(avg)) \(def.unit)")
                     Spacer()
-                    if let latest = filteredRecords.first {
+                    if let latest = cachedFiltered.first {
                         Text("Latest: \(def.formatValue(latest.primaryValue)) \(def.unit)")
                     }
                 }
@@ -185,12 +186,12 @@ struct MetricDetailView: View {
     // MARK: - Recent Records
 
     private var recentRecordsList: some View {
-        let recent = Array(filteredRecords.prefix(20))
+        let recent = Array(cachedFiltered.prefix(20))
         return VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Recent Records").font(.headline)
                 Spacer()
-                Text("\(filteredRecords.count) total").font(.caption).foregroundStyle(.secondary)
+                Text("\(cachedFiltered.count) total").font(.caption).foregroundStyle(.secondary)
             }
 
             ForEach(recent) { record in
@@ -222,8 +223,8 @@ struct MetricDetailView: View {
                 }
             }
 
-            if filteredRecords.count > 20 {
-                Text("Showing 20 of \(filteredRecords.count) records")
+            if cachedFiltered.count > 20 {
+                Text("Showing 20 of \(cachedFiltered.count) records")
                     .font(.caption).foregroundStyle(.tertiary).frame(maxWidth: .infinity)
             }
         }

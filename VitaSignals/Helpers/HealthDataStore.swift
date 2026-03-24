@@ -16,15 +16,18 @@ import Combine
 
 @MainActor
 final class HealthDataStore: ObservableObject {
-    @Published private(set) var recordsByType: [String: [HealthRecord]] = [:]
-    @Published private(set) var availableMetricTypes: Set<String> = []
-    @Published private(set) var recordCount: Int = 0
-    @Published private(set) var allRecords: [HealthRecord] = []
+    private(set) var recordsByType: [String: [HealthRecord]] = [:]
+    private(set) var availableMetricTypes: Set<String> = []
+    private(set) var recordCount: Int = 0
+    private(set) var allRecords: [HealthRecord] = []
 
     private var container: ModelContainer?
+    private var context: ModelContext?
 
     func setup(container: ModelContainer) {
         self.container = container
+        self.context = ModelContext(container)
+        self.context?.autosaveEnabled = false
         loadCustomMetrics()
         refresh()
     }
@@ -33,20 +36,22 @@ final class HealthDataStore: ObservableObject {
     func refresh() {
         guard let container else { return }
 
-        // Create a fresh context each time to pick up background changes
+        // Recreate context to pick up background changes
         // (ModelContext.reset() is iOS 18+, so we recreate instead)
-        let context = ModelContext(container)
-        context.autosaveEnabled = false
+        let ctx = ModelContext(container)
+        ctx.autosaveEnabled = false
+        self.context = ctx
 
         var descriptor = FetchDescriptor<HealthRecord>(
             sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
         )
         descriptor.fetchLimit = 5000
 
-        let records = (try? context.fetch(descriptor)) ?? []
+        let records = (try? ctx.fetch(descriptor)) ?? []
         let grouped = Dictionary(grouping: records, by: \.metricType)
 
-        // Batch all updates to trigger a single SwiftUI render pass
+        // Single objectWillChange to batch all property updates into one render pass
+        objectWillChange.send()
         recordsByType = grouped
         availableMetricTypes = Set(grouped.keys)
         recordCount = records.count
@@ -67,21 +72,28 @@ final class HealthDataStore: ObservableObject {
     // MARK: - Custom Metrics
 
     private func loadCustomMetrics() {
-        guard let container else { return }
-        let context = ModelContext(container)
-        context.autosaveEnabled = false
+        guard let context else { return }
         let customs = (try? context.fetch(FetchDescriptor<CustomMetric>())) ?? []
         for custom in customs {
             MetricRegistry.registerCustomMetric(custom.toMetricDefinition())
         }
     }
 
+    /// Count-only query for a date range — avoids loading full objects.
+    func fetchRecordCount(from startDate: Date, to endDate: Date) -> Int {
+        guard let context else { return 0 }
+        let start = Calendar.current.startOfDay(for: startDate)
+        let end = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: endDate)) ?? endDate
+        var descriptor = FetchDescriptor<HealthRecord>(
+            predicate: #Predicate { $0.timestamp >= start && $0.timestamp < end }
+        )
+        descriptor.fetchLimit = 10000
+        return (try? context.fetchCount(descriptor)) ?? 0
+    }
+
     /// Targeted fetch for report generation — fetches only records in the given date range.
-    /// Uses its own context so it doesn't disturb the main cached data.
     func fetchRecords(from startDate: Date, to endDate: Date, metricTypes: Set<String>? = nil) -> [HealthRecord] {
-        guard let container else { return [] }
-        let context = ModelContext(container)
-        context.autosaveEnabled = false
+        guard let context else { return [] }
 
         let start = Calendar.current.startOfDay(for: startDate)
         let end = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: endDate)) ?? endDate

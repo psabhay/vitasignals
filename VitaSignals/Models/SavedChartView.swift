@@ -10,13 +10,17 @@ final class SavedChartView {
     var customEndDate: Date
     var selectedMetrics: [String]
     var createdAt: Date
+    var savedZoomScale: Double
+    var savedPanOffset: Double
 
     init(
         name: String,
         timeRange: String,
         customStartDate: Date = .now,
         customEndDate: Date = .now,
-        selectedMetrics: [String]
+        selectedMetrics: [String],
+        zoomScale: Double = 1.0,
+        panOffset: Double = 0.0
     ) {
         self.id = UUID()
         self.name = name
@@ -25,5 +29,7 @@ final class SavedChartView {
         self.customEndDate = customEndDate
         self.selectedMetrics = selectedMetrics
         self.createdAt = .now
+        self.savedZoomScale = zoomScale
+        self.savedPanOffset = panOffset
     }
 }

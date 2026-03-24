@@ -9,6 +9,7 @@ struct DataBrowserView: View {
     @State private var selectedRecord: HealthRecord?
     @State private var activeSheet: DataSheet?
     @State private var addMetricType: String = MetricType.bloodPressure
+    @State private var cachedResult: FilteredResult = FilteredResult(display: [], totalCount: 0, grouped: [])
 
     private enum DataSheet: Identifiable {
         case metricPicker
@@ -25,15 +26,14 @@ struct DataBrowserView: View {
 
     private static let displayLimit = 200
 
-    // Single computed struct to avoid re-deriving the same data 3-4×
-    private struct FilteredResult {
+    struct FilteredResult {
         let display: [HealthRecord]
         let totalCount: Int
         let grouped: [(String, [HealthRecord])]
         var hasMore: Bool { totalCount > display.count }
     }
 
-    private var filteredResult: FilteredResult {
+    private func recomputeFilteredResult() {
         let all: [HealthRecord]
         if let metricType = selectedMetricType {
             all = dataStore.records(for: metricType)
@@ -54,15 +54,11 @@ struct DataBrowserView: View {
             (date.formatted(date: .abbreviated, time: .omitted), records)
         }
 
-        return FilteredResult(display: display, totalCount: all.count, grouped: grouped)
-    }
-
-    private var availableMetricTypes: [String] {
-        Array(dataStore.availableMetricTypes).sorted()
+        cachedResult = FilteredResult(display: display, totalCount: all.count, grouped: grouped)
     }
 
     var body: some View {
-        let result = filteredResult
+        let result = cachedResult
         NavigationStack {
             VStack(spacing: 0) {
                 categoryFilterBar
@@ -153,6 +149,10 @@ struct DataBrowserView: View {
                     RecordDetailView(record: record)
                 }
             }
+            .onAppear { recomputeFilteredResult() }
+            .onChange(of: selectedCategory) { _, _ in recomputeFilteredResult() }
+            .onChange(of: selectedMetricType) { _, _ in recomputeFilteredResult() }
+            .onChange(of: dataStore.recordCount) { _, _ in recomputeFilteredResult() }
         }
     }
 

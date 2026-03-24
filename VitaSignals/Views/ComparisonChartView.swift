@@ -5,7 +5,7 @@ import Charts
 
 /// Thin an array of records to at most `maxPoints` evenly spaced entries.
 /// Keeps first and last for accurate range display.
-private func downsample(_ records: [HealthRecord], maxPoints: Int = 60) -> [HealthRecord] {
+func downsample(_ records: [HealthRecord], maxPoints: Int = 60) -> [HealthRecord] {
     guard records.count > maxPoints else { return records }
     let step = Double(records.count - 1) / Double(maxPoints - 1)
     var result: [HealthRecord] = []
@@ -23,6 +23,7 @@ struct ComparisonMetricChart: View {
     let definition: MetricDefinition
     let xDomain: ClosedRange<Date>
     var onTap: (() -> Void)? = nil
+    var onHide: (() -> Void)? = nil
     @State private var showInfo = false
 
     private var yMin: Double {
@@ -72,9 +73,23 @@ struct ComparisonMetricChart: View {
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.secondary)
                 }
-                Image(systemName: "chevron.right")
-                    .font(.caption2.bold())
-                    .foregroundStyle(.tertiary)
+                if let onHide {
+                    Button {
+                        onHide()
+                    } label: {
+                        Image(systemName: "eye.slash")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(6)
+                            .contentShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Hide \(definition.name) chart")
+                } else {
+                    Image(systemName: "chevron.right")
+                        .font(.caption2.bold())
+                        .foregroundStyle(.tertiary)
+                }
             }
 
             if records.count >= 2 {
@@ -175,6 +190,7 @@ struct ComparisonBPChart: View {
     let records: [HealthRecord]
     let xDomain: ClosedRange<Date>
     var onTap: (() -> Void)? = nil
+    var onHide: (() -> Void)? = nil
 
     var body: some View {
         Button {
@@ -200,9 +216,23 @@ struct ComparisonBPChart: View {
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.secondary)
                 }
-                Image(systemName: "chevron.right")
-                    .font(.caption2.bold())
-                    .foregroundStyle(.tertiary)
+                if let onHide {
+                    Button {
+                        onHide()
+                    } label: {
+                        Image(systemName: "eye.slash")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(6)
+                            .contentShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Hide Blood Pressure chart")
+                } else {
+                    Image(systemName: "chevron.right")
+                        .font(.caption2.bold())
+                        .foregroundStyle(.tertiary)
+                }
             }
 
             if records.count >= 2 {

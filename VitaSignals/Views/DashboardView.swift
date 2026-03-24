@@ -7,10 +7,13 @@ struct DashboardView: View {
     @EnvironmentObject var dataStore: HealthDataStore
     @ObservedObject var syncManager: HealthSyncManager
     @Query private var profiles: [UserProfile]
+    @Query(sort: \DashboardCard.sortIndex) private var dashboardCards: [DashboardCard]
     @State private var activeSheet: DashboardSheet?
     @State private var addMetricType: String = MetricType.bloodPressure
-    @State private var cachedSummaries: [MetricSummary] = []
     @State private var cachedHighlights: [Highlight] = []
+    @State private var cachedDashboardCards: [ResolvedDashboardCard] = []
+    @State private var showManageDashboard = false
+    @State private var dashboardNavMetric: String?
     #if DEBUG
     @State private var isGeneratingData = false
     #endif
@@ -27,18 +30,6 @@ struct DashboardView: View {
     }
 
     // MARK: - Data Models
-
-    struct MetricSummary: Identifiable {
-        let id: String
-        let name: String
-        let icon: String
-        let color: Color
-        let latestValue: String
-        let unit: String
-        let trendPercent: Double?
-        let sparkline: [(Date, Double)]
-        let recordCount7d: Int
-    }
 
     struct Highlight: Identifiable {
         let id = UUID()
@@ -62,96 +53,10 @@ struct DashboardView: View {
         else { return "Good evening" }
     }
 
-    private var allMetricTypes: [String] {
-        let types = dataStore.availableMetricTypes
-        var ordered: [String] = []
-        var seen = Set<String>()
-        for category in MetricCategory.allCases {
-            for def in MetricRegistry.definitions(for: category) where types.contains(def.type) {
-                if seen.insert(def.type).inserted {
-                    ordered.append(def.type)
-                }
-            }
-        }
-        for type in types.sorted() where !seen.contains(type) {
-            ordered.append(type)
-        }
-        return ordered
-    }
-
-    private var bpRecords: [HealthRecord] {
-        dataStore.records(for: MetricType.bloodPressure)
-    }
-
-    private var latestBP: HealthRecord? {
-        bpRecords.first
-    }
-
-    private var last7DaysBP: [HealthRecord] {
-        let cutoff = Calendar.current.date(byAdding: .day, value: -7, to: .now) ?? .now
-        return bpRecords.filter { $0.timestamp >= cutoff }
-    }
-
-    private var recentRecords: [HealthRecord] {
-        Array(dataStore.allRecords.prefix(15))
-    }
 
     // MARK: - Recompute Cached Data
 
     private func recompute() {
-        let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: .now) ?? .now
-        let fourteenDaysAgo = Calendar.current.date(byAdding: .day, value: -14, to: .now) ?? .now
-
-        cachedSummaries = allMetricTypes.compactMap { type in
-            let def = MetricRegistry.definition(for: type)
-            let records = dataStore.records(for: type)
-            guard !records.isEmpty else { return nil }
-
-            let latest = records.first
-            let recent7d = records.filter { $0.timestamp >= sevenDaysAgo }
-            let prev7d = records.filter { $0.timestamp >= fourteenDaysAgo && $0.timestamp < sevenDaysAgo }
-
-            // Trend: compare 7d avg to previous 7d avg
-            let trend: Double? = {
-                guard recent7d.count >= 2, prev7d.count >= 2 else { return nil }
-                let recentAvg: Double
-                let prevAvg: Double
-                if type == MetricType.bloodPressure {
-                    recentAvg = Double(recent7d.map(\.systolic).reduce(0, +)) / Double(recent7d.count)
-                    prevAvg = Double(prev7d.map(\.systolic).reduce(0, +)) / Double(prev7d.count)
-                } else {
-                    recentAvg = recent7d.map(\.primaryValue).reduce(0, +) / Double(recent7d.count)
-                    prevAvg = prev7d.map(\.primaryValue).reduce(0, +) / Double(prev7d.count)
-                }
-                guard prevAvg != 0 else { return nil }
-                return ((recentAvg - prevAvg) / abs(prevAvg)) * 100
-            }()
-
-            let sparkline = records.lazy.filter { $0.timestamp >= sevenDaysAgo }
-                .sorted { $0.timestamp < $1.timestamp }
-                .prefix(30)
-                .map { ($0.timestamp, type == MetricType.bloodPressure ? Double($0.systolic) : $0.primaryValue) }
-
-            let latestFormatted: String
-            if type == MetricType.bloodPressure {
-                latestFormatted = latest.map { "\($0.systolic)/\($0.diastolic)" } ?? "–"
-            } else {
-                latestFormatted = latest?.formattedPrimaryValue ?? "–"
-            }
-
-            return MetricSummary(
-                id: type,
-                name: def?.name ?? type,
-                icon: def?.icon ?? "chart.xyaxis.line",
-                color: def?.color ?? .gray,
-                latestValue: latestFormatted,
-                unit: def?.unit ?? "",
-                trendPercent: trend,
-                sparkline: Array(sparkline),
-                recordCount7d: recent7d.count
-            )
-        }
-
         // Compute highlights
         var highlights: [Highlight] = []
 
@@ -162,34 +67,6 @@ struct DashboardView: View {
                 icon: "checkmark.circle.fill",
                 text: "\(todayCount) reading\(todayCount == 1 ? "" : "s") recorded today",
                 color: .green
-            ))
-        }
-
-        // Top trends (biggest movers)
-        let trending = cachedSummaries
-            .compactMap { s -> (MetricSummary, Double)? in
-                guard let t = s.trendPercent, abs(t) >= 3 else { return nil }
-                return (s, t)
-            }
-            .sorted { abs($0.1) > abs($1.1) }
-            .prefix(2)
-
-        for (summary, pct) in trending {
-            let direction = pct > 0 ? "up" : "down"
-            let arrow = pct > 0 ? "arrow.up.right" : "arrow.down.right"
-            // For BP, down is good. For steps/exercise, up is good.
-            let isGood: Bool
-            if summary.id == MetricType.bloodPressure {
-                isGood = pct < 0
-            } else if summary.id == MetricType.stepCount || summary.id == MetricType.exerciseMinutes || summary.id == MetricType.vo2Max {
-                isGood = pct > 0
-            } else {
-                isGood = true // neutral
-            }
-            highlights.append(Highlight(
-                icon: arrow,
-                text: "\(summary.name) \(direction) \(Int(abs(pct)))% this week",
-                color: isGood ? .green : .orange
             ))
         }
 
@@ -204,14 +81,29 @@ struct DashboardView: View {
         }
 
         cachedHighlights = highlights
+
+        // Sync dashboard cards with available metrics, then resolve
+        DashboardCardResolver.syncCards(
+            existingCards: dashboardCards,
+            availableMetrics: dataStore.availableMetricTypes,
+            context: modelContext
+        )
+        cachedDashboardCards = DashboardCardResolver.resolve(
+            cards: dashboardCards,
+            dataStore: dataStore
+        )
     }
 
     private func computeStreak() -> Int {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: .now)
+        // Records are sorted newest-first; walk until we find a gap
         var daysWithData = Set<Date>()
         for record in dataStore.allRecords {
-            daysWithData.insert(calendar.startOfDay(for: record.timestamp))
+            let day = calendar.startOfDay(for: record.timestamp)
+            daysWithData.insert(day)
+            // No need to look beyond 365 days for a streak starting from today
+            if today.timeIntervalSince(day) > 366 * 86400 { break }
         }
         var streak = 0
         var day = today
@@ -239,16 +131,12 @@ struct DashboardView: View {
                         highlightsCard
                     }
 
-                    if !cachedSummaries.isEmpty {
-                        metricStrip
-                    }
+                    if dataStore.recordCount > 0 {
+                        dashboardChartsHeader
 
-                    if last7DaysBP.count >= 2 {
-                        bpTrendCard
-                    }
-
-                    if !recentRecords.isEmpty {
-                        recentActivityCard
+                        ForEach(cachedDashboardCards) { card in
+                            dashboardChartView(for: card)
+                        }
                     }
 
                     if dataStore.recordCount == 0 {
@@ -284,7 +172,14 @@ struct DashboardView: View {
             .navigationDestination(for: String.self) { metricType in
                 MetricDetailView(metricType: metricType)
             }
-            .onReceive(dataStore.$recordCount) { _ in
+            .navigationDestination(item: $dashboardNavMetric) { metricType in
+                MetricDetailView(metricType: metricType)
+            }
+            .sheet(isPresented: $showManageDashboard) {
+                ManageDashboardSheet()
+                    .onDisappear { recompute() }
+            }
+            .onChange(of: dataStore.recordCount) { _, _ in
                 recompute()
             }
             .onAppear {
@@ -319,9 +214,7 @@ struct DashboardView: View {
                         .font(.caption)
                 }
                 .foregroundStyle(.tertiary)
-            }
-
-            if syncManager.permissionDenied && dataStore.recordCount > 0 {
+            } else if syncManager.permissionDenied {
                 Button {
                     Task {
                         await syncManager.syncAll(container: modelContext.container, dataStore: dataStore)
@@ -396,265 +289,50 @@ struct DashboardView: View {
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
     }
 
-    // MARK: - Metric Summary Strip
+    // MARK: - Dashboard Charts
 
-    private var metricStrip: some View {
-        VStack(alignment: .leading, spacing: 12) {
+    private var dashboardChartsHeader: some View {
+        HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text("Health Overview")
+                Text("My Charts")
                     .font(.subheadline.bold())
                     .foregroundStyle(.secondary)
-                Text("Tap any card to see details")
+                Text("Tap to view details")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(cachedSummaries) { summary in
-                        NavigationLink(value: summary.id) {
-                            metricSummaryCard(summary)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-        }
-    }
-
-    private func metricSummaryCard(_ summary: MetricSummary) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                Image(systemName: summary.icon)
-                    .foregroundStyle(summary.color)
-                    .font(.caption)
-                Text(summary.name)
-                    .font(.caption.bold())
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-
-            Text(summary.latestValue)
-                .font(.system(size: 22, weight: .bold, design: .rounded))
-                .foregroundStyle(.primary)
-                .lineLimit(1)
-
-            HStack(spacing: 4) {
-                Text(summary.unit)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                if let trend = summary.trendPercent {
-                    trendBadge(percent: trend, metricType: summary.id)
-                }
-            }
-
-            if summary.sparkline.count >= 2 {
-                let sparkMin = summary.sparkline.map(\.1).min() ?? 0
-                Chart {
-                    ForEach(summary.sparkline, id: \.0) { point in
-                        LineMark(
-                            x: .value("Date", point.0),
-                            y: .value("Value", point.1)
-                        )
-                        .foregroundStyle(summary.color.opacity(0.6))
-                        .interpolationMethod(.monotone)
-
-                        AreaMark(
-                            x: .value("Date", point.0),
-                            yStart: .value("min", sparkMin),
-                            yEnd: .value("Value", point.1)
-                        )
-                        .foregroundStyle(summary.color.opacity(0.08))
-                        .interpolationMethod(.monotone)
-                    }
-                }
-                .chartXAxis(.hidden)
-                .chartYAxis(.hidden)
-                .frame(height: 36)
-                .clipped()
-            } else {
-                Spacer().frame(height: 36)
-            }
-        }
-        .frame(width: 155)
-        .padding(12)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
-    }
-
-    private func trendBadge(percent: Double, metricType: String) -> some View {
-        let isUp = percent > 0
-        let arrow = isUp ? "arrow.up.right" : "arrow.down.right"
-        let isGood: Bool
-        if metricType == MetricType.bloodPressure {
-            isGood = !isUp
-        } else if metricType == MetricType.stepCount || metricType == MetricType.exerciseMinutes || metricType == MetricType.vo2Max {
-            isGood = isUp
-        } else {
-            isGood = true
-        }
-        let color: Color = isGood ? .green : .orange
-
-        return HStack(spacing: 2) {
-            Image(systemName: arrow)
-                .font(.system(size: 9, weight: .bold))
-            Text("\(Int(abs(percent)))%")
-                .font(.caption2.bold().monospacedDigit())
-        }
-        .foregroundStyle(color)
-    }
-
-    // MARK: - BP Trend Card
-
-    private var bpTrendCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Blood Pressure Trend")
-                    .font(.subheadline.bold())
-                    .foregroundStyle(.secondary)
-                Spacer()
-                if let latest = latestBP {
-                    CategoryBadge(category: latest.bpCategory)
-                }
-            }
-
-            // Latest reading hero
-            if let latest = latestBP {
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text("\(latest.systolic)")
-                        .font(.system(size: 36, weight: .bold, design: .rounded))
-                    Text("/").font(.system(size: 22, weight: .light)).foregroundStyle(.secondary)
-                    Text("\(latest.diastolic)")
-                        .font(.system(size: 36, weight: .bold, design: .rounded))
-                    Text("mmHg").font(.caption).foregroundStyle(.secondary).padding(.leading, 2)
-                    Spacer()
-                    if let pulse = latest.pulseOptional {
-                        VStack(spacing: 2) {
-                            HStack(spacing: 3) {
-                                Image(systemName: "heart.fill").foregroundStyle(.pink).font(.caption)
-                                Text("\(pulse)").font(.title3.bold().monospacedDigit())
-                            }
-                            Text("bpm").font(.caption2).foregroundStyle(.secondary)
-                        }
-                    }
-                }
-            }
-
-            // Mini chart
-            Chart {
-                ForEach(last7DaysBP.reversed()) { record in
-                    LineMark(x: .value("Time", record.timestamp), y: .value("Sys", record.systolic))
-                        .foregroundStyle(.red).interpolationMethod(.monotone)
-                    LineMark(x: .value("Time", record.timestamp), y: .value("Dia", record.diastolic))
-                        .foregroundStyle(.blue).interpolationMethod(.monotone)
-                }
-                RuleMark(y: .value("Ref", 120))
-                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 3])).foregroundStyle(.green.opacity(0.4))
-                    .annotation(position: .bottomLeading, alignment: .leading) {
-                        Text("Normal max: 120 mmHg")
-                            .font(.caption2)
-                            .foregroundStyle(.green)
-                    }
-                RuleMark(y: .value("Ref", 80))
-                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 3])).foregroundStyle(.green.opacity(0.3))
-                    .annotation(position: .bottomLeading, alignment: .leading) {
-                        Text("Normal max: 80 mmHg")
-                            .font(.caption2)
-                            .foregroundStyle(.green)
-                    }
-            }
-            .frame(height: 140)
-            .chartYAxis { AxisMarks(position: .leading) }
-            .clipped()
-
-            HStack(spacing: 16) {
-                Label("Systolic", systemImage: "circle.fill").font(.caption2).foregroundStyle(.red)
-                Label("Diastolic", systemImage: "circle.fill").font(.caption2).foregroundStyle(.blue)
-            }
-
-            // 7-day averages
-            if !last7DaysBP.isEmpty {
-                let avgSys = last7DaysBP.map(\.systolic).reduce(0, +) / last7DaysBP.count
-                let avgDia = last7DaysBP.map(\.diastolic).reduce(0, +) / last7DaysBP.count
-                HStack {
-                    Text("7-day avg: \(avgSys)/\(avgDia) mmHg")
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Text("\(last7DaysBP.count) readings")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                }
-            }
-        }
-        .padding()
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-    }
-
-    // MARK: - Recent Activity
-
-    private var recentActivityCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Recent Activity")
-                .font(.subheadline.bold())
-                .foregroundStyle(.secondary)
-
-            ForEach(Array(recentRecords.prefix(8))) { record in
-                recentActivityRow(record)
-                if record.id != recentRecords.prefix(8).last?.id {
-                    Divider()
-                }
-            }
-
-            if recentRecords.count > 8 {
-                Text("\(recentRecords.count - 8) more records")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                    .frame(maxWidth: .infinity)
-            }
-        }
-        .padding()
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-    }
-
-    private func recentActivityRow(_ record: HealthRecord) -> some View {
-        let def = MetricRegistry.definition(for: record.metricType)
-        return HStack(spacing: 12) {
-            Image(systemName: def?.icon ?? "chart.xyaxis.line")
-                .foregroundStyle(def?.color ?? .gray)
-                .font(.subheadline)
-                .frame(width: 28)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(record.formattedPrimaryValue)
-                    .font(.subheadline.bold().monospacedDigit())
-                Text(def?.name ?? record.metricType)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-
             Spacer()
-
-            VStack(alignment: .trailing, spacing: 2) {
-                if Calendar.current.isDateInToday(record.timestamp) {
-                    Text(record.formattedTimeOnly)
+            Button {
+                showManageDashboard = true
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "slider.horizontal.3")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
-                } else {
-                    Text(record.formattedDateOnly)
+                    Text("Manage")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text(record.formattedTimeOnly)
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
                 }
+                .foregroundStyle(Color.accentColor)
             }
-
-            if record.metricType == MetricType.bloodPressure {
-                CategoryBadge(category: record.bpCategory)
-            }
+            .buttonStyle(.plain)
         }
-        .padding(.vertical, 2)
+    }
+
+    @ViewBuilder
+    private func dashboardChartView(for card: ResolvedDashboardCard) -> some View {
+        if card.metricType == MetricType.bloodPressure {
+            ComparisonBPChart(
+                records: card.records,
+                xDomain: card.xDomain,
+                onTap: { dashboardNavMetric = card.metricType }
+            )
+        } else if let def = card.definition {
+            ComparisonMetricChart(
+                records: card.records,
+                definition: def,
+                xDomain: card.xDomain,
+                onTap: { dashboardNavMetric = card.metricType }
+            )
+        }
     }
 
     // MARK: - Empty State

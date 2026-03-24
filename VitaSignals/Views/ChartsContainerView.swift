@@ -46,6 +46,7 @@ struct ChartsContainerView: View {
     @State private var saveViewName = ""
     @State private var activeViewID: UUID?
     @AppStorage("hasSeenZoomTip") private var hasSeenZoomTip = false
+    @State private var showHiddenList = false
 
     // Zoom & pan state
     @State private var zoomScale: CGFloat = 1.0
@@ -169,6 +170,22 @@ struct ChartsContainerView: View {
         return "\(selected) of \(total) metrics"
     }
 
+    private var isDefaultView: Bool {
+        timeRange == .month
+            && selectedMetrics == Set(allMetricsWithData)
+            && !isZoomed
+            && activeViewID == nil
+    }
+
+    private func resetToDefault() {
+        timeRange = .month
+        customStartDate = Calendar.current.date(byAdding: .month, value: -1, to: .now) ?? .now
+        customEndDate = .now
+        selectedMetrics = Set(allMetricsWithData)
+        activeViewID = nil
+        resetZoom()
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -207,6 +224,8 @@ struct ChartsContainerView: View {
                         }
                         .padding(.top, 40)
                     } else {
+                        hiddenMetricsBanner
+
                         ForEach(cachedVisibleTypes, id: \.self) { type in
                             chartCard(for: type)
                         }
@@ -338,8 +357,106 @@ struct ChartsContainerView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Export to Reports")
             }
+
+            if !isDefaultView {
+                Button {
+                    withAnimation { resetToDefault() }
+                } label: {
+                    Image(systemName: "arrow.counterclockwise")
+                        .font(.subheadline.bold())
+                        .foregroundStyle(Color.accentColor)
+                        .padding(12)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Reset to default view")
+            }
         }
         .padding(.horizontal)
+    }
+
+    // MARK: - Hidden Metrics Banner
+
+    @ViewBuilder
+    private var hiddenMetricsBanner: some View {
+        let allWithData = allMetricsWithData
+        let hiddenTypes = allWithData.filter { !selectedMetrics.contains($0) }
+        if !hiddenTypes.isEmpty {
+            VStack(spacing: 0) {
+                // Header row — tappable to expand/collapse
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showHiddenList.toggle()
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "eye.slash")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text("\(hiddenTypes.count) hidden metric\(hiddenTypes.count == 1 ? "" : "s")")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Image(systemName: showHiddenList ? "chevron.up" : "chevron.down")
+                            .font(.caption2.bold())
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+                // Expanded list of hidden metrics
+                if showHiddenList {
+                    Divider().padding(.horizontal, 12)
+
+                    VStack(spacing: 0) {
+                        ForEach(hiddenTypes, id: \.self) { type in
+                            let def = MetricRegistry.definition(for: type)
+                            Button {
+                                withAnimation { _ = selectedMetrics.insert(type) }
+                            } label: {
+                                HStack(spacing: 10) {
+                                    Image(systemName: def?.icon ?? "chart.xyaxis.line")
+                                        .font(.caption)
+                                        .foregroundStyle(def?.color ?? .gray)
+                                        .frame(width: 20)
+                                    Text(def?.name ?? type)
+                                        .font(.caption)
+                                        .foregroundStyle(.primary)
+                                    Spacer()
+                                    Image(systemName: "eye")
+                                        .font(.caption)
+                                        .foregroundStyle(Color.accentColor)
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                        }
+
+                        // Show All button
+                        if hiddenTypes.count > 1 {
+                            Divider().padding(.horizontal, 12)
+                            Button {
+                                withAnimation { selectedMetrics.formUnion(allWithData) }
+                            } label: {
+                                Text("Show All")
+                                    .font(.caption.bold())
+                                    .foregroundStyle(Color.accentColor)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+            .background(Color(.systemGray6), in: RoundedRectangle(cornerRadius: 10))
+            .padding(.horizontal)
+        }
     }
 
     // MARK: - Zoom Tip Banner
@@ -469,7 +586,9 @@ struct ChartsContainerView: View {
             timeRange: timeRange.rawValue,
             customStartDate: customStartDate,
             customEndDate: customEndDate,
-            selectedMetrics: Array(selectedMetrics)
+            selectedMetrics: Array(selectedMetrics),
+            zoomScale: Double(zoomScale),
+            panOffset: Double(panOffset)
         )
         modelContext.insert(view)
         try? modelContext.save()
@@ -482,6 +601,8 @@ struct ChartsContainerView: View {
         view.customStartDate = customStartDate
         view.customEndDate = customEndDate
         view.selectedMetrics = Array(selectedMetrics)
+        view.savedZoomScale = Double(zoomScale)
+        view.savedPanOffset = Double(panOffset)
         try? modelContext.save()
     }
 
@@ -494,6 +615,12 @@ struct ChartsContainerView: View {
         selectedMetrics = Set(view.selectedMetrics)
         expandedMetric = nil
         activeViewID = view.id
+
+        // Restore zoom/pan state
+        zoomScale = CGFloat(view.savedZoomScale)
+        steadyZoom = CGFloat(view.savedZoomScale)
+        panOffset = CGFloat(view.savedPanOffset)
+        steadyPan = CGFloat(view.savedPanOffset)
     }
 
     private func deleteSavedView(_ view: SavedChartView) {
@@ -512,10 +639,14 @@ struct ChartsContainerView: View {
         if metricType == MetricType.bloodPressure {
             ComparisonBPChart(records: records, xDomain: xDomain) {
                 expandedMetric = metricType
+            } onHide: {
+                withAnimation { _ = selectedMetrics.remove(metricType) }
             }
         } else if let def = MetricRegistry.definition(for: metricType) {
             ComparisonMetricChart(records: records, definition: def, xDomain: xDomain) {
                 expandedMetric = metricType
+            } onHide: {
+                withAnimation { _ = selectedMetrics.remove(metricType) }
             }
         }
     }
@@ -524,47 +655,19 @@ struct ChartsContainerView: View {
 
     @ViewBuilder
     private func expandedContent(for metricType: String, records: [HealthRecord]) -> some View {
-        VStack(spacing: 0) {
-            // Tappable collapse header
-            expandedHeader(for: metricType)
-
-            if metricType == MetricType.bloodPressure {
-                bpExpandedCharts(records: records)
-            } else if let def = MetricRegistry.definition(for: metricType) {
-                genericExpandedContent(records: records, definition: def)
-            }
-        }
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .strokeBorder(.tint.opacity(0.3), lineWidth: 1.5)
-        )
-        .padding(.horizontal)
-    }
-
-    private func expandedHeader(for metricType: String) -> some View {
         let def = MetricRegistry.definition(for: metricType)
-        return Button {
-            withAnimation(.easeInOut(duration: 0.25)) {
-                expandedMetric = nil
+        ScrollView {
+            VStack(spacing: 16) {
+                if metricType == MetricType.bloodPressure {
+                    bpExpandedCharts(records: records)
+                } else if let def = MetricRegistry.definition(for: metricType) {
+                    genericExpandedContent(records: records, definition: def)
+                }
             }
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: def?.icon ?? "chart.xyaxis.line")
-                    .foregroundStyle(def?.color ?? .primary)
-                    .font(.subheadline)
-                Text(def?.name ?? metricType)
-                    .font(.subheadline.bold())
-                    .foregroundStyle(.primary)
-                Spacer()
-                Image(systemName: "chevron.down")
-                    .font(.caption.bold())
-                    .foregroundStyle(.secondary)
-            }
-            .padding()
-            .contentShape(Rectangle())
+            .padding(.bottom)
         }
-        .buttonStyle(.plain)
+        .navigationTitle(def?.name ?? metricType)
+        .navigationBarTitleDisplayMode(.inline)
     }
 
     // MARK: - BP Expanded
@@ -1081,8 +1184,9 @@ struct GenericMetricChart: View {
                     .foregroundStyle(.secondary)
             }
 
+            let chartData = downsample(records, maxPoints: 120)
             Chart {
-                ForEach(records) { record in
+                ForEach(chartData) { record in
                     if definition.chartStyle == .bar {
                         BarMark(
                             x: .value("Date", record.timestamp, unit: .day),
@@ -1096,13 +1200,6 @@ struct GenericMetricChart: View {
                         )
                         .foregroundStyle(definition.color)
                         .interpolationMethod(.monotone)
-
-                        PointMark(
-                            x: .value("Date", record.timestamp),
-                            y: .value(definition.unit, record.primaryValue)
-                        )
-                        .foregroundStyle(definition.color)
-                        .symbolSize(records.count > 30 ? 10 : 20)
                     }
                 }
 
@@ -1132,9 +1229,10 @@ struct GenericMetricChart: View {
             .clipped()
 
             if !records.isEmpty {
-                let avg = records.map(\.primaryValue).reduce(0, +) / Double(records.count)
-                let minV = records.map(\.primaryValue).min() ?? 0
-                let maxV = records.map(\.primaryValue).max() ?? 0
+                let values = records.map(\.primaryValue)
+                let avg = values.reduce(0, +) / Double(values.count)
+                let minV = values.min() ?? 0
+                let maxV = values.max() ?? 0
                 HStack {
                     Text("Avg: \(definition.formatValue(avg)) \(definition.unit)")
                     Spacer()
@@ -1156,12 +1254,13 @@ struct BPTrendChart: View {
     let records: [HealthRecord]
 
     var body: some View {
+        let chartData = downsample(records, maxPoints: 120)
         VStack(alignment: .leading, spacing: 12) {
             Text("Blood Pressure Trend")
                 .font(.headline)
 
             Chart {
-                ForEach(records) { record in
+                ForEach(chartData) { record in
                     LineMark(
                         x: .value("Date", record.timestamp),
                         y: .value("mmHg", record.systolic),
@@ -1227,12 +1326,13 @@ struct PulseChart: View {
 
     var body: some View {
         if !recordsWithPulse.isEmpty {
+            let chartData = downsample(recordsWithPulse, maxPoints: 120)
             VStack(alignment: .leading, spacing: 12) {
                 Text("Pulse Trend")
                     .font(.headline)
 
                 Chart {
-                    ForEach(recordsWithPulse) { record in
+                    ForEach(chartData) { record in
                         AreaMark(
                             x: .value("Date", record.timestamp),
                             y: .value("BPM", record.pulse)
@@ -1265,26 +1365,26 @@ struct PulseChart: View {
 struct BPSummaryCard: View {
     let records: [HealthRecord]
 
-    private var avgSystolic: Int {
-        guard !records.isEmpty else { return 0 }
-        return records.map(\.systolic).reduce(0, +) / records.count
+    // Single-pass computation of all stats
+    private struct Stats {
+        var sumSys = 0, sumDia = 0, sumPulse = 0, pulseCount = 0
+        var minSys = Int.max, maxSys = Int.min
+        var minDia = Int.max, maxDia = Int.min
+        var normalCount = 0
     }
-    private var avgDiastolic: Int {
-        guard !records.isEmpty else { return 0 }
-        return records.map(\.diastolic).reduce(0, +) / records.count
-    }
-    private var avgPulse: Int? {
-        let withPulse = records.compactMap(\.pulseOptional)
-        guard !withPulse.isEmpty else { return nil }
-        return withPulse.reduce(0, +) / withPulse.count
-    }
-    private var avgCategory: BPCategory {
-        BPCategory.classify(systolic: avgSystolic, diastolic: avgDiastolic)
-    }
-    private var percentNormal: Int {
-        guard !records.isEmpty else { return 0 }
-        let normal = records.filter { $0.bpCategory == .normal }.count
-        return Int(Double(normal) / Double(records.count) * 100)
+
+    private var stats: Stats {
+        var s = Stats()
+        for r in records {
+            s.sumSys += r.systolic; s.sumDia += r.diastolic
+            if let p = r.pulseOptional { s.sumPulse += p; s.pulseCount += 1 }
+            if r.systolic < s.minSys { s.minSys = r.systolic }
+            if r.systolic > s.maxSys { s.maxSys = r.systolic }
+            if r.diastolic < s.minDia { s.minDia = r.diastolic }
+            if r.diastolic > s.maxDia { s.maxDia = r.diastolic }
+            if r.bpCategory == .normal { s.normalCount += 1 }
+        }
+        return s
     }
 
     private func categoryColor(_ cat: BPCategory) -> Color {
@@ -1298,6 +1398,14 @@ struct BPSummaryCard: View {
     }
 
     var body: some View {
+        let s = stats
+        let count = max(records.count, 1)
+        let avgSys = s.sumSys / count
+        let avgDia = s.sumDia / count
+        let avgCat = BPCategory.classify(systolic: avgSys, diastolic: avgDia)
+        let avgPulse: Int? = s.pulseCount > 0 ? s.sumPulse / s.pulseCount : nil
+        let pctNormal = Int(Double(s.normalCount) / Double(count) * 100)
+
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Text("Summary")
@@ -1311,11 +1419,11 @@ struct BPSummaryCard: View {
             HStack(spacing: 0) {
                 VStack(spacing: 4) {
                     Text("Average BP").font(.caption).foregroundStyle(.secondary)
-                    Text("\(avgSystolic)/\(avgDiastolic)")
+                    Text("\(avgSys)/\(avgDia)")
                         .font(.title2.bold().monospacedDigit())
-                    Text(avgCategory.rawValue)
+                    Text(avgCat.rawValue)
                         .font(.caption2.bold())
-                        .foregroundStyle(categoryColor(avgCategory))
+                        .foregroundStyle(categoryColor(avgCat))
                 }
                 .frame(maxWidth: .infinity)
 
@@ -1335,9 +1443,9 @@ struct BPSummaryCard: View {
 
                 VStack(spacing: 4) {
                     Text("In Range").font(.caption).foregroundStyle(.secondary)
-                    Text("\(percentNormal)%")
+                    Text("\(pctNormal)%")
                         .font(.title2.bold().monospacedDigit())
-                        .foregroundStyle(percentNormal >= 50 ? .green : .orange)
+                        .foregroundStyle(pctNormal >= 50 ? .green : .orange)
                     Text("normal").font(.caption2).foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity)
@@ -1345,20 +1453,15 @@ struct BPSummaryCard: View {
 
             Divider()
 
-            let minS = records.map(\.systolic).min() ?? 0
-            let maxS = records.map(\.systolic).max() ?? 0
-            let minD = records.map(\.diastolic).min() ?? 0
-            let maxD = records.map(\.diastolic).max() ?? 0
-
             HStack {
                 Text("Systolic range").font(.caption).foregroundStyle(.secondary)
                 Spacer()
-                Text("\(minS) – \(maxS) mmHg").font(.caption.monospacedDigit())
+                Text("\(s.minSys) – \(s.maxSys) mmHg").font(.caption.monospacedDigit())
             }
             HStack {
                 Text("Diastolic range").font(.caption).foregroundStyle(.secondary)
                 Spacer()
-                Text("\(minD) – \(maxD) mmHg").font(.caption.monospacedDigit())
+                Text("\(s.minDia) – \(s.maxDia) mmHg").font(.caption.monospacedDigit())
             }
         }
         .padding()
@@ -1373,7 +1476,7 @@ struct WeeklyAveragesChart: View {
     let records: [HealthRecord]
 
     private struct WeekData: Identifiable {
-        let id = UUID()
+        var id: Date { weekStart }
         let weekStart: Date
         let avgSystolic: Double
         let avgDiastolic: Double
@@ -1436,7 +1539,7 @@ struct MorningVsEveningChart: View {
     let records: [HealthRecord]
 
     private struct PeriodStats: Identifiable {
-        let id = UUID()
+        let id: String
         let name: String
         let icon: String
         let avgSystolic: Double
@@ -1447,30 +1550,39 @@ struct MorningVsEveningChart: View {
 
     private var periodData: [PeriodStats] {
         let calendar = Calendar.current
-        let morning = records.filter { let h = calendar.component(.hour, from: $0.timestamp); return h >= 5 && h < 12 }
-        let afternoon = records.filter { let h = calendar.component(.hour, from: $0.timestamp); return h >= 12 && h < 17 }
-        let evening = records.filter { let h = calendar.component(.hour, from: $0.timestamp); return h >= 17 || h < 5 }
+        // accums: [sumSys, sumDia, sumPulse, pulseCount, count] for morning/afternoon/evening
+        var sumSys = [0, 0, 0], sumDia = [0, 0, 0], sumPulse = [0, 0, 0]
+        var pulseCount = [0, 0, 0], count = [0, 0, 0]
 
-        var result: [PeriodStats] = []
-        for (name, icon, group) in [
-            ("Morning\n5am–12pm", "sunrise", morning),
-            ("Afternoon\n12pm–5pm", "sun.max", afternoon),
-            ("Evening\n5pm–5am", "moon.stars", evening)
-        ] {
-            if !group.isEmpty {
-                result.append(PeriodStats(
-                    name: name, icon: icon,
-                    avgSystolic: Double(group.map(\.systolic).reduce(0, +)) / Double(group.count),
-                    avgDiastolic: Double(group.map(\.diastolic).reduce(0, +)) / Double(group.count),
-                    avgPulse: {
-                        let pulses = group.compactMap(\.pulseOptional)
-                        return pulses.isEmpty ? nil : Double(pulses.reduce(0, +)) / Double(pulses.count)
-                    }(),
-                    count: group.count
-                ))
-            }
+        for r in records {
+            let h = calendar.component(.hour, from: r.timestamp)
+            let idx: Int
+            if h >= 5 && h < 12 { idx = 0 }
+            else if h >= 12 && h < 17 { idx = 1 }
+            else { idx = 2 }
+            sumSys[idx] += r.systolic
+            sumDia[idx] += r.diastolic
+            if let p = r.pulseOptional { sumPulse[idx] += p; pulseCount[idx] += 1 }
+            count[idx] += 1
         }
-        return result
+
+        let labels = [
+            ("morning", "Morning\n5am–12pm", "sunrise"),
+            ("afternoon", "Afternoon\n12pm–5pm", "sun.max"),
+            ("evening", "Evening\n5pm–5am", "moon.stars")
+        ]
+
+        return labels.enumerated().compactMap { i, info in
+            guard count[i] > 0 else { return nil }
+            let c = Double(count[i])
+            return PeriodStats(
+                id: info.0, name: info.1, icon: info.2,
+                avgSystolic: Double(sumSys[i]) / c,
+                avgDiastolic: Double(sumDia[i]) / c,
+                avgPulse: pulseCount[i] > 0 ? Double(sumPulse[i]) / Double(pulseCount[i]) : nil,
+                count: count[i]
+            )
+        }
     }
 
     var body: some View {
@@ -1522,14 +1634,14 @@ struct MAPTrendChart: View {
             Text("MAP = diastolic + \u{2153}(systolic \u{2212} diastolic). Normal: 70\u{2013}100 mmHg")
                 .font(.caption).foregroundStyle(.secondary)
 
+            let chartData = downsample(records, maxPoints: 120)
             Chart {
-                ForEach(records) { record in
+                ForEach(chartData) { record in
                     LineMark(
                         x: .value("Date", record.timestamp),
                         y: .value("MAP", mapValue(record))
                     )
                     .foregroundStyle(.purple)
-                    .symbol(.circle)
                     .interpolationMethod(.monotone)
 
                     LineMark(
@@ -1538,7 +1650,6 @@ struct MAPTrendChart: View {
                         series: .value("Type", "Pulse Pressure")
                     )
                     .foregroundStyle(.orange)
-                    .symbol(.diamond)
                     .interpolationMethod(.monotone)
                 }
 

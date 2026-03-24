@@ -12,10 +12,9 @@ struct MetricCardView: View {
         MetricRegistry.definition(for: metricType)
     }
 
+    @ViewBuilder
     var body: some View {
-        guard let def = definition else { return AnyView(EmptyView()) }
-
-        return AnyView(
+        if let def = definition {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Image(systemName: def.icon)
@@ -60,6 +59,6 @@ struct MetricCardView: View {
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
             .accessibilityElement(children: .combine)
             .accessibilityLabel("\(def.name): \(latestValue) \(unit)")
-        )
+        }
     }
 }

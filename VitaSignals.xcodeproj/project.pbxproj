@@ -42,6 +42,8 @@
 		EE9E8EC513A451026AA1C738 /* HealthRecordTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAB8659A6B2A4456ED4D6C56 /* HealthRecordTests.swift */; };
 		FBF025042B24621D597226AC /* MetricRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E2C221240579153FDB928F7 /* MetricRegistry.swift */; };
 		FBFEB40D61812E69CCEF5F3E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 55A0D1A6FD95AFDF2D4CF508 /* Assets.xcassets */; };
+		4A0A2F1040B7482EA7BB8530 /* DashboardCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A46EE7EDD2149AF92CBC2E8 /* DashboardCard.swift */; };
+		AEFD7E512F014EABB595A282 /* DashboardChartCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBAFF4F8797D43269E181212 /* DashboardChartCard.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -96,6 +98,8 @@
 		EA9133A2DDC9EB088CBCF2DE /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		EAB8659A6B2A4456ED4D6C56 /* HealthRecordTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthRecordTests.swift; sourceTree = "<group>"; };
 		F13BAD08ABAC6886239ADB53 /* HealthDataStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthDataStore.swift; sourceTree = "<group>"; };
+		8A46EE7EDD2149AF92CBC2E8 /* DashboardCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardCard.swift; sourceTree = "<group>"; };
+		FBAFF4F8797D43269E181212 /* DashboardChartCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardChartCard.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -140,6 +144,7 @@
 				B2029A1BE29CE1DAD6CB4407 /* ReportStyle.swift */,
 				E6872E5491FF1CDAF5451408 /* ReportTemplate.swift */,
 				3ACCAF3D89EC4920FC968A81 /* SavedChartView.swift */,
+				8A46EE7EDD2149AF92CBC2E8 /* DashboardCard.swift */,
 				B949F18A10A020DF4DA57DBF /* SyncState.swift */,
 				6AF26C85BFA36731B99CC353 /* UserProfile.swift */,
 			);
@@ -160,6 +165,7 @@
 				9CC6068B927C5D5F1C191CB7 /* AddRecordPickerSheet.swift */,
 				7423D69069AC5D9761D1BAA5 /* ChartsContainerView.swift */,
 				0FD6BAA66081D81CB6ACEF9F /* ComparisonChartView.swift */,
+				FBAFF4F8797D43269E181212 /* DashboardChartCard.swift */,
 				EA9133A2DDC9EB088CBCF2DE /* ContentView.swift */,
 				98446B1DF1D8D826831B2E87 /* CustomMetricFormView.swift */,
 				BE0C68685E1BF9E16E65FFCA /* DashboardView.swift */,
@@ -328,6 +334,8 @@
 				CA859B899594ED67E7AF6490 /* ReportStyle.swift in Sources */,
 				915A8DFFDF80D88725A56E86 /* ReportTemplate.swift in Sources */,
 				EDB10CCC70319F8C1DE017CF /* SavedChartView.swift in Sources */,
+				AEFD7E512F014EABB595A282 /* DashboardChartCard.swift in Sources */,
+				4A0A2F1040B7482EA7BB8530 /* DashboardCard.swift in Sources */,
 				02AAA5CD6647E2FC5E7AB086 /* StoreManager.swift in Sources */,
 				E2C5FAB2F96442778AF7EE08 /* SyncState.swift in Sources */,
 				CF287322F06D839EACF4F481 /* SyntheticDataGenerator.swift in Sources */,

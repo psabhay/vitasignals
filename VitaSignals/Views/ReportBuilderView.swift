@@ -370,7 +370,7 @@ struct ReportBuilderView: View {
     }
 
     private func updateFilteredCount() {
-        cachedFilteredCount = dataStore.fetchRecords(from: startDate, to: endDate).count
+        cachedFilteredCount = dataStore.fetchRecordCount(from: startDate, to: endDate)
     }
 
     private func applyExportRequestIfNeeded() {
