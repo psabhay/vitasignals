@@ -374,6 +374,71 @@ final class DashboardEngine: ObservableObject {
             }
         }
 
+        // Morning vs Evening BP pattern
+        if bpRecords.count >= 10 {
+            var morningSys: [Int] = [], eveningSys: [Int] = []
+            for r in bpRecords where r.timestamp >= fourteenDaysAgo {
+                let h = calendar.component(.hour, from: r.timestamp)
+                if h >= 5 && h < 12 { morningSys.append(r.systolic) }
+                else if h >= 17 && h <= 23 { eveningSys.append(r.systolic) }
+            }
+            if morningSys.count >= 5, eveningSys.count >= 5 {
+                let mAvg = morningSys.reduce(0, +) / morningSys.count
+                let eAvg = eveningSys.reduce(0, +) / eveningSys.count
+                let diff = abs(mAvg - eAvg)
+                if diff >= 5 {
+                    let higher = mAvg > eAvg ? "morning" : "evening"
+                    items.append(HighlightItem(
+                        icon: "clock.arrow.2.circlepath",
+                        text: "BP averages \(diff) pts higher in the \(higher)",
+                        color: .indigo,
+                        priority: 20
+                    ))
+                }
+            }
+        }
+
+        // Multi-metric correlation: steps vs BP
+        let stepRecords = dataStore.records(for: MetricType.stepCount)
+        if !bpRecords.isEmpty, stepRecords.count >= 10 {
+            // Group both by day, compare BP on high-step days vs low-step days
+            var dailySteps: [Date: Double] = [:]
+            var dailyBP: [Date: [Int]] = [:]
+            for r in stepRecords where r.timestamp >= fourteenDaysAgo {
+                let day = calendar.startOfDay(for: r.timestamp)
+                dailySteps[day, default: 0] += r.primaryValue
+            }
+            for r in bpRecords where r.timestamp >= fourteenDaysAgo {
+                let day = calendar.startOfDay(for: r.timestamp)
+                dailyBP[day, default: []].append(r.systolic)
+            }
+            let commonDays = Set(dailySteps.keys).intersection(Set(dailyBP.keys))
+            if commonDays.count >= 6 {
+                let sorted = commonDays.sorted()
+                let medianSteps = dailySteps.values.sorted()[dailySteps.count / 2]
+                var highStepBP: [Int] = [], lowStepBP: [Int] = []
+                for day in sorted {
+                    guard let bp = dailyBP[day], let steps = dailySteps[day] else { continue }
+                    let avgBP = bp.reduce(0, +) / bp.count
+                    if steps >= medianSteps { highStepBP.append(avgBP) }
+                    else { lowStepBP.append(avgBP) }
+                }
+                if highStepBP.count >= 3, lowStepBP.count >= 3 {
+                    let highAvg = highStepBP.reduce(0, +) / highStepBP.count
+                    let lowAvg = lowStepBP.reduce(0, +) / lowStepBP.count
+                    let diff = lowAvg - highAvg
+                    if diff >= 3 {
+                        items.append(HighlightItem(
+                            icon: "figure.walk",
+                            text: "BP tends to be \(diff) pts lower on active days",
+                            color: .teal,
+                            priority: 25
+                        ))
+                    }
+                }
+            }
+        }
+
         // Sort by priority (lower = shown first), cap at 5
         return Array(items.sorted { $0.priority < $1.priority }.prefix(5))
     }
