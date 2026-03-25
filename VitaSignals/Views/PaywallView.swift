@@ -177,13 +177,14 @@ struct PaywallView: View {
             Task {
                 do {
                     let success = try await storeManager.purchase(product)
+                    isPurchasing = false
                     if !success {
                         errorMessage = nil
                     }
                 } catch {
+                    isPurchasing = false
                     errorMessage = "Purchase failed. Please try again."
                 }
-                isPurchasing = false
             }
         } label: {
             HStack {
@@ -216,10 +217,14 @@ struct PaywallView: View {
                 .multilineTextAlignment(.center)
 
             HStack(spacing: 16) {
-                Link("Privacy Policy", destination: URL(string: "https://vitasignals.app/#privacy")!)
-                    .font(.caption2)
-                Link("Terms of Service", destination: URL(string: "https://vitasignals.app/#terms-of-service")!)
-                    .font(.caption2)
+                if let privacyURL = URL(string: "https://vitasignals.app/#privacy") {
+                    Link("Privacy Policy", destination: privacyURL)
+                        .font(.caption2)
+                }
+                if let termsURL = URL(string: "https://vitasignals.app/#terms-of-service") {
+                    Link("Terms of Service", destination: termsURL)
+                        .font(.caption2)
+                }
             }
         }
         .padding(.top, 8)

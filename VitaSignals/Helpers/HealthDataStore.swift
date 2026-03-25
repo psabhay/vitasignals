@@ -47,7 +47,12 @@ final class HealthDataStore: ObservableObject {
         )
         descriptor.fetchLimit = 5000
 
-        let records = (try? ctx.fetch(descriptor)) ?? []
+        guard let records = try? ctx.fetch(descriptor) else {
+            #if DEBUG
+            print("⚠️ HealthDataStore fetch failed — keeping existing data")
+            #endif
+            return
+        }
         let grouped = Dictionary(grouping: records, by: \.metricType)
 
         // Single objectWillChange to batch all property updates into one render pass

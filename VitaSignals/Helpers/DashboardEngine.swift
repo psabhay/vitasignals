@@ -219,7 +219,7 @@ final class DashboardEngine: ObservableObject {
         var best: (String, Int)? = nil
         for (type, records) in dataStore.recordsByType {
             let count = records.filter { $0.timestamp >= cutoff }.count
-            if count > 0, best == nil || count > best!.1 {
+            if count > 0, count > (best?.1 ?? 0) {
                 best = (type, count)
             }
         }
@@ -415,25 +415,28 @@ final class DashboardEngine: ObservableObject {
             let commonDays = Set(dailySteps.keys).intersection(Set(dailyBP.keys))
             if commonDays.count >= 6 {
                 let sorted = commonDays.sorted()
-                let medianSteps = dailySteps.values.sorted()[dailySteps.count / 2]
-                var highStepBP: [Int] = [], lowStepBP: [Int] = []
-                for day in sorted {
-                    guard let bp = dailyBP[day], let steps = dailySteps[day] else { continue }
-                    let avgBP = bp.reduce(0, +) / bp.count
-                    if steps >= medianSteps { highStepBP.append(avgBP) }
-                    else { lowStepBP.append(avgBP) }
-                }
-                if highStepBP.count >= 3, lowStepBP.count >= 3 {
-                    let highAvg = highStepBP.reduce(0, +) / highStepBP.count
-                    let lowAvg = lowStepBP.reduce(0, +) / lowStepBP.count
-                    let diff = lowAvg - highAvg
-                    if diff >= 3 {
-                        items.append(HighlightItem(
-                            icon: "figure.walk",
-                            text: "BP tends to be \(diff) pts lower on active days",
-                            color: .teal,
-                            priority: 25
-                        ))
+                let commonStepValues = commonDays.compactMap { dailySteps[$0] }.sorted()
+                if commonStepValues.count >= 2 {
+                    let medianSteps = commonStepValues[commonStepValues.count / 2]
+                    var highStepBP: [Int] = [], lowStepBP: [Int] = []
+                    for day in sorted {
+                        guard let bp = dailyBP[day], let steps = dailySteps[day] else { continue }
+                        let avgBP = bp.reduce(0, +) / bp.count
+                        if steps >= medianSteps { highStepBP.append(avgBP) }
+                        else { lowStepBP.append(avgBP) }
+                    }
+                    if highStepBP.count >= 3, lowStepBP.count >= 3 {
+                        let highAvg = highStepBP.reduce(0, +) / highStepBP.count
+                        let lowAvg = lowStepBP.reduce(0, +) / lowStepBP.count
+                        let diff = lowAvg - highAvg
+                        if diff >= 3 {
+                            items.append(HighlightItem(
+                                icon: "figure.walk",
+                                text: "BP tends to be \(diff) pts lower on active days",
+                                color: .teal,
+                                priority: 25
+                            ))
+                        }
                     }
                 }
             }

@@ -176,8 +176,8 @@ struct ReportBuilderView: View {
 
     private var dateRangeSection: some View {
         Section("Date Range") {
-            DatePicker("From", selection: $startDate, displayedComponents: .date)
-            DatePicker("To", selection: $endDate, displayedComponents: .date)
+            DatePicker("From", selection: $startDate, in: ...endDate, displayedComponents: .date)
+            DatePicker("To", selection: $endDate, in: startDate..., displayedComponents: .date)
         }
     }
 

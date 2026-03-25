@@ -72,22 +72,23 @@ final class HealthSyncManager: ObservableObject {
         let discovered = await worker.discoverAvailableMetrics(store: store)
         availableMetrics = discovered
 
-        // Check actual authorization status — empty discovery may just mean no data
-        let authStatus = store.authorizationStatus(for: HKQuantityType(.heartRate))
-        if discovered.isEmpty && authStatus == .sharingDenied {
-            permissionDenied = true
-            syncProgress = ""
-            isSyncing = false
-            return
-        }
-        permissionDenied = (authStatus == .sharingDenied)
-
+        // HealthKit does not expose read authorization status.
+        // If we discover zero metrics after requesting authorization, the user likely
+        // denied access or truly has no health data.
         if discovered.isEmpty {
+            let hasEverSynced = UserDefaults.standard.double(forKey: Self.lastSyncKey) > 0
+            if !hasEverSynced {
+                permissionDenied = true
+            }
             syncProgress = ""
             isSyncing = false
-            lastSyncDate = .now
+            if !permissionDenied {
+                lastSyncDate = .now
+                UserDefaults.standard.set(Date.now.timeIntervalSince1970, forKey: Self.lastSyncKey)
+            }
             return
         }
+        permissionDenied = false
 
         // Build list of quantity defs to sync
         let quantityDefs = discovered.compactMap { type -> MetricDefinition? in
@@ -211,7 +212,13 @@ private final class SyncWorker: Sendable {
                     let context = ModelContext(container)
                     context.autosaveEnabled = false
                     await self.syncMetric(def, store: store, context: context)
-                    try? context.save()
+                    do {
+                        try context.save()
+                    } catch {
+                        #if DEBUG
+                        print("⚠️ Save failed for \(def.type): \(error)")
+                        #endif
+                    }
                 }
                 inFlight += 1
             }
@@ -316,7 +323,13 @@ private final class SyncWorker: Sendable {
         guard !samples.isEmpty else {
             syncState.lastSyncDate = endDate
             syncState.isAvailable = true
-            try? context.save()
+            do {
+                try context.save()
+            } catch {
+                #if DEBUG
+                print("⚠️ Save failed for blood pressure sync state: \(error)")
+                #endif
+            }
             return
         }
 
@@ -364,7 +377,13 @@ private final class SyncWorker: Sendable {
 
         syncState.lastSyncDate = endDate
         syncState.isAvailable = true
-        try? context.save()
+        do {
+            try context.save()
+        } catch {
+            #if DEBUG
+            print("⚠️ Save failed for blood pressure: \(error)")
+            #endif
+        }
     }
 
     // MARK: - Sleep Sync
@@ -432,7 +451,13 @@ private final class SyncWorker: Sendable {
 
         syncState.lastSyncDate = endDate
         syncState.isAvailable = true
-        try? context.save()
+        do {
+            try context.save()
+        } catch {
+            #if DEBUG
+            print("⚠️ Save failed for sleep: \(error)")
+            #endif
+        }
     }
 
     // MARK: - HealthKit Query Helpers

@@ -57,6 +57,8 @@ struct ComparisonMetricChart: View {
                         Image(systemName: "info.circle")
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .popover(isPresented: $showInfo) {
@@ -80,7 +82,7 @@ struct ComparisonMetricChart: View {
                         Image(systemName: "eye.slash")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                            .padding(6)
+                            .frame(minWidth: 44, minHeight: 44)
                             .contentShape(Circle())
                     }
                     .buttonStyle(.plain)

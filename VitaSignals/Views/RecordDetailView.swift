@@ -19,7 +19,7 @@ struct RecordDetailView: View {
                 headerSection
                 detailsSection
 
-                if record.metricType == MetricType.bloodPressure {
+                if record.metricType == MetricType.bloodPressure && record.bpActivityContext != nil {
                     bpContextSection
                 }
 

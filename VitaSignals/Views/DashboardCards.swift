@@ -133,6 +133,7 @@ struct SmartSummaryView: View {
                     }
                     .font(.caption)
                 }
+                .accessibilityLabel("Connect Apple Health")
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -330,34 +331,38 @@ struct NudgeCardView: View {
     var onDismiss: () -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: item.icon)
-                .foregroundStyle(item.color)
-                .font(.title3)
-                .frame(width: 32)
+        Button(action: onTap) {
+            HStack(spacing: 12) {
+                Image(systemName: item.icon)
+                    .foregroundStyle(item.color)
+                    .font(.title3)
+                    .frame(width: 32)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Log \(item.name)")
-                    .font(.subheadline.bold())
-                Text(item.message)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Log \(item.name)")
+                        .font(.subheadline.bold())
+                    Text(item.message)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
             }
-
-            Spacer()
-
+            .padding()
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        }
+        .buttonStyle(.plain)
+        .overlay(alignment: .trailing) {
             Button(action: onDismiss) {
                 Image(systemName: "xmark.circle.fill")
                     .font(.title3)
                     .foregroundStyle(.tertiary)
+                    .frame(minWidth: 44, minHeight: 44)
             }
             .buttonStyle(.plain)
+            .padding(.trailing, 8)
             .accessibilityLabel("Dismiss \(item.name) reminder")
         }
-        .padding()
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-        .contentShape(Rectangle())
-        .onTapGesture(perform: onTap)
         .accessibilityLabel("Log \(item.name). \(item.message)")
         .accessibilityHint("Tap to add a reading")
     }
@@ -386,7 +391,7 @@ struct GoalProgressCardView: View {
                     .foregroundStyle(data.trend == .up ? .green : (data.trend == .down ? .orange : .secondary))
             }
 
-            ProgressView(value: data.fraction)
+            ProgressView(value: min(1.0, max(0.0, data.fraction)))
                 .tint(progressColor)
 
             HStack {

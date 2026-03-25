@@ -1,5 +1,6 @@
 import SwiftUI
 import HealthKit
+import os
 
 // MARK: - Metric Categories
 
@@ -374,7 +375,7 @@ struct MetricRegistry {
 
     static func definitions(for category: MetricCategory) -> [MetricDefinition] {
         if category == .custom {
-            return Array(_customDefinitions.values).sorted { $0.name < $1.name }
+            return _customLock.withLock { Array($0.values) }.sorted { $0.name < $1.name }
         }
         return _definitionsByCategory[category] ?? []
     }
@@ -394,26 +395,26 @@ struct MetricRegistry {
 
     // MARK: - Custom Metric Support
 
-    private static var _customDefinitions: [String: MetricDefinition] = [:]
+    private static let _customLock = OSAllocatedUnfairLock(initialState: [String: MetricDefinition]())
 
     static func definition(for metricType: String) -> MetricDefinition? {
-        _customDefinitions[metricType] ?? _definitionsByType[metricType]
+        _customLock.withLock { $0[metricType] } ?? _definitionsByType[metricType]
     }
 
     static var allKnownTypes: Set<String> {
-        Set(_definitionsByType.keys).union(_customDefinitions.keys)
+        Set(_definitionsByType.keys).union(_customLock.withLock { Set($0.keys) })
     }
 
     static var customDefinitions: [MetricDefinition] {
-        Array(_customDefinitions.values)
+        _customLock.withLock { Array($0.values) }
     }
 
     static func registerCustomMetric(_ definition: MetricDefinition) {
-        _customDefinitions[definition.type] = definition
+        _customLock.withLock { $0[definition.type] = definition }
     }
 
     static func unregisterCustomMetric(_ type: String) {
-        _customDefinitions.removeValue(forKey: type)
+        _customLock.withLock { _ = $0.removeValue(forKey: type) }
     }
 
     static var syncableMetrics: [MetricDefinition] {

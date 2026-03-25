@@ -63,7 +63,10 @@ struct ContentView: View {
                 FirstSyncOverlayView(syncManager: syncManager)
             }
         }
-        .fullScreenCover(isPresented: .constant(!hasProfile && !hasCompletedOnboarding)) {
+        .fullScreenCover(isPresented: Binding(
+            get: { !hasProfile && !hasCompletedOnboarding },
+            set: { if !$0 { hasCompletedOnboarding = true } }
+        )) {
             OnboardingView {
                 hasCompletedOnboarding = true
                 selectedTab = 0
@@ -482,7 +485,7 @@ struct ProfileSection: View {
                             }
                             Spacer()
                             Text(String(format: "%.1f", bmi)).bold()
-                            + Text("  \(p.bmiCategory)").foregroundColor(.secondary)
+                            + Text("  \(p.bmiCategory)").foregroundStyle(.secondary)
                         }
                     }
                 }

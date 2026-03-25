@@ -716,10 +716,11 @@ struct PDFGenerator {
             let barX: CGFloat = m + 140
             let barW: CGFloat = s.style.layoutVariant == .editorial ? 240 : 220
             for (i, cat) in populated.enumerated() {
-                let count = groups[cat]!.count
+                guard let catRecords = groups[cat] else { continue }
+                let count = catRecords.count
                 let pct = Double(count) / Double(records.count)
                 let color = catColor(cat)
-                let avg = groups[cat]!
+                let avg = catRecords
                 let avgS = avgInt(avg.map(\.systolic))
                 let avgD = avgInt(avg.map(\.diastolic))
                 if i > 0 {
@@ -755,10 +756,10 @@ struct PDFGenerator {
             hline(s, color: s.style.borderColor, width: 0.3)
             s.y += 3
             for (i, cat) in cats.enumerated() {
-                let count = groups[cat]?.count ?? 0
-                guard count > 0 else { continue }
+                guard let catRecords = groups[cat], !catRecords.isEmpty else { continue }
+                let count = catRecords.count
                 let pct = Int(Double(count) / Double(records.count) * 100)
-                let avg = groups[cat]!
+                let avg = catRecords
                 let avgS = avgInt(avg.map(\.systolic))
                 let avgD = avgInt(avg.map(\.diastolic))
                 if i % 2 == 0 { fillRect(s, x: m, w: cw, h: rowH, color: s.style.stripeColor) }
@@ -947,7 +948,8 @@ struct PDFGenerator {
     }
 
     private static func drawPulseChart(_ s: State, records: [HealthRecord]) {
-        guard records.filter({ $0.tertiaryValue != nil }).count >= 2 else { return }
+        guard records.count >= 2,
+              records.filter({ $0.tertiaryValue != nil }).count >= 2 else { return }
         let cx = m + 28, cw2 = cw - 36, ch: CGFloat = 90, cy = s.y
         let pv = records.compactMap(\.tertiaryValue).map { Int($0) }
         let lo = max((pv.min() ?? 50) - 5, 30), hi = (pv.max() ?? 120) + 5
@@ -965,7 +967,7 @@ struct PDFGenerator {
         let ap = CGMutablePath()
         ap.move(to: CGPoint(x: xp(pulseIndices[0]), y: cy + ch))
         for i in pulseIndices { ap.addLine(to: CGPoint(x: xp(i), y: yp(records[i].pulse))) }
-        ap.addLine(to: CGPoint(x: xp(pulseIndices.last!), y: cy + ch))
+        ap.addLine(to: CGPoint(x: xp(pulseIndices[pulseIndices.count - 1]), y: cy + ch))
         ap.closeSubpath()
         s.ctx.addPath(ap)
         s.ctx.setFillColor(pink.withAlphaComponent(s.style.chartFillOpacity).cgColor)
@@ -1079,10 +1081,8 @@ struct PDFGenerator {
             s.y += rowH
         }
 
-        if hasMorningEvening {
+        if hasMorningEvening, let morningRecs = grouped[.morning], let eveningRecs = grouped[.evening] {
             s.y += 4
-            let morningRecs = grouped[.morning]!
-            let eveningRecs = grouped[.evening]!
             let mornAvgSys = avgInt(morningRecs.map(\.systolic))
             let eveAvgSys = avgInt(eveningRecs.map(\.systolic))
             let diff = mornAvgSys - eveAvgSys

@@ -35,7 +35,14 @@ struct VitaSignalsApp: App {
             #if DEBUG
             print("⚠️ ModelContainer creation failed: \(error). Deleting store at \(url) and retrying.")
             #endif
-            try? FileManager.default.removeItem(at: url)
+            let backupURL = url.deletingLastPathComponent()
+                .appendingPathComponent("VitaSignals-backup-\(Int(Date.now.timeIntervalSince1970)).store")
+            try? FileManager.default.moveItem(at: url, to: backupURL)
+            for suffix in ["-wal", "-shm"] {
+                let src = URL(fileURLWithPath: url.path + suffix)
+                let dst = URL(fileURLWithPath: backupURL.path + suffix)
+                try? FileManager.default.moveItem(at: src, to: dst)
+            }
             do {
                 try FileManager.default.createDirectory(
                     at: applicationSupportDirectory,

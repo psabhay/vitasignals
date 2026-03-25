@@ -106,7 +106,7 @@ final class StoreManager: ObservableObject {
     // MARK: - Transaction Listener
 
     private func listenForTransactions() -> Task<Void, Never> {
-        Task.detached { [weak self] in
+        Task { [weak self] in
             for await result in Transaction.updates {
                 if let transaction = try? result.payloadValue {
                     await transaction.finish()
