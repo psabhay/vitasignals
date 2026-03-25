@@ -251,7 +251,7 @@ final class DashboardEngine: ObservableObject {
                 return calendar.isDateInToday($0.timestamp) || (calendar.isDateInYesterday($0.timestamp) && h >= 20)
             })
             if let sleep = lastSleep {
-                let hours = (sleep.durationSeconds ?? sleep.primaryValue) / 3600
+                let hours = sleep.durationSeconds.map { $0 / 3600 } ?? sleep.primaryValue
                 contextIcon = "moon.stars.fill"
                 contextLine = "You slept \(String(format: "%.1f", hours))h last night. Start your day with a reading."
             } else if todayCount > 0 {

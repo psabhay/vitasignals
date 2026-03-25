@@ -155,7 +155,7 @@ final class HealthRecord {
             return "\(systolic)/\(diastolic)"
         }
         if metricType == MetricType.sleepDuration {
-            let hours = (durationSeconds ?? primaryValue) / 3600
+            let hours = durationSeconds.map { $0 / 3600 } ?? primaryValue
             return String(format: "%.1fh", hours)
         }
         if metricType == MetricType.workout {

@@ -33,6 +33,11 @@ final class HealthDataStore: ObservableObject {
     }
 
     /// Re-fetch from the persistent store. Call after sync, add, edit, or delete.
+    ///
+    /// Fetches per-metric-type with individual limits to ensure every metric
+    /// gets fair representation. A single global fetch limit starves low-frequency
+    /// daily metrics (cycling distance, sleep) when high-frequency metrics
+    /// (heart rate) produce thousands of records per day.
     func refresh() {
         guard let container else { return }
 
@@ -42,25 +47,53 @@ final class HealthDataStore: ObservableObject {
         ctx.autosaveEnabled = false
         self.context = ctx
 
-        var descriptor = FetchDescriptor<HealthRecord>(
+        // Discover all metric types that have data
+        var metricTypes = Set<String>()
+        if let syncStates = try? ctx.fetch(FetchDescriptor<SyncState>()) {
+            metricTypes.formUnion(syncStates.filter(\.isAvailable).map(\.metricType))
+        }
+        // Also discover types from recent records (catches manual entries, custom metrics)
+        var sampleDescriptor = FetchDescriptor<HealthRecord>(
             sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
         )
-        descriptor.fetchLimit = 5000
+        sampleDescriptor.fetchLimit = 200
+        if let sample = try? ctx.fetch(sampleDescriptor) {
+            metricTypes.formUnion(sample.map(\.metricType))
+        }
 
-        guard let records = try? ctx.fetch(descriptor) else {
-            #if DEBUG
-            print("⚠️ HealthDataStore fetch failed — keeping existing data")
-            #endif
+        guard !metricTypes.isEmpty else {
+            objectWillChange.send()
+            recordsByType = [:]
+            availableMetricTypes = []
+            recordCount = 0
+            allRecords = []
             return
         }
-        let grouped = Dictionary(grouping: records, by: \.metricType)
+
+        // Fetch up to 500 recent records per metric type
+        let perMetricLimit = 500
+        var grouped: [String: [HealthRecord]] = [:]
+        var combined: [HealthRecord] = []
+        for type in metricTypes {
+            var descriptor = FetchDescriptor<HealthRecord>(
+                predicate: #Predicate { $0.metricType == type },
+                sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+            )
+            descriptor.fetchLimit = perMetricLimit
+            if let records = try? ctx.fetch(descriptor) {
+                grouped[type] = records
+                combined.append(contentsOf: records)
+            }
+        }
+
+        combined.sort { $0.timestamp > $1.timestamp }
 
         // Single objectWillChange to batch all property updates into one render pass
         objectWillChange.send()
         recordsByType = grouped
-        availableMetricTypes = Set(grouped.keys)
-        recordCount = records.count
-        allRecords = records
+        availableMetricTypes = metricTypes
+        recordCount = combined.count
+        allRecords = combined
     }
 
     // MARK: - Convenience accessors

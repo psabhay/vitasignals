@@ -129,12 +129,12 @@ struct HealthKitCatalog {
 
         list.append(Entry(
             identifier: .bloodAlcoholContent, metricType: "bloodAlcoholContent",
-            name: "Blood Alcohol Content", unit: { .percent() },
-            displayUnit: "%", category: .vitals, isCumulative: false,
+            name: "Blood Alcohol Content", unit: { .count() },
+            displayUnit: "BAC", category: .vitals, isCumulative: false,
             icon: "drop.triangle.fill", color: .purple,
             referenceMin: nil, referenceMax: 0.08,
             inputMin: 0, inputMax: 0.5, inputStep: 0.01,
-            description: "Percentage of alcohol in your bloodstream."
+            description: "Blood alcohol concentration as a decimal (e.g. 0.08 = legal limit)."
         ))
 
         list.append(Entry(
@@ -337,12 +337,12 @@ struct HealthKitCatalog {
 
         list.append(Entry(
             identifier: .runningSpeed, metricType: "runningSpeed",
-            name: "Running Speed", unit: { .meter().unitDivided(by: .second()) },
-            displayUnit: "m/s", category: .activity, isCumulative: false,
+            name: "Running Speed", unit: { .meterUnit(with: .kilo).unitDivided(by: .hour()) },
+            displayUnit: "km/h", category: .activity, isCumulative: false,
             icon: "figure.run", color: .green,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 15, inputStep: 0.1,
-            description: "Your pace while running, measured in meters per second."
+            inputMin: 0, inputMax: 50, inputStep: 0.1,
+            description: "Your pace while running, measured in kilometers per hour."
         ))
 
         list.append(Entry(
@@ -357,12 +357,12 @@ struct HealthKitCatalog {
 
         list.append(Entry(
             identifier: .cyclingSpeed, metricType: "cyclingSpeed",
-            name: "Cycling Speed", unit: { .meter().unitDivided(by: .second()) },
-            displayUnit: "m/s", category: .activity, isCumulative: false,
+            name: "Cycling Speed", unit: { .meterUnit(with: .kilo).unitDivided(by: .hour()) },
+            displayUnit: "km/h", category: .activity, isCumulative: false,
             icon: "bicycle", color: .blue,
             referenceMin: nil, referenceMax: nil,
-            inputMin: 0, inputMax: 30, inputStep: 0.1,
-            description: "Your pace while cycling, measured in meters per second."
+            inputMin: 0, inputMax: 100, inputStep: 0.1,
+            description: "Your pace while cycling, measured in kilometers per hour."
         ))
 
         list.append(Entry(

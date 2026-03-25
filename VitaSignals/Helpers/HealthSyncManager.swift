@@ -33,6 +33,19 @@ final class HealthSyncManager: ObservableObject {
         HKHealthStore.isHealthDataAvailable()
     }
 
+    /// Reset all sync state so the next sync performs a full re-import from HealthKit.
+    func resetSyncState(container: ModelContainer) {
+        let context = ModelContext(container)
+        context.autosaveEnabled = false
+        if let states = try? context.fetch(FetchDescriptor<SyncState>()) {
+            for state in states { context.delete(state) }
+        }
+        try? context.save()
+        UserDefaults.standard.removeObject(forKey: Self.lastSyncKey)
+        lastSyncDate = nil
+        permissionDenied = false
+    }
+
     // MARK: - Authorization
 
     private static let allReadTypes: Set<HKObjectType> = {
@@ -190,9 +203,6 @@ private final class SyncWorker: Sendable {
 
     // MARK: - Quantity Metric Sync
 
-    /// Maximum samples to fetch per metric type per sync
-    private let sampleFetchLimit = 500
-
     /// Sync multiple metrics in parallel with controlled concurrency
     func syncMetricsBatched(_ defs: [MetricDefinition], store: HKHealthStore, container: ModelContainer) async {
         // Process metrics in parallel with concurrency limit of 6
@@ -235,55 +245,32 @@ private final class SyncWorker: Sendable {
         let lastSync = syncState.lastSyncDate
         let endDate = Date.now
 
-        // First sync: fetch 1 year, no overlap check needed
-        // Incremental sync: fetch from lastSync - overlap, check UUIDs only in overlap window
-        let isFirstSync = lastSync == nil
         let startDate = lastSync.map {
             $0.addingTimeInterval(-overlapInterval)
         } ?? Calendar.current.date(byAdding: .year, value: -1, to: .now) ?? .now
 
-        if def.isCumulative {
-            // Cumulative metrics: check by day, no UUID needed
-            let dailyValues = await Self.fetchDailyStatistics(store: store, hkType, unit: hkUnit, from: startDate, to: endDate)
-            for dv in dailyValues {
-                let dayStart = Calendar.current.startOfDay(for: dv.date)
-                let dayEnd = Calendar.current.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
-                let existing = existingRecords(for: def.type, from: dayStart, to: dayEnd, context: context)
-                if let existingRecord = existing.first(where: { !$0.isManualEntry }) {
-                    if existingRecord.primaryValue != dv.value {
-                        existingRecord.primaryValue = dv.value
-                    }
-                } else if existing.isEmpty {
-                    context.insert(HealthRecord(
-                        metricType: def.type, timestamp: dv.date,
-                        primaryValue: dv.value, source: "Apple Health", isManualEntry: false
-                    ))
+        // All metrics use daily statistics — one record per day.
+        // Cumulative metrics (steps, calories): daily sum.
+        // Discrete metrics (heart rate, SpO2): daily average.
+        // This avoids loading thousands of individual samples into memory
+        // and prevents unbounded record growth from high-frequency metrics.
+        let options: HKStatisticsOptions = def.isCumulative ? .cumulativeSum : .discreteAverage
+        let dailyValues = await Self.fetchDailyStatistics(store: store, hkType, unit: hkUnit, from: startDate, to: endDate, options: options)
+
+        let isPercent = hkUnit == HKUnit.percent()
+        for dv in dailyValues {
+            let dayStart = Calendar.current.startOfDay(for: dv.date)
+            let dayEnd = Calendar.current.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
+            let existing = existingRecords(for: def.type, from: dayStart, to: dayEnd, context: context)
+            let storedValue = isPercent ? dv.value * 100 : dv.value
+            if let existingRecord = existing.first(where: { !$0.isManualEntry }) {
+                if abs(existingRecord.primaryValue - storedValue) > 0.01 {
+                    existingRecord.primaryValue = storedValue
                 }
-            }
-        } else {
-            let samples = await Self.fetchQuantitySamples(store: store, hkType, unit: hkUnit, from: startDate, to: endDate, limit: sampleFetchLimit)
-
-            // Only fetch existing UUIDs if we have an overlap window to check
-            let excludedUUIDs: Set<String>
-            if isFirstSync {
-                // First sync: only check dismissed records (user explicitly rejected)
-                excludedUUIDs = dismissedHealthKitUUIDs(for: def.type, context: context)
-            } else {
-                // Incremental: only check UUIDs in the overlap window (lastSync - 1hr to lastSync)
-                guard let syncDate = lastSync else { return }
-                excludedUUIDs = existingHealthKitUUIDs(for: def.type, from: startDate, to: syncDate, context: context)
-                    .union(dismissedHealthKitUUIDs(for: def.type, context: context))
-            }
-
-            for sample in samples {
-                // Skip if already imported or dismissed
-                guard !excludedUUIDs.contains(sample.uuid) else { continue }
-                var value = sample.value
-                if hkUnit == HKUnit.percent() { value *= 100 }
+            } else if existing.isEmpty {
                 context.insert(HealthRecord(
-                    metricType: def.type, timestamp: sample.date,
-                    primaryValue: value, healthKitUUID: sample.uuid,
-                    source: sample.source, isManualEntry: false
+                    metricType: def.type, timestamp: dv.date,
+                    primaryValue: storedValue, source: "Apple Health", isManualEntry: false
                 ))
             }
         }
@@ -313,7 +300,7 @@ private final class SyncWorker: Sendable {
         let samples: [HKCorrelation] = await withCheckedContinuation { continuation in
             let query = HKSampleQuery(
                 sampleType: bpType, predicate: predicate,
-                limit: sampleFetchLimit, sortDescriptors: [sortDescriptor]
+                limit: HKObjectQueryNoLimit, sortDescriptors: [sortDescriptor]
             ) { _, results, _ in
                 continuation.resume(returning: (results as? [HKCorrelation]) ?? [])
             }
@@ -402,11 +389,13 @@ private final class SyncWorker: Sendable {
         let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: [])
         let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
 
-        // Sleep samples are aggregated per day, so we can fetch more
+        // Sleep samples are aggregated per day, so fetch all — even 10K+ samples
+        // just produce ~365 daily records. A hard limit here drops newer data on
+        // first sync when Apple Watch generates ~15 samples per night.
         let samples: [HKCategorySample] = await withCheckedContinuation { continuation in
             let query = HKSampleQuery(
                 sampleType: sleepType, predicate: predicate,
-                limit: 2000, sortDescriptors: [sortDescriptor]
+                limit: HKObjectQueryNoLimit, sortDescriptors: [sortDescriptor]
             ) { _, results, _ in
                 continuation.resume(returning: (results as? [HKCategorySample]) ?? [])
             }
@@ -421,12 +410,30 @@ private final class SyncWorker: Sendable {
             HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue,
         ]
 
-        var dayDurations: [DateComponents: TimeInterval] = [:]
+        // Group sleep intervals by calendar day, then merge overlapping intervals
+        // to avoid double-counting when multiple devices (iPhone + Apple Watch) record
+        // the same sleep session.
+        var dayIntervals: [DateComponents: [(start: Date, end: Date)]] = [:]
         for sample in samples {
             guard asleepValues.contains(sample.value) else { continue }
-            let duration = sample.endDate.timeIntervalSince(sample.startDate)
             let components = calendar.dateComponents([.year, .month, .day], from: sample.startDate)
-            dayDurations[components, default: 0] += duration
+            dayIntervals[components, default: []].append((start: sample.startDate, end: sample.endDate))
+        }
+
+        var dayDurations: [DateComponents: TimeInterval] = [:]
+        for (components, intervals) in dayIntervals {
+            // Sort by start time, then merge overlapping intervals
+            let sorted = intervals.sorted { $0.start < $1.start }
+            var merged: [(start: Date, end: Date)] = []
+            for interval in sorted {
+                if let last = merged.last, interval.start <= last.end {
+                    // Overlapping — extend the end if needed
+                    merged[merged.count - 1].end = max(last.end, interval.end)
+                } else {
+                    merged.append(interval)
+                }
+            }
+            dayDurations[components] = merged.reduce(0) { $0 + $1.end.timeIntervalSince($1.start) }
         }
 
         for (components, duration) in dayDurations {
@@ -462,48 +469,9 @@ private final class SyncWorker: Sendable {
 
     // MARK: - HealthKit Query Helpers
 
-    private struct SampleResult {
-        let date: Date
-        let value: Double
-        let source: String
-        let uuid: String
-    }
-
     private struct DailyValue {
         let date: Date
         let value: Double
-    }
-
-    private static func fetchQuantitySamples(
-        store: HKHealthStore,
-        _ identifier: HKQuantityTypeIdentifier,
-        unit: HKUnit,
-        from startDate: Date,
-        to endDate: Date,
-        limit: Int
-    ) async -> [SampleResult] {
-        let quantityType = HKQuantityType(identifier)
-        let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: [])
-        let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
-
-        let samples: [HKQuantitySample] = await withCheckedContinuation { continuation in
-            let query = HKSampleQuery(
-                sampleType: quantityType, predicate: predicate,
-                limit: limit, sortDescriptors: [sortDescriptor]
-            ) { _, results, _ in
-                continuation.resume(returning: (results as? [HKQuantitySample]) ?? [])
-            }
-            store.execute(query)
-        }
-
-        return samples.map { sample in
-            SampleResult(
-                date: sample.startDate,
-                value: sample.quantity.doubleValue(for: unit),
-                source: sample.sourceRevision.source.name,
-                uuid: sample.uuid.uuidString
-            )
-        }
     }
 
     private static func fetchDailyStatistics(
@@ -511,19 +479,21 @@ private final class SyncWorker: Sendable {
         _ identifier: HKQuantityTypeIdentifier,
         unit: HKUnit,
         from startDate: Date,
-        to endDate: Date
+        to endDate: Date,
+        options: HKStatisticsOptions = .cumulativeSum
     ) async -> [DailyValue] {
         let quantityType = HKQuantityType(identifier)
         let calendar = Calendar.current
         let anchorDate = calendar.startOfDay(for: startDate)
         let interval = DateComponents(day: 1)
         let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: [])
+        let isCumulative = options.contains(.cumulativeSum)
 
         return await withCheckedContinuation { continuation in
             let query = HKStatisticsCollectionQuery(
                 quantityType: quantityType,
                 quantitySamplePredicate: predicate,
-                options: .cumulativeSum,
+                options: options,
                 anchorDate: anchorDate,
                 intervalComponents: interval
             )
@@ -534,8 +504,9 @@ private final class SyncWorker: Sendable {
                 }
                 var values: [DailyValue] = []
                 statsCollection.enumerateStatistics(from: anchorDate, to: endDate) { statistics, _ in
-                    if let sum = statistics.sumQuantity() {
-                        values.append(DailyValue(date: statistics.startDate, value: sum.doubleValue(for: unit)))
+                    let quantity = isCumulative ? statistics.sumQuantity() : statistics.averageQuantity()
+                    if let q = quantity {
+                        values.append(DailyValue(date: statistics.startDate, value: q.doubleValue(for: unit)))
                     }
                 }
                 continuation.resume(returning: values)

@@ -56,7 +56,7 @@ struct ContentView: View {
             }
         }
         .sheet(isPresented: $showProfile) {
-            ProfileSheet()
+            ProfileSheet(syncManager: syncManager)
         }
         .overlay {
             if showFirstSyncOverlay {
@@ -185,12 +185,13 @@ extension View {
 // MARK: - Profile Sheet
 
 struct ProfileSheet: View {
+    @ObservedObject var syncManager: HealthSyncManager
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
             List {
-                ProfileSection()
+                ProfileSection(syncManager: syncManager)
             }
             .navigationTitle("Profile")
             .navigationBarTitleDisplayMode(.inline)
@@ -369,6 +370,7 @@ struct OnboardingView: View {
 // MARK: - Profile Section (for profile sheet and data management)
 
 struct ProfileSection: View {
+    @ObservedObject var syncManager: HealthSyncManager
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject var dataStore: HealthDataStore
     @EnvironmentObject var storeManager: StoreManager
@@ -806,6 +808,7 @@ struct ProfileSection: View {
                         modelContext.delete(record)
                     }
                     try? modelContext.save()
+                    syncManager.resetSyncState(container: modelContext.container)
                     dataStore.refresh()
                 }
             }
@@ -817,6 +820,7 @@ struct ProfileSection: View {
                     for d in dismissed { modelContext.delete(d) }
                     try? modelContext.save()
                 }
+                syncManager.resetSyncState(container: modelContext.container)
             }
             Button("Cancel", role: .cancel) {}
         }
