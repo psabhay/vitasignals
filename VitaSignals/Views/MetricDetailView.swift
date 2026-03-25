@@ -5,7 +5,6 @@ struct MetricDetailView: View {
     let metricType: String
     @EnvironmentObject var dataStore: HealthDataStore
     @State private var timeRange: ChartTimeRange = .month
-    @State private var selectedRecord: HealthRecord?
     @State private var cachedFiltered: [HealthRecord] = []
 
     private var definition: MetricDefinition? {
@@ -43,7 +42,6 @@ struct MetricDetailView: View {
                 } else {
                     summaryCard
                     chartCard
-                    recentRecordsList
                 }
             }
             .padding(.bottom)
@@ -53,9 +51,6 @@ struct MetricDetailView: View {
         .onAppear { recomputeFiltered() }
         .onChange(of: timeRange) { _, _ in recomputeFiltered() }
         .onChange(of: dataStore.recordCount) { _, _ in recomputeFiltered() }
-        .sheet(item: $selectedRecord) { record in
-            RecordDetailView(record: record)
-        }
     }
 
     // MARK: - Summary Card
@@ -183,53 +178,4 @@ struct MetricDetailView: View {
         }
     }
 
-    // MARK: - Recent Records
-
-    private var recentRecordsList: some View {
-        let recent = Array(cachedFiltered.prefix(20))
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Recent Records").font(.headline)
-                Spacer()
-                Text("\(cachedFiltered.count) total").font(.caption).foregroundStyle(.secondary)
-            }
-
-            ForEach(recent) { record in
-                Button {
-                    selectedRecord = record
-                } label: {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(record.formattedPrimaryValue)
-                                .font(.subheadline.bold().monospacedDigit())
-                            if let def = definition {
-                                Text(def.unit).font(.caption2).foregroundStyle(.secondary)
-                            }
-                        }
-                        Spacer()
-                        VStack(alignment: .trailing, spacing: 2) {
-                            Text(record.formattedDateOnly).font(.caption).foregroundStyle(.secondary)
-                            Text(record.formattedTimeOnly).font(.caption2).foregroundStyle(.tertiary)
-                        }
-                        Image(systemName: "chevron.right")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                    }
-                    .padding(.vertical, 4)
-                }
-                .tint(.primary)
-                if record.id != recent.last?.id {
-                    Divider()
-                }
-            }
-
-            if cachedFiltered.count > 20 {
-                Text("Showing 20 of \(cachedFiltered.count) records")
-                    .font(.caption).foregroundStyle(.tertiary).frame(maxWidth: .infinity)
-            }
-        }
-        .padding()
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-        .padding(.horizontal)
-    }
 }
