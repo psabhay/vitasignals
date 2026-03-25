@@ -148,8 +148,9 @@ final class DashboardEngine: ObservableObject {
         nudgeItems = computeNudges(dataStore: dataStore, customMetrics: customMetrics, now: now)
         goalProgress = computeGoalProgress(dataStore: dataStore, goals: goals, sevenDaysAgo: sevenDaysAgo, fourteenDaysAgo: fourteenDaysAgo)
 
-        // Sync and resolve dashboard chart cards
-        DashboardCardResolver.syncCards(existingCards: cards, availableMetrics: dataStore.availableMetricTypes, context: modelContext)
+        // Sync and resolve dashboard chart cards — include custom metrics even if they have no data yet
+        let allMetrics = dataStore.availableMetricTypes.union(Set(customMetrics.map(\.metricType)))
+        DashboardCardResolver.syncCards(existingCards: cards, availableMetrics: allMetrics, context: modelContext)
         dashboardCards = DashboardCardResolver.resolve(cards: cards, dataStore: dataStore)
     }
 
