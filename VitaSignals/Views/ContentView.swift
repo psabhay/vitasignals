@@ -12,6 +12,7 @@ struct ContentView: View {
     @State private var chartExportRequest: ChartExportRequest?
     @State private var showFirstSyncOverlay = false
     @StateObject private var syncManager = HealthSyncManager()
+    @State private var notificationMetricType: String?
 
     private var hasProfile: Bool {
         guard let p = profiles.first else { return false }
@@ -85,6 +86,22 @@ struct ContentView: View {
             }
         }
         .environment(\.showProfile, $showProfile)
+        .onReceive(NotificationCenter.default.publisher(for: NotificationManager.openMetricFormNotification)) { notification in
+            if let metricType = notification.userInfo?["metricType"] as? String {
+                // Switch to dashboard tab and open the form
+                selectedTab = 0
+                // Small delay to ensure tab switch completes before sheet presentation
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    notificationMetricType = metricType
+                }
+            }
+        }
+        .sheet(item: Binding(
+            get: { notificationMetricType.map { MetricTypeWrapper(metricType: $0) } },
+            set: { notificationMetricType = $0?.metricType }
+        )) { wrapper in
+            HealthRecordFormView(metricType: wrapper.metricType)
+        }
     }
 
     private func performFirstSync() {
@@ -96,6 +113,12 @@ struct ContentView: View {
             }
         }
     }
+}
+
+/// Lightweight Identifiable wrapper so a metric type string can drive a `.sheet(item:)`.
+private struct MetricTypeWrapper: Identifiable {
+    let metricType: String
+    var id: String { metricType }
 }
 
 // MARK: - First Sync Overlay
@@ -749,6 +772,9 @@ struct ProfileSection: View {
                 modelContext.delete(record)
             }
         }
+
+        // Cancel any scheduled notifications
+        NotificationManager.shared.cancelReminder(for: metricType)
 
         // Unregister from MetricRegistry
         MetricRegistry.unregisterCustomMetric(metricType)

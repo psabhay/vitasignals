@@ -16,6 +16,27 @@ final class CustomMetric {
     var metricType: String
     var createdAt: Date
 
+    // MARK: - Reminder
+    var reminderEnabled: Bool = false
+    var reminderHour: Int = 20       // Default 8 PM
+    var reminderMinute: Int = 0
+    var reminderFrequency: String = "daily"  // "daily", "weekdays", "custom"
+    var reminderCustomDays: Int = 0          // Bitmask: bit 0 = Sunday(1), bit 1 = Monday(2), …, bit 6 = Saturday(7)
+
+    /// Weekday numbers (1=Sun … 7=Sat) the reminder should fire on.
+    var effectiveReminderDays: [Int] {
+        switch reminderFrequency {
+        case "weekdays": return [2, 3, 4, 5, 6]
+        case "custom":
+            var days: [Int] = []
+            for i in 0..<7 where reminderCustomDays & (1 << i) != 0 {
+                days.append(i + 1)
+            }
+            return days.isEmpty ? Array(1...7) : days
+        default: return Array(1...7)
+        }
+    }
+
     init(
         name: String,
         unit: String,

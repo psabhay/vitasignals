@@ -145,7 +145,7 @@ final class DashboardEngine: ObservableObject {
         quickLogMetrics = computeQuickLogMetrics(dataStore: dataStore, customMetrics: customMetrics)
         movingAverages = computeMovingAverages(dataStore: dataStore, sevenDaysAgo: sevenDaysAgo, fourteenDaysAgo: fourteenDaysAgo)
         weeklyRecap = computeWeeklyRecap(dataStore: dataStore, calendar: calendar, now: now)
-        nudgeItems = computeNudges(dataStore: dataStore, now: now)
+        nudgeItems = computeNudges(dataStore: dataStore, customMetrics: customMetrics, now: now)
         goalProgress = computeGoalProgress(dataStore: dataStore, goals: goals, sevenDaysAgo: sevenDaysAgo, fourteenDaysAgo: fourteenDaysAgo)
 
         // Sync and resolve dashboard chart cards
@@ -633,12 +633,37 @@ final class DashboardEngine: ObservableObject {
 
     // MARK: - Nudges
 
-    private func computeNudges(dataStore: HealthDataStore, now: Date) -> [NudgeItem] {
+    private func computeNudges(dataStore: HealthDataStore, customMetrics: [CustomMetric], now: Date) -> [NudgeItem] {
+        let calendar = Calendar.current
         let todayKey = now.formatted(.dateTime.year().month().day())
         var result: [NudgeItem] = []
 
-        // Group manual metric types
-        var manualTypes: [String: Date] = [:] // type → most recent manual timestamp
+        // --- Reminder-based nudges (highest priority) ---
+        for cm in customMetrics where cm.reminderEnabled {
+            let type = cm.metricType
+            let dismissKey = "nudge_dismissed_\(type)"
+            if UserDefaults.standard.string(forKey: dismissKey) == todayKey { continue }
+
+            // Find latest record today for this metric
+            let todayRecords = dataStore.records(for: type).filter { calendar.isDateInToday($0.timestamp) }
+            let latestToday = todayRecords.first?.timestamp
+
+            if NotificationManager.shared.hasUnfulfilledReminder(cm, latestRecordToday: latestToday) {
+                let def = MetricRegistry.definition(for: type)
+                result.append(NudgeItem(
+                    id: type,
+                    name: def?.name ?? cm.name,
+                    icon: "bell.fill",
+                    color: def?.color ?? cm.color,
+                    hoursSinceLastLog: 0,
+                    message: "Reminder: time to log \(cm.name)"
+                ))
+            }
+        }
+
+        // --- Regular manual-metric nudges ---
+        let reminderTypes = Set(result.map(\.id))
+        var manualTypes: [String: Date] = [:]
         for record in dataStore.allRecords where record.isManualEntry {
             if manualTypes[record.metricType] == nil {
                 manualTypes[record.metricType] = record.timestamp
@@ -646,14 +671,14 @@ final class DashboardEngine: ObservableObject {
         }
 
         for (type, lastDate) in manualTypes {
+            guard !reminderTypes.contains(type) else { continue }
+
             let hours = now.timeIntervalSince(lastDate) / 3600
             guard hours > 16 else { continue }
 
-            // Check if dismissed today
             let dismissKey = "nudge_dismissed_\(type)"
             if UserDefaults.standard.string(forKey: dismissKey) == todayKey { continue }
 
-            // Only nudge for metrics logged in last 14 days
             guard now.timeIntervalSince(lastDate) < 14 * 86400 else { continue }
 
             let def = MetricRegistry.definition(for: type)
@@ -667,7 +692,7 @@ final class DashboardEngine: ObservableObject {
             ))
         }
 
-        return Array(result.prefix(2))
+        return Array(result.prefix(3))
     }
 
     // MARK: - Goal Progress

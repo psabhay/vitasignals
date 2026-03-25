@@ -17,6 +17,13 @@ struct CustomMetricFormView: View {
     @State private var inputMax: Double
     @State private var inputStep: Double
 
+    // Reminder
+    @State private var reminderEnabled: Bool
+    @State private var reminderTime: Date
+    @State private var reminderFrequency: String
+    @State private var reminderCustomDays: Int
+    @State private var showPermissionDenied = false
+
     private var isEditMode: Bool { existingMetric != nil }
 
     private var canSave: Bool {
@@ -41,6 +48,14 @@ struct CustomMetricFormView: View {
             _inputMin = State(initialValue: metric.inputMin)
             _inputMax = State(initialValue: metric.inputMax)
             _inputStep = State(initialValue: metric.inputStep)
+            _reminderEnabled = State(initialValue: metric.reminderEnabled)
+            _reminderFrequency = State(initialValue: metric.reminderFrequency)
+            _reminderCustomDays = State(initialValue: metric.reminderCustomDays)
+            // Build a Date from hour/minute for the time picker
+            var comps = Calendar.current.dateComponents([.year, .month, .day], from: .now)
+            comps.hour = metric.reminderHour
+            comps.minute = metric.reminderMinute
+            _reminderTime = State(initialValue: Calendar.current.date(from: comps) ?? .now)
         } else {
             _name = State(initialValue: "")
             _unit = State(initialValue: "")
@@ -50,6 +65,14 @@ struct CustomMetricFormView: View {
             _inputMin = State(initialValue: 0)
             _inputMax = State(initialValue: 100)
             _inputStep = State(initialValue: 1)
+            _reminderEnabled = State(initialValue: false)
+            _reminderFrequency = State(initialValue: "daily")
+            _reminderCustomDays = State(initialValue: 0)
+            // Default 8 PM
+            var comps = Calendar.current.dateComponents([.year, .month, .day], from: .now)
+            comps.hour = 20
+            comps.minute = 0
+            _reminderTime = State(initialValue: Calendar.current.date(from: comps) ?? .now)
         }
     }
 
@@ -59,6 +82,7 @@ struct CustomMetricFormView: View {
                 previewSection
                 detailsSection
                 trackingStyleSection
+                reminderSection
                 iconSection
                 colorSection
                 inputRangeSection
@@ -192,6 +216,89 @@ struct CustomMetricFormView: View {
         }
     }
 
+    // MARK: - Reminder
+
+    private static let weekdaySymbols: [(index: Int, short: String)] = {
+        // index = Calendar weekday (1=Sun, 2=Mon, …, 7=Sat)
+        // Display Mon–Sun order for a natural UI
+        let symbols = Calendar.current.veryShortWeekdaySymbols // ["S","M","T","W","T","F","S"]
+        return [2, 3, 4, 5, 6, 7, 1].map { wd in
+            (index: wd, short: symbols[wd - 1])
+        }
+    }()
+
+    private var reminderSection: some View {
+        Section {
+            Toggle(isOn: $reminderEnabled) {
+                Label("Reminder", systemImage: "bell.fill")
+            }
+            .onChange(of: reminderEnabled) { _, enabled in
+                guard enabled else { return }
+                Task {
+                    let granted = await NotificationManager.shared.requestPermission()
+                    if !granted {
+                        reminderEnabled = false
+                        showPermissionDenied = true
+                    }
+                }
+            }
+
+            if reminderEnabled {
+                DatePicker("Time", selection: $reminderTime, displayedComponents: .hourAndMinute)
+
+                Picker("Frequency", selection: $reminderFrequency) {
+                    Text("Every Day").tag("daily")
+                    Text("Weekdays").tag("weekdays")
+                    Text("Custom").tag("custom")
+                }
+
+                if reminderFrequency == "custom" {
+                    HStack(spacing: 8) {
+                        ForEach(Self.weekdaySymbols, id: \.index) { wd in
+                            let isOn = reminderCustomDays & (1 << (wd.index - 1)) != 0
+                            Button {
+                                reminderCustomDays ^= (1 << (wd.index - 1))
+                            } label: {
+                                Text(wd.short)
+                                    .font(.caption.bold())
+                                    .frame(width: 36, height: 36)
+                                    .background(
+                                        isOn ? selectedColor.opacity(0.2) : Color(.systemGray6),
+                                        in: Circle()
+                                    )
+                                    .foregroundStyle(isOn ? selectedColor : .secondary)
+                                    .overlay(
+                                        Circle().strokeBorder(isOn ? selectedColor : .clear, lineWidth: 2)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(Calendar.current.weekdaySymbols[wd.index - 1])
+                            .accessibilityAddTraits(isOn ? .isSelected : [])
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 4)
+                }
+            }
+        } header: {
+            Text("Reminder")
+        } footer: {
+            if reminderEnabled {
+                Text("You\u{2019}ll get a notification to log this metric. Reminders expire at midnight and won\u{2019}t carry over to the next day.")
+            }
+        }
+        .alert("Notifications Disabled", isPresented: $showPermissionDenied) {
+            Button("Open Settings") {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Enable notifications in Settings to use reminders.")
+        }
+    }
+
     // MARK: - Input Range
 
     private var inputRangeSection: some View {
@@ -229,8 +336,13 @@ struct CustomMetricFormView: View {
 
     // MARK: - Save
 
+    private var reminderHour: Int { Calendar.current.component(.hour, from: reminderTime) }
+    private var reminderMinuteValue: Int { Calendar.current.component(.minute, from: reminderTime) }
+
     private func save() {
-        if let metric = existingMetric {
+        let metric: CustomMetric
+        if let existing = existingMetric {
+            metric = existing
             metric.name = name.trimmingCharacters(in: .whitespaces)
             metric.unit = unit.trimmingCharacters(in: .whitespaces)
             metric.icon = selectedIcon
@@ -239,10 +351,8 @@ struct CustomMetricFormView: View {
             metric.inputMin = inputMin
             metric.inputMax = inputMax
             metric.inputStep = inputStep
-            // Re-register updated definition
-            MetricRegistry.registerCustomMetric(metric.toMetricDefinition())
         } else {
-            let metric = CustomMetric(
+            metric = CustomMetric(
                 name: name.trimmingCharacters(in: .whitespaces),
                 unit: unit.trimmingCharacters(in: .whitespaces),
                 icon: selectedIcon,
@@ -253,9 +363,21 @@ struct CustomMetricFormView: View {
                 inputStep: inputStep
             )
             modelContext.insert(metric)
-            MetricRegistry.registerCustomMetric(metric.toMetricDefinition())
         }
+
+        // Reminder fields
+        metric.reminderEnabled = reminderEnabled
+        metric.reminderHour = reminderHour
+        metric.reminderMinute = reminderMinuteValue
+        metric.reminderFrequency = reminderFrequency
+        metric.reminderCustomDays = reminderCustomDays
+
+        MetricRegistry.registerCustomMetric(metric.toMetricDefinition())
         try? modelContext.save()
+
+        // Schedule or cancel the notification
+        NotificationManager.shared.scheduleReminder(for: metric)
+
         dataStore.refresh()
         dismiss()
     }

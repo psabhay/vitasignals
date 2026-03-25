@@ -1,9 +1,15 @@
 import SwiftUI
 import SwiftData
+import UserNotifications
 
 @main
 struct VitaSignalsApp: App {
     @State private var showDataLossAlert = false
+
+    init() {
+        NotificationManager.shared.configure()
+        NotificationManager.shared.cleanUpStaleSnoozeState()
+    }
 
     private static var didResetDatabase = false
     private static let applicationSupportDirectory: URL = {
