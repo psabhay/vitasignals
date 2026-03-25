@@ -119,8 +119,17 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate, @un
 
     // MARK: - Snooze
 
+    /// Serial queue for snooze count operations to prevent read-modify-write races.
+    private static let snoozeQueue = DispatchQueue(label: "vs.snooze")
+
     /// Schedules a one-shot snooze notification, respecting midnight boundary and max count.
     private func scheduleSnooze(metricType: String, metricName: String) {
+        Self.snoozeQueue.sync {
+            _scheduleSnoozeImpl(metricType: metricType, metricName: metricName)
+        }
+    }
+
+    private func _scheduleSnoozeImpl(metricType: String, metricName: String) {
         let calendar = Calendar.current
         let now = Date.now
 
@@ -153,6 +162,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate, @un
 
         UNUserNotificationCenter.current().add(request)
         UserDefaults.standard.set(currentCount + 1, forKey: countKey)
+        trackSnoozeKey(countKey)
     }
 
     // MARK: - Reminder-Aware Nudge Check
@@ -190,11 +200,29 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate, @un
         let defaults = UserDefaults.standard
         let todayKey = Date.now.formatted(.dateTime.year().month().day())
 
-        for key in defaults.dictionaryRepresentation().keys where key.hasPrefix("snooze_count_") {
-            // Key format: snooze_count_{metricType}_{dayKey}
-            if !key.hasSuffix(todayKey) {
+        // Use a dedicated suite key to track snooze keys instead of iterating all UserDefaults.
+        // This avoids copying the entire defaults dictionary (which includes system keys).
+        let trackedKeysKey = "snooze_tracked_keys"
+        guard let trackedKeys = defaults.stringArray(forKey: trackedKeysKey) else { return }
+
+        var remaining: [String] = []
+        for key in trackedKeys {
+            if key.hasSuffix(todayKey) {
+                remaining.append(key)
+            } else {
                 defaults.removeObject(forKey: key)
             }
+        }
+        defaults.set(remaining, forKey: trackedKeysKey)
+    }
+
+    /// Register a snooze key for cleanup tracking.
+    private func trackSnoozeKey(_ key: String) {
+        let trackedKeysKey = "snooze_tracked_keys"
+        var keys = UserDefaults.standard.stringArray(forKey: trackedKeysKey) ?? []
+        if !keys.contains(key) {
+            keys.append(key)
+            UserDefaults.standard.set(keys, forKey: trackedKeysKey)
         }
     }
 
@@ -219,7 +247,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate, @un
 
         switch response.actionIdentifier {
         case Self.logNowActionID, UNNotificationDefaultActionIdentifier:
-            DispatchQueue.main.async {
+            await MainActor.run {
                 NotificationCenter.default.post(
                     name: Self.openMetricFormNotification,
                     object: nil,

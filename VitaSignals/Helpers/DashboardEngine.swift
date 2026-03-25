@@ -126,12 +126,16 @@ final class DashboardEngine: ObservableObject {
 
     // MARK: - Main Entry Point
 
+    private var lastRecordCount: Int = -1
+
     func recompute(
         dataStore: HealthDataStore,
         userName: String?,
         goals: [MetricGoal],
         customMetrics: [CustomMetric],
+        customCharts: [CustomChart] = [],
         cards: [DashboardCard],
+        chartRangeDays: Int = 7,
         modelContext: ModelContext
     ) {
         let calendar = Calendar.current
@@ -139,19 +143,45 @@ final class DashboardEngine: ObservableObject {
         let sevenDaysAgo = calendar.date(byAdding: .day, value: -7, to: now) ?? now
         let fourteenDaysAgo = calendar.date(byAdding: .day, value: -14, to: now) ?? now
 
+        // Pre-compute streak once (used by highlights and weekly recap)
+        let streak = computeStreak(allRecords: dataStore.allRecords, calendar: calendar, now: now)
+
+        // Pre-filter records by time window once, shared across multiple compute methods
+        let sevenDayRecordsByType: [String: [HealthRecord]] = {
+            var result: [String: [HealthRecord]] = [:]
+            for (type, records) in dataStore.recordsByType {
+                result[type] = records.filter { $0.timestamp >= sevenDaysAgo }
+            }
+            return result
+        }()
+        let fourteenDayRecordsByType: [String: [HealthRecord]] = {
+            var result: [String: [HealthRecord]] = [:]
+            for (type, records) in dataStore.recordsByType {
+                result[type] = records.filter { $0.timestamp >= fourteenDaysAgo && $0.timestamp < sevenDaysAgo }
+            }
+            return result
+        }()
+
         heroCard = computeHeroCard(dataStore: dataStore, sevenDaysAgo: sevenDaysAgo)
         smartSummary = computeSmartSummary(dataStore: dataStore, userName: userName, calendar: calendar, now: now)
-        highlights = computeHighlights(dataStore: dataStore, calendar: calendar, now: now, sevenDaysAgo: sevenDaysAgo, fourteenDaysAgo: fourteenDaysAgo)
+        highlights = computeHighlights(dataStore: dataStore, calendar: calendar, now: now, sevenDaysAgo: sevenDaysAgo, fourteenDaysAgo: fourteenDaysAgo, cachedStreak: streak)
         quickLogMetrics = computeQuickLogMetrics(dataStore: dataStore, customMetrics: customMetrics)
-        movingAverages = computeMovingAverages(dataStore: dataStore, sevenDaysAgo: sevenDaysAgo, fourteenDaysAgo: fourteenDaysAgo)
-        weeklyRecap = computeWeeklyRecap(dataStore: dataStore, calendar: calendar, now: now)
+        movingAverages = computeMovingAverages(dataStore: dataStore, recent: sevenDayRecordsByType, previous: fourteenDayRecordsByType)
+        weeklyRecap = computeWeeklyRecap(dataStore: dataStore, calendar: calendar, now: now, cachedStreak: streak)
         nudgeItems = computeNudges(dataStore: dataStore, customMetrics: customMetrics, now: now)
         goalProgress = computeGoalProgress(dataStore: dataStore, goals: goals, sevenDaysAgo: sevenDaysAgo, fourteenDaysAgo: fourteenDaysAgo)
 
-        // Sync and resolve dashboard chart cards — include custom metrics even if they have no data yet
+        // Resolve dashboard chart cards from current state
+        dashboardCards = DashboardCardResolver.resolve(cards: cards, dataStore: dataStore, customCharts: customCharts, days: chartRangeDays)
+
+        // Sync new cards asynchronously to avoid SwiftData writes during the view update cycle
         let allMetrics = dataStore.availableMetricTypes.union(Set(customMetrics.map(\.metricType)))
-        DashboardCardResolver.syncCards(existingCards: cards, availableMetrics: allMetrics, context: modelContext)
-        dashboardCards = DashboardCardResolver.resolve(cards: cards, dataStore: dataStore)
+        let existingCards = cards
+        Task { @MainActor in
+            DashboardCardResolver.syncCards(existingCards: existingCards, availableMetrics: allMetrics, context: modelContext)
+        }
+
+        lastRecordCount = dataStore.recordCount
     }
 
     // MARK: - Hero Card
@@ -309,7 +339,8 @@ final class DashboardEngine: ObservableObject {
         calendar: Calendar,
         now: Date,
         sevenDaysAgo: Date,
-        fourteenDaysAgo: Date
+        fourteenDaysAgo: Date,
+        cachedStreak: Int
     ) -> [HighlightItem] {
         var items: [HighlightItem] = []
 
@@ -322,8 +353,8 @@ final class DashboardEngine: ObservableObject {
         }
 
         // Streak
-        let streak = computeStreak(allRecords: dataStore.allRecords, calendar: calendar, now: now)
-        if streak >= 3 {
+        if cachedStreak >= 3 {
+            let streak = cachedStreak
             items.append(HighlightItem(icon: "flame.fill", text: "\(streak)-day logging streak", color: .orange, priority: 40))
         }
 
@@ -504,7 +535,7 @@ final class DashboardEngine: ObservableObject {
 
     // MARK: - Moving Averages
 
-    private func computeMovingAverages(dataStore: HealthDataStore, sevenDaysAgo: Date, fourteenDaysAgo: Date) -> [MovingAverageRow] {
+    private func computeMovingAverages(dataStore: HealthDataStore, recent: [String: [HealthRecord]], previous: [String: [HealthRecord]]) -> [MovingAverageRow] {
         var rows: [MovingAverageRow] = []
 
         // Ordered by registry
@@ -516,9 +547,8 @@ final class DashboardEngine: ObservableObject {
         }
 
         for type in orderedTypes {
-            let records = dataStore.records(for: type)
-            let recent = records.filter { $0.timestamp >= sevenDaysAgo }
-            let prev = records.filter { $0.timestamp >= fourteenDaysAgo && $0.timestamp < sevenDaysAgo }
+            let recent = recent[type] ?? []
+            let prev = previous[type] ?? []
             guard recent.count >= 2 else { continue }
             let def = MetricRegistry.definition(for: type)
             let lowerIsBetter = type == MetricType.bloodPressure || type == MetricType.restingHeartRate
@@ -568,7 +598,7 @@ final class DashboardEngine: ObservableObject {
 
     // MARK: - Weekly Recap
 
-    private func computeWeeklyRecap(dataStore: HealthDataStore, calendar: Calendar, now: Date) -> WeeklyRecapData? {
+    private func computeWeeklyRecap(dataStore: HealthDataStore, calendar: Calendar, now: Date, cachedStreak: Int) -> WeeklyRecapData? {
         // This week: Monday to now
         guard let thisWeekStart = calendar.dateInterval(of: .weekOfYear, for: now)?.start else { return nil }
         let lastWeekStart = calendar.date(byAdding: .weekOfYear, value: -1, to: thisWeekStart) ?? thisWeekStart
@@ -578,7 +608,7 @@ final class DashboardEngine: ObservableObject {
 
         guard thisWeek.count >= 3 || lastWeek.count >= 3 else { return nil }
 
-        let streak = computeStreak(allRecords: dataStore.allRecords, calendar: calendar, now: now)
+        let streak = cachedStreak
 
         // Metric summaries for top metrics
         var summaries: [MetricWeeklySummary] = []

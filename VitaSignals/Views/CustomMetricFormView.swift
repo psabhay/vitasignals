@@ -1,6 +1,12 @@
 import SwiftUI
 import SwiftData
 
+private extension Array {
+    subscript(safe index: Int) -> Element? {
+        indices.contains(index) ? self[index] : nil
+    }
+}
+
 struct CustomMetricFormView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -23,6 +29,7 @@ struct CustomMetricFormView: View {
     @State private var reminderFrequency: String
     @State private var reminderCustomDays: Int
     @State private var showPermissionDenied = false
+    @State private var showSaveError = false
 
     private var isEditMode: Bool { existingMetric != nil }
 
@@ -98,6 +105,11 @@ struct CustomMetricFormView: View {
                         .bold()
                         .disabled(!canSave)
                 }
+            }
+            .alert("Save Failed", isPresented: $showSaveError) {
+                Button("OK") {}
+            } message: {
+                Text("The metric could not be saved. Please try again.")
             }
         }
     }
@@ -183,12 +195,19 @@ struct CustomMetricFormView: View {
                             )
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(icon.replacingOccurrences(of: ".", with: " ").replacingOccurrences(of: "fill", with: "").trimmingCharacters(in: .whitespaces))
+                    .accessibilityAddTraits(selectedIcon == icon ? .isSelected : [])
                 }
             }
         }
     }
 
     // MARK: - Color Picker
+
+    private static let colorNames = [
+        "Red", "Orange", "Yellow", "Green", "Teal", "Blue",
+        "Indigo", "Purple", "Pink", "Brown", "Mint", "Cyan",
+    ]
 
     private var colorSection: some View {
         Section("Color") {
@@ -211,6 +230,8 @@ struct CustomMetricFormView: View {
                             )
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(Self.colorNames[safe: index] ?? "Color \(index + 1)")
+                    .accessibilityAddTraits(selectedColorIndex == index ? .isSelected : [])
                 }
             }
         }
@@ -373,7 +394,12 @@ struct CustomMetricFormView: View {
         metric.reminderCustomDays = reminderCustomDays
 
         MetricRegistry.registerCustomMetric(metric.toMetricDefinition())
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            showSaveError = true
+            return
+        }
 
         // Schedule or cancel the notification
         NotificationManager.shared.scheduleReminder(for: metric)

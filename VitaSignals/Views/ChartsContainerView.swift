@@ -34,6 +34,7 @@ struct ChartsContainerView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject var dataStore: HealthDataStore
     @Query(sort: \SavedChartView.createdAt, order: .reverse) private var savedViews: [SavedChartView]
+    @Query(sort: \CustomChart.createdAt) private var customCharts: [CustomChart]
     @State private var timeRange: ChartTimeRange = .month
     @State private var customStartDate: Date = Calendar.current.date(byAdding: .month, value: -1, to: .now) ?? .now
     @State private var customEndDate: Date = .now
@@ -47,6 +48,8 @@ struct ChartsContainerView: View {
     @State private var activeViewID: UUID?
     @AppStorage("hasSeenZoomTip") private var hasSeenZoomTip = false
     @State private var showHiddenList = false
+    @State private var showCreateCustomChart = false
+    @State private var editingCustomChart: CustomChart?
 
     // Zoom & pan state
     @State private var zoomScale: CGFloat = 1.0
@@ -193,6 +196,15 @@ struct ChartsContainerView: View {
                     // Inline filter bar — always visible, tappable
                     filterBar
 
+                    // Custom charts section — always visible at the top
+                    createChartButton
+
+                    if !customCharts.isEmpty {
+                        ForEach(customCharts) { chart in
+                            customChartCard(chart)
+                        }
+                    }
+
                     if !hasSeenZoomTip && !cachedVisibleTypes.isEmpty {
                         zoomTipBanner
                     }
@@ -272,6 +284,12 @@ struct ChartsContainerView: View {
                     },
                     canSave: !selectedMetrics.isEmpty
                 )
+            }
+            .sheet(isPresented: $showCreateCustomChart) {
+                CreateCustomChartSheet()
+            }
+            .sheet(item: $editingCustomChart) { chart in
+                CreateCustomChartSheet(editingChart: chart)
             }
             .onAppear {
                 if !hasInitializedMetrics {
@@ -649,6 +667,82 @@ struct ChartsContainerView: View {
                 withAnimation { _ = selectedMetrics.remove(metricType) }
             }
         }
+    }
+
+    // MARK: - Custom Chart Card
+
+    @ViewBuilder
+    private func customChartCard(_ chart: CustomChart) -> some View {
+        let leftRecords = filteredRecords(for: chart.leftMetricType)
+        let rightRecords = filteredRecords(for: chart.rightMetricType)
+        if let leftDef = MetricRegistry.definition(for: chart.leftMetricType),
+           let rightDef = MetricRegistry.definition(for: chart.rightMetricType) {
+            DualAxisChartView(
+                chartName: chart.name,
+                leftRecords: leftRecords,
+                rightRecords: rightRecords,
+                leftDefinition: leftDef,
+                rightDefinition: rightDef,
+                xDomain: xDomain,
+                onDelete: {
+                    deleteCustomChart(chart)
+                }
+            )
+            .contextMenu {
+                Button {
+                    editingCustomChart = chart
+                } label: {
+                    Label("Edit", systemImage: "pencil")
+                }
+                Button(role: .destructive) {
+                    deleteCustomChart(chart)
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+            }
+        }
+    }
+
+    private func deleteCustomChart(_ chart: CustomChart) {
+        // Remove associated DashboardCard
+        let chartID = chart.id
+        let descriptor = FetchDescriptor<DashboardCard>()
+        if let cards = try? modelContext.fetch(descriptor) {
+            for card in cards where card.customChartID == chartID {
+                modelContext.delete(card)
+            }
+        }
+        modelContext.delete(chart)
+        try? modelContext.save()
+    }
+
+    // MARK: - Create Chart Button
+
+    private var createChartButton: some View {
+        Button {
+            showCreateCustomChart = true
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "plus.rectangle.on.rectangle")
+                    .font(.subheadline)
+                    .foregroundStyle(.purple)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Create Custom Chart")
+                        .font(.subheadline.bold())
+                    Text("Compare two metrics side by side")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+            .padding()
+            .background(.purple.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal)
     }
 
     // MARK: - Expanded Content

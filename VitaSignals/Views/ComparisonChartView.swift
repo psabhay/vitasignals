@@ -183,6 +183,19 @@ struct ComparisonMetricChart: View {
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
         .padding(.horizontal)
         .contentShape(Rectangle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel({
+            var label = "\(definition.name) chart."
+            if let latest = records.last {
+                label += " Latest: \(definition.formatValue(latest.primaryValue)) \(definition.unit)."
+            }
+            if records.count >= 2 {
+                let avg = records.map(\.primaryValue).reduce(0, +) / Double(records.count)
+                label += " Average: \(definition.formatValue(avg)) \(definition.unit). \(records.count) readings."
+            }
+            return label
+        }())
+        .accessibilityHint(onTap != nil ? "Tap to view details" : "")
     }
 }
 
@@ -262,7 +275,7 @@ struct ComparisonBPChart: View {
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
                         .foregroundStyle(.red.opacity(0.3))
                         .annotation(position: .bottomLeading, alignment: .leading) {
-                            Text("Systolic max: 120 mmHg")
+                            Text("Systolic normal: <120 mmHg")
                                 .font(.caption2)
                                 .foregroundStyle(.green)
                         }
@@ -270,7 +283,7 @@ struct ComparisonBPChart: View {
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
                         .foregroundStyle(.blue.opacity(0.3))
                         .annotation(position: .bottomLeading, alignment: .leading) {
-                            Text("Diastolic max: 80 mmHg")
+                            Text("Diastolic normal: <80 mmHg")
                                 .font(.caption2)
                                 .foregroundStyle(.green)
                         }
@@ -324,5 +337,19 @@ struct ComparisonBPChart: View {
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
         .padding(.horizontal)
         .contentShape(Rectangle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel({
+            var label = "Blood Pressure chart."
+            if let latest = records.last {
+                label += " Latest: \(latest.systolic)/\(latest.diastolic) mmHg."
+            }
+            if records.count >= 2 {
+                let avgSys = records.map(\.systolic).reduce(0, +) / records.count
+                let avgDia = records.map(\.diastolic).reduce(0, +) / records.count
+                label += " Average: \(avgSys)/\(avgDia) mmHg. \(records.count) readings."
+            }
+            return label
+        }())
+        .accessibilityHint(onTap != nil ? "Tap to view details" : "")
     }
 }

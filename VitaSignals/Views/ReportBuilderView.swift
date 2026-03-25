@@ -169,6 +169,18 @@ struct ReportBuilderView: View {
             }
             .buttonStyle(.borderedProminent)
             .disabled(isGenerating || cachedFilteredCount == 0 || selectedAndAvailable.isEmpty)
+
+            if !isGenerating && cachedFilteredCount == 0 {
+                Text("No records found in the selected date range.")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .multilineTextAlignment(.center)
+            } else if !isGenerating && selectedAndAvailable.isEmpty {
+                Text("No metric types selected. Enable at least one metric below.")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .multilineTextAlignment(.center)
+            }
         }
     }
 

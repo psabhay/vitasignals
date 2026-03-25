@@ -159,14 +159,25 @@ private final class SyncWorker: Sendable {
     // MARK: - Discovery
 
     func discoverAvailableMetrics(store: HKHealthStore) async -> Set<String> {
+        // Throttle concurrency to avoid flooding HealthKit with 40+ simultaneous queries
         await withTaskGroup(of: String?.self) { group in
+            var inFlight = 0
+            let maxConcurrency = 10
+
             for entry in HealthKitCatalog.entries {
+                if inFlight >= maxConcurrency {
+                    if let type = await group.next() ?? nil {
+                        // collected below
+                    }
+                    inFlight -= 1
+                }
                 let identifier = entry.identifier
                 let metricType = entry.metricType
                 group.addTask {
                     let has = await Self.hasData(store: store, sampleType: HKQuantityType(identifier))
                     return has ? metricType : nil
                 }
+                inFlight += 1
             }
 
             group.addTask {
@@ -249,19 +260,33 @@ private final class SyncWorker: Sendable {
             $0.addingTimeInterval(-overlapInterval)
         } ?? Calendar.current.date(byAdding: .year, value: -1, to: .now) ?? .now
 
-        // All metrics use daily statistics — one record per day.
-        // Cumulative metrics (steps, calories): daily sum.
-        // Discrete metrics (heart rate, SpO2): daily average.
-        // This avoids loading thousands of individual samples into memory
-        // and prevents unbounded record growth from high-frequency metrics.
         let options: HKStatisticsOptions = def.isCumulative ? .cumulativeSum : .discreteAverage
         let dailyValues = await Self.fetchDailyStatistics(store: store, hkType, unit: hkUnit, from: startDate, to: endDate, options: options)
 
-        let isPercent = hkUnit == HKUnit.percent()
+        guard !dailyValues.isEmpty else {
+            syncState.lastSyncDate = endDate
+            syncState.isAvailable = true
+            return
+        }
+
+        // Pre-fetch all existing records for the full date range in one query
+        // instead of querying per-day (eliminates N+1 pattern).
+        let calendar = Calendar.current
+        let rangeStart = calendar.startOfDay(for: dailyValues.first!.date)
+        let rangeEnd = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: dailyValues.last!.date)) ?? endDate
+        let allExisting = existingRecords(for: def.type, from: rangeStart, to: rangeEnd, context: context)
+
+        // Bucket existing records by day for O(1) lookup
+        var existingByDay: [Date: [HealthRecord]] = [:]
+        for record in allExisting {
+            let day = calendar.startOfDay(for: record.timestamp)
+            existingByDay[day, default: []].append(record)
+        }
+
+        let isPercent = def.unit == "%"
         for dv in dailyValues {
-            let dayStart = Calendar.current.startOfDay(for: dv.date)
-            let dayEnd = Calendar.current.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
-            let existing = existingRecords(for: def.type, from: dayStart, to: dayEnd, context: context)
+            let dayStart = calendar.startOfDay(for: dv.date)
+            let existing = existingByDay[dayStart] ?? []
             let storedValue = isPercent ? dv.value * 100 : dv.value
             if let existingRecord = existing.first(where: { !$0.isManualEntry }) {
                 if abs(existingRecord.primaryValue - storedValue) > 0.01 {
@@ -330,11 +355,13 @@ private final class SyncWorker: Sendable {
                 .union(dismissedHealthKitUUIDs(for: MetricType.bloodPressure, context: context))
         }
 
-        // Fetch heart rates only for the actual BP sample time window
+        // Fetch heart rates for a window around each BP reading (±5 min per reading)
+        // Use a generous limit based on the time span to ensure we capture readings
+        // close to BP measurement times.
         let bpDates = samples.map(\.startDate)
-        let hrStart = bpDates.min() ?? startDate
-        let hrEnd = bpDates.max() ?? endDate
-        let heartRates = await Self.fetchHeartRates(store: store, since: hrStart, until: hrEnd, limit: samples.count * 2)
+        let hrStart = (bpDates.min() ?? startDate).addingTimeInterval(-300)
+        let hrEnd = (bpDates.max() ?? endDate).addingTimeInterval(300)
+        let heartRates = await Self.fetchHeartRates(store: store, since: hrStart, until: hrEnd, limit: HKObjectQueryNoLimit)
 
         for sample in samples {
             let uuid = sample.uuid.uuidString
@@ -436,11 +463,21 @@ private final class SyncWorker: Sendable {
             dayDurations[components] = merged.reduce(0) { $0 + $1.end.timeIntervalSince($1.start) }
         }
 
+        // Pre-fetch all existing sleep records for the full range
+        let allSleepDates = dayDurations.keys.compactMap { calendar.date(from: $0) }
+        let sleepRangeStart = allSleepDates.min().map { calendar.startOfDay(for: $0) } ?? startDate
+        let sleepRangeEnd = allSleepDates.max().map { calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: $0)) ?? endDate } ?? endDate
+        let allExistingSleep = existingRecords(for: MetricType.sleepDuration, from: sleepRangeStart, to: sleepRangeEnd, context: context)
+        var sleepByDay: [Date: [HealthRecord]] = [:]
+        for record in allExistingSleep {
+            let day = calendar.startOfDay(for: record.timestamp)
+            sleepByDay[day, default: []].append(record)
+        }
+
         for (components, duration) in dayDurations {
             guard let date = calendar.date(from: components) else { continue }
             let dayStart = calendar.startOfDay(for: date)
-            let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
-            let existing = existingRecords(for: MetricType.sleepDuration, from: dayStart, to: dayEnd, context: context)
+            let existing = sleepByDay[dayStart] ?? []
             if let existingRecord = existing.first(where: { !$0.isManualEntry }) {
                 let newHours = duration / 3600
                 if abs(existingRecord.primaryValue - newHours) > 0.01 {

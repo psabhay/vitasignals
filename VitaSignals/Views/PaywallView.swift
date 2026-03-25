@@ -112,6 +112,17 @@ struct PaywallView: View {
         }
     }
 
+    private var savingsPercentage: Int? {
+        guard let monthly = storeManager.products.first(where: { $0.id == StoreManager.monthlyID }),
+              let yearly = storeManager.products.first(where: { $0.id == StoreManager.yearlyID }),
+              monthly.price > 0 else { return nil }
+        let annualMonthly = NSDecimalNumber(decimal: monthly.price * 12)
+        let yearlyPrice = NSDecimalNumber(decimal: yearly.price)
+        let savings = (1.0 - yearlyPrice.doubleValue / annualMonthly.doubleValue) * 100
+        let rounded = Int(savings.rounded())
+        return rounded > 0 ? rounded : nil
+    }
+
     private func planCard(_ product: Product) -> some View {
         let isSelected = selectedProduct?.id == product.id
         let isYearly = product.id == StoreManager.yearlyID
@@ -125,8 +136,8 @@ struct PaywallView: View {
                         Text(isYearly ? "Yearly" : "Monthly")
                             .font(.headline)
                             .foregroundStyle(.primary)
-                        if isYearly {
-                            Text("Save 42%")
+                        if isYearly, let pct = savingsPercentage {
+                            Text("Save \(pct)%")
                                 .font(.caption2.bold())
                                 .foregroundStyle(.white)
                                 .padding(.horizontal, 8)
@@ -138,8 +149,9 @@ struct PaywallView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     if isYearly {
-                        let monthly = product.price / 12
-                        Text("~\(monthly.formatted(.currency(code: product.priceFormatStyle.currencyCode)))/month")
+                        let monthlyDecimal = product.price / 12
+                        let monthlyRounded = NSDecimalNumber(decimal: monthlyDecimal).rounding(accordingToBehavior: NSDecimalNumberHandler(roundingMode: .plain, scale: 2, raiseOnExactness: false, raiseOnOverflow: false, raiseOnUnderflow: false, raiseOnDivideByZero: false)) as Decimal
+                        Text("~\(monthlyRounded.formatted(.currency(code: product.priceFormatStyle.currencyCode)))/month")
                             .font(.caption)
                             .foregroundStyle(.tertiary)
                     }

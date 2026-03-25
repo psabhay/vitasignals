@@ -27,6 +27,7 @@ struct VitaSignalsApp: App {
             SavedChartView.self,
             DashboardCard.self,
             MetricGoal.self,
+            CustomChart.self,
         ])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {
@@ -103,6 +104,7 @@ private struct DatabaseErrorView: View {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 56))
                 .foregroundStyle(.red)
+                .accessibilityHidden(true)
             Text("Unable to Load Data")
                 .font(.title2.bold())
             Text("The app's database could not be initialized. This may be caused by a corrupted data store.\n\nPlease try restarting the app. If the problem persists, reinstall the app.")

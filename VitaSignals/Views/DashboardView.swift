@@ -10,9 +10,11 @@ struct DashboardView: View {
     @Query(sort: \DashboardCard.sortIndex) private var dashboardCards: [DashboardCard]
     @Query(sort: \CustomMetric.createdAt) private var customMetrics: [CustomMetric]
     @Query private var goals: [MetricGoal]
+    @Query(sort: \CustomChart.createdAt) private var customCharts: [CustomChart]
     @StateObject private var engine = DashboardEngine()
     @State private var activeSheet: DashboardSheet?
     @State private var addMetricType: String = MetricType.bloodPressure
+    @AppStorage("dashboardChartDays") private var chartRangeDays: Int = 7
     @State private var dashboardNavMetric: String?
     #if DEBUG
     @State private var isGeneratingData = false
@@ -44,7 +46,9 @@ struct DashboardView: View {
             userName: userName,
             goals: goals,
             customMetrics: customMetrics,
+            customCharts: customCharts,
             cards: dashboardCards,
+            chartRangeDays: chartRangeDays,
             modelContext: modelContext
         )
     }
@@ -173,6 +177,7 @@ struct DashboardView: View {
             }
             .onChange(of: dataStore.recordCount) { _, _ in recompute() }
             .onChange(of: goals.count) { _, _ in recompute() }
+            .onChange(of: chartRangeDays) { _, _ in recompute() }
             .onAppear { recompute() }
         }
     }
@@ -213,35 +218,69 @@ struct DashboardView: View {
 
     // MARK: - Dashboard Charts
 
+    private static let chartRangeOptions: [(label: String, days: Int)] = [
+        ("7D", 7), ("14D", 14), ("30D", 30), ("90D", 90),
+    ]
+
     private var dashboardChartsHeader: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
+        VStack(spacing: 10) {
+            HStack {
                 Text("My Charts")
                     .font(.subheadline.bold())
                     .foregroundStyle(.secondary)
-                Text("Tap to view details")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
-            Spacer()
-            Button {
-                activeSheet = .manageDashboard
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "slider.horizontal.3")
-                        .font(.caption)
-                    Text("Manage")
-                        .font(.caption)
+                Spacer()
+                Button {
+                    activeSheet = .manageDashboard
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "slider.horizontal.3")
+                            .font(.caption)
+                        Text("Manage")
+                            .font(.caption)
+                    }
+                    .foregroundStyle(Color.accentColor)
                 }
-                .foregroundStyle(Color.accentColor)
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
+            HStack(spacing: 6) {
+                ForEach(Self.chartRangeOptions, id: \.days) { option in
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            chartRangeDays = option.days
+                        }
+                    } label: {
+                        Text(option.label)
+                            .font(.caption.bold())
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                chartRangeDays == option.days
+                                    ? Color.accentColor
+                                    : Color(.systemGray5),
+                                in: Capsule()
+                            )
+                            .foregroundStyle(chartRangeDays == option.days ? .white : .secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+                Spacer()
+            }
         }
     }
 
     @ViewBuilder
     private func dashboardChartView(for card: ResolvedDashboardCard) -> some View {
-        if card.metricType == MetricType.bloodPressure {
+        if card.isDualAxis, let name = card.customChartName,
+           let leftDef = card.definition, let rightDef = card.rightDefinition {
+            DualAxisChartView(
+                chartName: name,
+                leftRecords: card.records,
+                rightRecords: card.rightRecords ?? [],
+                leftDefinition: leftDef,
+                rightDefinition: rightDef,
+                xDomain: card.xDomain
+            )
+        } else if card.metricType == MetricType.bloodPressure {
             ComparisonBPChart(
                 records: card.records,
                 xDomain: card.xDomain,
@@ -352,10 +391,16 @@ struct CategoryBadge: View {
     var badgeColor: Color {
         switch category {
         case .normal: return .green
-        case .elevated: return .yellow
+        case .elevated: return .orange
         case .highStage1: return .orange
         case .highStage2: return .red
         case .crisis: return .purple
+        }
+    }
+    var badgeBackgroundColor: Color {
+        switch category {
+        case .elevated: return .yellow
+        default: return badgeColor
         }
     }
     var body: some View {
@@ -365,7 +410,7 @@ struct CategoryBadge: View {
             Text(category.rawValue)
                 .font(.caption.bold())
                 .padding(.horizontal, 12).padding(.vertical, 4)
-                .background(badgeColor.opacity(0.15), in: Capsule())
+                .background(badgeBackgroundColor.opacity(0.15), in: Capsule())
                 .foregroundStyle(badgeColor)
         }
         .buttonStyle(.plain)

@@ -7,15 +7,15 @@ final class DashboardCard {
     var sortIndex: Int
     var kind: String          // "default"
     var metricType: String?
-    var savedViewID: UUID?    // unused, kept for migration compatibility
+    var customChartID: UUID?
     var isHidden: Bool
 
-    init(sortIndex: Int, kind: String, metricType: String? = nil, savedViewID: UUID? = nil) {
+    init(sortIndex: Int, kind: String, metricType: String? = nil, customChartID: UUID? = nil) {
         self.id = UUID()
         self.sortIndex = sortIndex
         self.kind = kind
         self.metricType = metricType
-        self.savedViewID = savedViewID
+        self.customChartID = customChartID
         self.isHidden = false
     }
 }

@@ -145,6 +145,8 @@ struct SmartSummaryView: View {
 struct QuickLogRowView: View {
     let metrics: [QuickLogMetric]
     var onTap: (String) -> Void
+    @ScaledMetric(relativeTo: .body) private var iconBoxWidth: CGFloat = 68
+    @ScaledMetric(relativeTo: .body) private var iconBoxHeight: CGFloat = 64
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -171,8 +173,9 @@ struct QuickLogRowView: View {
                                     .font(.caption2.bold())
                                     .foregroundStyle(.primary)
                                     .lineLimit(1)
+                                    .minimumScaleFactor(0.7)
                             }
-                            .frame(width: 68, height: 64)
+                            .frame(width: iconBoxWidth, height: iconBoxHeight)
                             .background(metric.color.opacity(0.1), in: RoundedRectangle(cornerRadius: 14))
                             .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(metric.color.opacity(0.2), lineWidth: 1))
                         }
@@ -190,6 +193,7 @@ struct QuickLogRowView: View {
 
 struct MovingAveragesCardView: View {
     let rows: [MovingAverageRow]
+    @ScaledMetric(relativeTo: .caption) private var iconWidth: CGFloat = 20
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -208,11 +212,12 @@ struct MovingAveragesCardView: View {
                     Image(systemName: row.icon)
                         .foregroundStyle(row.color)
                         .font(.caption)
-                        .frame(width: 20)
+                        .frame(width: iconWidth)
                     Text(row.name)
                         .font(.caption.bold())
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                     Spacer()
                     Text(row.currentAvg)
                         .font(.subheadline.bold().monospacedDigit())
@@ -264,7 +269,8 @@ struct WeeklyRecapCardView: View {
                             Text("\(abs(diff))")
                                 .font(.caption.bold().monospacedDigit())
                         }
-                        .foregroundStyle(diff >= 0 ? .green : .orange)
+                        // More readings is neutral/positive (consistency, not health judgment)
+                        .foregroundStyle(diff >= 0 ? .green : .secondary)
                         Text("vs last week")
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
@@ -301,6 +307,7 @@ struct WeeklyRecapCardView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
+                            .minimumScaleFactor(0.7)
                         Spacer()
                         Text(summary.thisWeekAvg)
                             .font(.caption.bold().monospacedDigit())
@@ -363,8 +370,8 @@ struct NudgeCardView: View {
             .padding(.trailing, 8)
             .accessibilityLabel("Dismiss \(item.name) reminder")
         }
+        .accessibilityElement(children: .contain)
         .accessibilityLabel("Log \(item.name). \(item.message)")
-        .accessibilityHint("Tap to add a reading")
     }
 }
 
@@ -426,6 +433,7 @@ struct SetGoalSheet: View {
     @State private var targetType: String = "below"
     @State private var targetValue: Double = 120
     @State private var targetValueHigh: Double = 80
+    @State private var showSaveError = false
 
     var editingGoal: MetricGoal?
 
@@ -509,7 +517,25 @@ struct SetGoalSheet: View {
                     targetType = goal.targetType
                     targetValue = goal.targetValue
                     targetValueHigh = goal.targetValueHigh ?? 80
+                } else if selectedMetric.isEmpty {
+                    // Set metric-appropriate defaults when a metric is selected
                 }
+            }
+            .onChange(of: selectedMetric) { _, newMetric in
+                guard !newMetric.isEmpty, editingGoal == nil else { return }
+                if let def = MetricRegistry.definition(for: newMetric) {
+                    targetValue = def.referenceMax ?? ((def.inputMin + def.inputMax) / 2)
+                    if newMetric == MetricType.bloodPressure {
+                        targetValueHigh = 80
+                    } else if targetType == "range" {
+                        targetValueHigh = def.referenceMax ?? def.inputMax
+                    }
+                }
+            }
+            .alert("Save Failed", isPresented: $showSaveError) {
+                Button("OK") {}
+            } message: {
+                Text("The goal could not be saved. Please try again.")
             }
         }
     }
@@ -529,7 +555,13 @@ struct SetGoalSheet: View {
             )
             modelContext.insert(goal)
         }
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            showSaveError = true
+            return
+        }
         dismiss()
     }
 }
+

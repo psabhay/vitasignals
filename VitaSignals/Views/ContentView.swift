@@ -13,6 +13,7 @@ struct ContentView: View {
     @State private var showFirstSyncOverlay = false
     @StateObject private var syncManager = HealthSyncManager()
     @State private var notificationMetricType: String?
+    @State private var pendingNotificationMetricType: String?
 
     private var hasProfile: Bool {
         guard let p = profiles.first else { return false }
@@ -21,7 +22,13 @@ struct ContentView: View {
 
     var body: some View {
         Group {
-            if !storeManager.isPremium {
+            if storeManager.isLoading {
+                // Show neutral loading while verifying subscription status
+                // to avoid flashing PaywallView for premium users on cold launch
+                ProgressView()
+                    .scaleEffect(1.2)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if !storeManager.isPremium {
                 PaywallView()
             } else {
                 mainContent
@@ -88,12 +95,16 @@ struct ContentView: View {
         .environment(\.showProfile, $showProfile)
         .onReceive(NotificationCenter.default.publisher(for: NotificationManager.openMetricFormNotification)) { notification in
             if let metricType = notification.userInfo?["metricType"] as? String {
-                // Switch to dashboard tab and open the form
+                // Switch to dashboard tab; the form will open once the tab switch settles
                 selectedTab = 0
-                // Small delay to ensure tab switch completes before sheet presentation
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                    notificationMetricType = metricType
-                }
+                pendingNotificationMetricType = metricType
+            }
+        }
+        .onChange(of: selectedTab) { _, newTab in
+            // Open the form after the tab switch completes
+            if newTab == 0, let metricType = pendingNotificationMetricType {
+                pendingNotificationMetricType = nil
+                notificationMetricType = metricType
             }
         }
         .sheet(item: Binding(
@@ -360,6 +371,8 @@ struct OnboardingView: View {
                     .disabled(!canSave)
                 }
             }
+            .navigationTitle("Welcome")
+            .navigationBarTitleDisplayMode(.inline)
             .scrollDismissesKeyboard(.interactively)
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
@@ -418,6 +431,7 @@ struct ProfileSection: View {
     @State private var showCreateCustomMetric = false
     @State private var showDeleteCustomMetricConfirmation = false
     @State private var customMetricToDelete: CustomMetric?
+    @State private var showSaveError = false
     #if DEBUG
     @State private var showSyntheticDataConfirmation = false
     @State private var syntheticDataCount: Int?
@@ -781,7 +795,11 @@ struct ProfileSection: View {
 
         // Delete the CustomMetric itself
         modelContext.delete(metric)
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            showSaveError = true
+        }
         dataStore.refresh()
         customMetricToDelete = nil
     }
@@ -824,7 +842,6 @@ struct ProfileSection: View {
         }
         .confirmationDialog("Delete All Records?", isPresented: $showDeleteAllConfirmation, titleVisibility: .visible) {
             Button("Delete All \(dataStore.recordCount) Records", role: .destructive) {
-                // Fetch managed objects to delete them
                 let descriptor = FetchDescriptor<HealthRecord>()
                 if let records = try? modelContext.fetch(descriptor) {
                     for record in records {
@@ -833,22 +850,37 @@ struct ProfileSection: View {
                         }
                         modelContext.delete(record)
                     }
-                    try? modelContext.save()
+                    do {
+                        try modelContext.save()
+                    } catch {
+                        showSaveError = true
+                    }
                     syncManager.resetSyncState(container: modelContext.container)
                     dataStore.refresh()
                 }
             }
             Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will remove all records and mark imported Health records so they won't be re-imported. Use \"Reset Import History\" afterward if you want to re-import them.")
         }
         .confirmationDialog("Reset Import History?", isPresented: $showResetDismissedConfirmation, titleVisibility: .visible) {
             Button("Reset", role: .destructive) {
                 if let dismissed = try? modelContext.fetch(FetchDescriptor<DismissedHealthKitRecord>()) {
                     for d in dismissed { modelContext.delete(d) }
-                    try? modelContext.save()
+                    do {
+                        try modelContext.save()
+                    } catch {
+                        showSaveError = true
+                    }
                 }
                 syncManager.resetSyncState(container: modelContext.container)
             }
             Button("Cancel", role: .cancel) {}
+        }
+        .alert("Save Failed", isPresented: $showSaveError) {
+            Button("OK") {}
+        } message: {
+            Text("Changes could not be saved. Please try again. If the problem persists, restart the app.")
         }
         #if DEBUG
         .confirmationDialog("Generate Synthetic Data?", isPresented: $showSyntheticDataConfirmation, titleVisibility: .visible) {
