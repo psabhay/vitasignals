@@ -6,6 +6,7 @@ struct MetricDetailView: View {
     @EnvironmentObject var dataStore: HealthDataStore
     @State private var timeRange: ChartTimeRange = .month
     @State private var cachedFiltered: [HealthRecord] = []
+    @State private var cachedChartData: [HealthRecord] = []
 
     private var definition: MetricDefinition? {
         MetricRegistry.definition(for: metricType)
@@ -19,13 +20,15 @@ struct MetricDetailView: View {
         } else {
             cachedFiltered = records
         }
+        let sortedForChart = Array(cachedFiltered.reversed())
+        cachedChartData = downsample(sortedForChart, maxPoints: ChartResolution.detail)
     }
 
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
                 Picker("Time Range", selection: $timeRange) {
-                    ForEach(ChartTimeRange.allCases) { range in
+                    ForEach(ChartTimeRange.detailCases, id: \.self) { range in
                         Text(range.rawValue).tag(range)
                     }
                 }
@@ -103,22 +106,12 @@ struct MetricDetailView: View {
         .padding(.horizontal)
     }
 
-    private func statColumn(title: String, value: String, unit: String) -> some View {
-        VStack(spacing: 4) {
-            Text(title).font(.caption).foregroundStyle(.secondary)
-            Text(value).font(.title2.bold().monospacedDigit())
-            Text(unit).font(.caption2).foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-    }
-
     // MARK: - Chart Card
 
     @ViewBuilder
     private var chartCard: some View {
-        let sortedForChart = Array(cachedFiltered.reversed())
-        if let def = definition, sortedForChart.count >= 2 {
-            let chartData = downsample(sortedForChart, maxPoints: 120)
+        if let def = definition, cachedChartData.count >= 2 {
+            let chartData = cachedChartData
             VStack(alignment: .leading, spacing: 12) {
                 Text("Trend").font(.headline)
 
@@ -147,16 +140,26 @@ struct MetricDetailView: View {
 
                     if let refMin = def.referenceMin {
                         RuleMark(y: .value("Min", refMin))
-                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 3]))
-                            .foregroundStyle(.green.opacity(0.5))
+                            .lineStyle(ChartRefLine.stroke)
+                            .foregroundStyle(ChartRefLine.normalColor)
+                            .annotation(position: .topLeading, alignment: .leading) {
+                                Text("Normal min: \(def.formatValue(refMin)) \(def.unit)")
+                                    .font(.caption2)
+                                    .foregroundStyle(ChartRefLine.annotationColor)
+                            }
                     }
                     if let refMax = def.referenceMax {
                         RuleMark(y: .value("Max", refMax))
-                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 3]))
-                            .foregroundStyle(.green.opacity(0.5))
+                            .lineStyle(ChartRefLine.stroke)
+                            .foregroundStyle(ChartRefLine.normalColor)
+                            .annotation(position: .bottomLeading, alignment: .leading) {
+                                Text("Normal max: \(def.formatValue(refMax)) \(def.unit)")
+                                    .font(.caption2)
+                                    .foregroundStyle(ChartRefLine.annotationColor)
+                            }
                     }
                 }
-                .frame(height: 220)
+                .frame(height: ChartHeight.detail)
                 .chartYAxis { AxisMarks(position: .leading) }
                 .clipped()
 

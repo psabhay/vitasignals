@@ -2,27 +2,6 @@ import SwiftUI
 import SwiftData
 import Charts
 
-enum ChartTimeRange: String, CaseIterable, Identifiable {
-    case week = "7 Days"
-    case twoWeeks = "14 Days"
-    case month = "30 Days"
-    case threeMonths = "90 Days"
-    case all = "All Time"
-    case custom = "Custom"
-
-    var id: String { rawValue }
-
-    var days: Int? {
-        switch self {
-        case .week: return 7
-        case .twoWeeks: return 14
-        case .month: return 30
-        case .threeMonths: return 90
-        case .all, .custom: return nil
-        }
-    }
-}
-
 /// Passed from Charts → Reports to pre-populate export filters.
 struct ChartExportRequest: Equatable {
     let metrics: Set<String>
@@ -90,22 +69,7 @@ struct ChartsContainerView: View {
     /// All metric types that have ANY data (independent of date range).
     /// Ordered by registry (curated first, then catalog, grouped by category).
     private var allMetricsWithData: [String] {
-        let types = dataStore.availableMetricTypes
-        // Walk all categories in order — includes both curated and catalog metrics
-        var ordered: [String] = []
-        var seen = Set<String>()
-        for category in MetricCategory.allCases {
-            for def in MetricRegistry.definitions(for: category) where types.contains(def.type) {
-                if seen.insert(def.type).inserted {
-                    ordered.append(def.type)
-                }
-            }
-        }
-        // Include any types not known to the registry at all
-        for type in types.sorted() where !seen.contains(type) {
-            ordered.append(type)
-        }
-        return ordered
+        orderedMetricsWithData(from: dataStore.availableMetricTypes)
     }
 
     /// Recompute cached visible metric types and their records.
@@ -654,7 +618,8 @@ struct ChartsContainerView: View {
     @ViewBuilder
     private func chartCard(for metricType: String) -> some View {
         let records = cachedRecords[metricType] ?? []
-        if metricType == MetricType.bloodPressure {
+        let def = MetricRegistry.definition(for: metricType)
+        if def?.chartStyle == .bpDual {
             ComparisonBPChart(records: records, xDomain: xDomain) {
                 expandedMetric = metricType
             } onHide: {
@@ -673,8 +638,8 @@ struct ChartsContainerView: View {
 
     @ViewBuilder
     private func customChartCard(_ chart: CustomChart) -> some View {
-        let leftRecords = filteredRecords(for: chart.leftMetricType)
-        let rightRecords = filteredRecords(for: chart.rightMetricType)
+        let leftRecords = cachedRecords[chart.leftMetricType] ?? filteredRecords(for: chart.leftMetricType)
+        let rightRecords = cachedRecords[chart.rightMetricType] ?? filteredRecords(for: chart.rightMetricType)
         if let leftDef = MetricRegistry.definition(for: chart.leftMetricType),
            let rightDef = MetricRegistry.definition(for: chart.rightMetricType) {
             DualAxisChartView(
@@ -752,7 +717,7 @@ struct ChartsContainerView: View {
         let def = MetricRegistry.definition(for: metricType)
         ScrollView {
             VStack(spacing: 16) {
-                if metricType == MetricType.bloodPressure {
+                if def?.chartStyle == .bpDual {
                     bpExpandedCharts(records: records)
                 } else if let def = MetricRegistry.definition(for: metricType) {
                     genericExpandedContent(records: records, definition: def)
@@ -769,12 +734,12 @@ struct ChartsContainerView: View {
     @ViewBuilder
     private func bpExpandedCharts(records: [HealthRecord]) -> some View {
         VStack(spacing: 16) {
-            BPTrendChart(records: records)
-            PulseChart(records: records)
+            BPTrendChart(records: records, xDomain: xDomain)
+            PulseChart(records: records, xDomain: xDomain)
             BPSummaryCard(records: records)
-            WeeklyAveragesChart(records: records)
+            WeeklyAveragesChart(records: records, xDomain: xDomain)
             MorningVsEveningChart(records: records)
-            MAPTrendChart(records: records)
+            MAPTrendChart(records: records, xDomain: xDomain)
         }
         .padding(.bottom)
     }
@@ -784,7 +749,7 @@ struct ChartsContainerView: View {
     @ViewBuilder
     private func genericExpandedContent(records: [HealthRecord], definition: MetricDefinition) -> some View {
         VStack(spacing: 16) {
-            GenericMetricChart(records: records, definition: definition)
+            GenericMetricChart(records: records, definition: definition, xDomain: xDomain)
 
             // Summary stats
             if !records.isEmpty {
@@ -839,15 +804,6 @@ struct ChartsContainerView: View {
             }
         }
         .padding(.horizontal)
-    }
-
-    private func statColumn(title: String, value: String, unit: String) -> some View {
-        VStack(spacing: 4) {
-            Text(title).font(.caption).foregroundStyle(.secondary)
-            Text(value).font(.title2.bold().monospacedDigit())
-            Text(unit).font(.caption2).foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
     }
 
     private func genericRecentRecords(records: [HealthRecord], definition: MetricDefinition) -> some View {
@@ -1085,20 +1041,7 @@ struct ChartFilterSheet: View {
 
     /// All metrics that have any data — not filtered by date range.
     private var allMetricsWithData: [String] {
-        let types = dataStore.availableMetricTypes
-        var ordered: [String] = []
-        var seen = Set<String>()
-        for category in MetricCategory.allCases {
-            for def in MetricRegistry.definitions(for: category) where types.contains(def.type) {
-                if seen.insert(def.type).inserted {
-                    ordered.append(def.type)
-                }
-            }
-        }
-        for type in types.sorted() where !seen.contains(type) {
-            ordered.append(type)
-        }
-        return ordered
+        orderedMetricsWithData(from: dataStore.availableMetricTypes)
     }
 
     private var presetRanges: [ChartTimeRange] {
@@ -1247,7 +1190,9 @@ struct ChartFilterSheet: View {
 struct GenericMetricChart: View {
     let records: [HealthRecord]
     let definition: MetricDefinition
+    var xDomain: ClosedRange<Date>? = nil
     @State private var showInfo = false
+    @State private var chartData: [HealthRecord] = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -1278,7 +1223,6 @@ struct GenericMetricChart: View {
                     .foregroundStyle(.secondary)
             }
 
-            let chartData = downsample(records, maxPoints: 120)
             Chart {
                 ForEach(chartData) { record in
                     if definition.chartStyle == .bar {
@@ -1297,29 +1241,12 @@ struct GenericMetricChart: View {
                     }
                 }
 
-                if let refMin = definition.referenceMin {
-                    RuleMark(y: .value("Ref Min", refMin))
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 3]))
-                        .foregroundStyle(.green.opacity(0.5))
-                        .annotation(position: .topLeading, alignment: .leading) {
-                            Text("Normal min: \(definition.formatValue(refMin)) \(definition.unit)")
-                                .font(.caption2)
-                                .foregroundStyle(.green)
-                        }
-                }
-                if let refMax = definition.referenceMax {
-                    RuleMark(y: .value("Ref Max", refMax))
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 3]))
-                        .foregroundStyle(.green.opacity(0.5))
-                        .annotation(position: .bottomLeading, alignment: .leading) {
-                            Text("Normal max: \(definition.formatValue(refMax)) \(definition.unit)")
-                                .font(.caption2)
-                                .foregroundStyle(.green)
-                        }
-                }
+                ReferenceRangeMarks(definition)
             }
-            .frame(height: 220)
+            .frame(height: ChartHeight.detail)
             .chartYAxis { AxisMarks(position: .leading) }
+            .chartXAxis { chartDateXAxisContent() }
+            .conditionalXScale(domain: xDomain)
             .clipped()
 
             if !records.isEmpty {
@@ -1336,9 +1263,9 @@ struct GenericMetricChart: View {
                 .foregroundStyle(.secondary)
             }
         }
-        .padding()
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-        .padding(.horizontal)
+        .chartCardStyle()
+        .onAppear { chartData = downsample(records, maxPoints: ChartResolution.detail) }
+        .onChange(of: records) { _, new in chartData = downsample(new, maxPoints: ChartResolution.detail) }
     }
 }
 
@@ -1346,9 +1273,10 @@ struct GenericMetricChart: View {
 
 struct BPTrendChart: View {
     let records: [HealthRecord]
+    var xDomain: ClosedRange<Date>? = nil
+    @State private var chartData: [HealthRecord] = []
 
     var body: some View {
-        let chartData = downsample(records, maxPoints: 120)
         VStack(alignment: .leading, spacing: 12) {
             Text("Blood Pressure Trend")
                 .font(.headline)
@@ -1374,21 +1302,11 @@ struct BPTrendChart: View {
                     .interpolationMethod(.monotone)
                 }
 
-                RuleMark(y: .value("Target Sys", 120))
-                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 3]))
-                    .foregroundStyle(.green.opacity(0.5))
-                    .annotation(position: .trailing, alignment: .leading) {
-                        Text("120").font(.caption2).foregroundStyle(.green)
-                    }
-                RuleMark(y: .value("Target Dia", 80))
-                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 3]))
-                    .foregroundStyle(.green.opacity(0.3))
-                    .annotation(position: .trailing, alignment: .leading) {
-                        Text("80").font(.caption2).foregroundStyle(.green)
-                    }
+                BPReferenceMarks()
             }
-            .frame(height: 220)
+            .frame(height: ChartHeight.detail)
             .chartYAxis { AxisMarks(position: .leading) }
+            .conditionalXScale(domain: xDomain)
             .clipped()
             .chartLegend(position: .bottom)
 
@@ -1401,11 +1319,11 @@ struct BPTrendChart: View {
                     .font(.caption2).foregroundStyle(.green)
             }
         }
-        .padding()
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-        .padding(.horizontal)
+        .chartCardStyle()
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Blood pressure trend chart showing systolic and diastolic values over time")
+        .onAppear { chartData = downsample(records, maxPoints: ChartResolution.detail) }
+        .onChange(of: records) { _, new in chartData = downsample(new, maxPoints: ChartResolution.detail) }
     }
 }
 
@@ -1413,6 +1331,8 @@ struct BPTrendChart: View {
 
 struct PulseChart: View {
     let records: [HealthRecord]
+    var xDomain: ClosedRange<Date>? = nil
+    @State private var chartData: [HealthRecord] = []
 
     private var recordsWithPulse: [HealthRecord] {
         records.filter { $0.pulseOptional != nil }
@@ -1420,7 +1340,6 @@ struct PulseChart: View {
 
     var body: some View {
         if !recordsWithPulse.isEmpty {
-            let chartData = downsample(recordsWithPulse, maxPoints: 120)
             VStack(alignment: .leading, spacing: 12) {
                 Text("Pulse Trend")
                     .font(.headline)
@@ -1443,13 +1362,14 @@ struct PulseChart: View {
                         .interpolationMethod(.monotone)
                     }
                 }
-                .frame(height: 160)
+                .frame(height: ChartHeight.compact)
                 .chartYAxis { AxisMarks(position: .leading) }
-            .clipped()
+                .conditionalXScale(domain: xDomain)
+                .clipped()
             }
-            .padding()
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-            .padding(.horizontal)
+            .chartCardStyle()
+            .onAppear { chartData = downsample(recordsWithPulse, maxPoints: ChartResolution.detail) }
+            .onChange(of: records) { _, _ in chartData = downsample(recordsWithPulse, maxPoints: ChartResolution.detail) }
         }
     }
 }
@@ -1467,7 +1387,9 @@ struct BPSummaryCard: View {
         var normalCount = 0
     }
 
-    private var stats: Stats {
+    @State private var cachedStats: Stats = Stats()
+
+    private static func computeStats(_ records: [HealthRecord]) -> Stats {
         var s = Stats()
         for r in records {
             s.sumSys += r.systolic; s.sumDia += r.diastolic
@@ -1492,7 +1414,7 @@ struct BPSummaryCard: View {
     }
 
     var body: some View {
-        let s = stats
+        let s = cachedStats
         let count = max(records.count, 1)
         let avgSys = s.sumSys / count
         let avgDia = s.sumDia / count
@@ -1558,9 +1480,9 @@ struct BPSummaryCard: View {
                 Text("\(s.minDia) – \(s.maxDia) mmHg").font(.caption.monospacedDigit())
             }
         }
-        .padding()
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-        .padding(.horizontal)
+        .chartCardStyle()
+        .onAppear { cachedStats = Self.computeStats(records) }
+        .onChange(of: records) { _, new in cachedStats = Self.computeStats(new) }
     }
 }
 
@@ -1568,6 +1490,7 @@ struct BPSummaryCard: View {
 
 struct WeeklyAveragesChart: View {
     let records: [HealthRecord]
+    var xDomain: ClosedRange<Date>? = nil
 
     private struct WeekData: Identifiable {
         var id: Date { weekStart }
@@ -1609,20 +1532,18 @@ struct WeeklyAveragesChart: View {
                             .linearGradient(colors: [.blue.opacity(0.7), .red.opacity(0.7)], startPoint: .bottom, endPoint: .top)
                         )
                     }
-                    RuleMark(y: .value("Target Sys", 120))
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 3]))
-                        .foregroundStyle(.green.opacity(0.5))
-                    RuleMark(y: .value("Target Dia", 80))
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 3]))
-                        .foregroundStyle(.green.opacity(0.3))
+                    RuleMark(y: .value("Target Sys", BPReference.systolicNormal))
+                        .lineStyle(ChartRefLine.stroke)
+                        .foregroundStyle(ChartRefLine.normalColor)
+                    RuleMark(y: .value("Target Dia", BPReference.diastolicNormal))
+                        .lineStyle(ChartRefLine.stroke)
+                        .foregroundStyle(ChartRefLine.normalColor)
                 }
-                .frame(height: 220)
+                .frame(height: ChartHeight.detail)
                 .chartYAxis { AxisMarks(position: .leading) }
-            .clipped()
+                .clipped()
             }
-            .padding()
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-            .padding(.horizontal)
+            .chartCardStyle()
         }
     }
 }
@@ -1642,9 +1563,10 @@ struct MorningVsEveningChart: View {
         let count: Int
     }
 
-    private var periodData: [PeriodStats] {
+    @State private var cachedPeriodData: [PeriodStats] = []
+
+    private static func computePeriodData(_ records: [HealthRecord]) -> [PeriodStats] {
         let calendar = Calendar.current
-        // accums: [sumSys, sumDia, sumPulse, pulseCount, count] for morning/afternoon/evening
         var sumSys = [0, 0, 0], sumDia = [0, 0, 0], sumPulse = [0, 0, 0]
         var pulseCount = [0, 0, 0], count = [0, 0, 0]
 
@@ -1680,33 +1602,35 @@ struct MorningVsEveningChart: View {
     }
 
     var body: some View {
-        if periodData.count >= 2 {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Time of Day Comparison").font(.headline)
+        Group {
+            if cachedPeriodData.count >= 2 {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Time of Day Comparison").font(.headline)
 
-                HStack(spacing: 12) {
-                    ForEach(periodData) { period in
-                        VStack(spacing: 8) {
-                            Image(systemName: period.icon).font(.title3).foregroundStyle(.secondary)
-                            Text("\(Int(period.avgSystolic))/\(Int(period.avgDiastolic))")
-                                .font(.headline.monospacedDigit())
-                            HStack(spacing: 2) {
-                                Image(systemName: "heart.fill").font(.system(size: 8)).foregroundStyle(.pink)
-                                Text(period.avgPulse.map { "\(Int($0))" } ?? "–").font(.caption.monospacedDigit())
+                    HStack(spacing: 12) {
+                        ForEach(cachedPeriodData) { period in
+                            VStack(spacing: 8) {
+                                Image(systemName: period.icon).font(.title3).foregroundStyle(.secondary)
+                                Text("\(Int(period.avgSystolic))/\(Int(period.avgDiastolic))")
+                                    .font(.headline.monospacedDigit())
+                                HStack(spacing: 2) {
+                                    Image(systemName: "heart.fill").font(.system(size: 8)).foregroundStyle(.pink)
+                                    Text(period.avgPulse.map { "\(Int($0))" } ?? "–").font(.caption.monospacedDigit())
+                                }
+                                Text(period.name).font(.caption2).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                                Text("\(period.count) readings").font(.system(size: 9)).foregroundStyle(.tertiary)
                             }
-                            Text(period.name).font(.caption2).foregroundStyle(.secondary).multilineTextAlignment(.center)
-                            Text("\(period.count) readings").font(.system(size: 9)).foregroundStyle(.tertiary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(Color(.systemGray6), in: RoundedRectangle(cornerRadius: 12))
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(Color(.systemGray6), in: RoundedRectangle(cornerRadius: 12))
                     }
                 }
+                .chartCardStyle()
             }
-            .padding()
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-            .padding(.horizontal)
         }
+        .onAppear { cachedPeriodData = Self.computePeriodData(records) }
+        .onChange(of: records) { _, new in cachedPeriodData = Self.computePeriodData(new) }
     }
 }
 
@@ -1714,6 +1638,10 @@ struct MorningVsEveningChart: View {
 
 struct MAPTrendChart: View {
     let records: [HealthRecord]
+    var xDomain: ClosedRange<Date>? = nil
+    @State private var chartData: [HealthRecord] = []
+    @State private var avgMAP: Double = 0
+    @State private var avgPP: Int = 0
 
     private func mapValue(_ r: HealthRecord) -> Double {
         Double(r.diastolic) + Double(r.systolic - r.diastolic) / 3.0
@@ -1722,13 +1650,19 @@ struct MAPTrendChart: View {
         r.systolic - r.diastolic
     }
 
+    private func recompute(_ records: [HealthRecord]) {
+        chartData = downsample(records, maxPoints: ChartResolution.detail)
+        guard !records.isEmpty else { avgMAP = 0; avgPP = 0; return }
+        avgMAP = records.map { mapValue($0) }.reduce(0, +) / Double(records.count)
+        avgPP = records.map { pulsePressure($0) }.reduce(0, +) / records.count
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Mean Arterial Pressure").font(.headline)
             Text("MAP = diastolic + \u{2153}(systolic \u{2212} diastolic). Normal: 70\u{2013}100 mmHg")
                 .font(.caption).foregroundStyle(.secondary)
 
-            let chartData = downsample(records, maxPoints: 120)
             Chart {
                 ForEach(chartData) { record in
                     LineMark(
@@ -1747,15 +1681,16 @@ struct MAPTrendChart: View {
                     .interpolationMethod(.monotone)
                 }
 
-                RuleMark(y: .value("MAP High", 100))
-                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 3]))
-                    .foregroundStyle(.green.opacity(0.4))
-                RuleMark(y: .value("MAP Low", 70))
-                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 3]))
-                    .foregroundStyle(.green.opacity(0.4))
+                RuleMark(y: .value("MAP High", BPReference.mapHigh))
+                    .lineStyle(ChartRefLine.stroke)
+                    .foregroundStyle(ChartRefLine.normalColor)
+                RuleMark(y: .value("MAP Low", BPReference.mapLow))
+                    .lineStyle(ChartRefLine.stroke)
+                    .foregroundStyle(ChartRefLine.normalColor)
             }
-            .frame(height: 200)
+            .frame(height: ChartHeight.dual)
             .chartYAxis { AxisMarks(position: .leading) }
+            .conditionalXScale(domain: xDomain)
             .clipped()
 
             HStack(spacing: 16) {
@@ -1765,8 +1700,6 @@ struct MAPTrendChart: View {
             }
 
             if !records.isEmpty {
-                let avgMAP = records.map { mapValue($0) }.reduce(0, +) / Double(records.count)
-                let avgPP = records.map { pulsePressure($0) }.reduce(0, +) / records.count
                 HStack {
                     Text("Avg MAP: \(Int(avgMAP)) mmHg").font(.caption.monospacedDigit()).foregroundStyle(.purple)
                     Spacer()
@@ -1774,8 +1707,8 @@ struct MAPTrendChart: View {
                 }
             }
         }
-        .padding()
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-        .padding(.horizontal)
+        .chartCardStyle()
+        .onAppear { recompute(records) }
+        .onChange(of: records) { _, new in recompute(new) }
     }
 }

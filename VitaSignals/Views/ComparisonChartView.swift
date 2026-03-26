@@ -1,21 +1,6 @@
 import SwiftUI
 import Charts
 
-// MARK: - Downsample Helper
-
-/// Thin an array of records to at most `maxPoints` evenly spaced entries.
-/// Keeps first and last for accurate range display.
-func downsample(_ records: [HealthRecord], maxPoints: Int = 60) -> [HealthRecord] {
-    guard records.count > maxPoints else { return records }
-    let step = Double(records.count - 1) / Double(maxPoints - 1)
-    var result: [HealthRecord] = []
-    for i in 0..<maxPoints {
-        let index = Int((Double(i) * step).rounded())
-        result.append(records[index])
-    }
-    return result
-}
-
 // MARK: - Comparison Metric Chart
 
 struct ComparisonMetricChart: View {
@@ -25,6 +10,13 @@ struct ComparisonMetricChart: View {
     var onTap: (() -> Void)? = nil
     var onHide: (() -> Void)? = nil
     @State private var showInfo = false
+    @State private var cachedChartData: [HealthRecord] = []
+    @State private var cachedAvg: Double = 0
+
+    private func recompute() {
+        cachedChartData = downsample(records)
+        cachedAvg = records.map(\.primaryValue).reduce(0, +) / Double(max(records.count, 1))
+    }
 
     private var yMin: Double {
         let dataMin = records.map(\.primaryValue).min() ?? 0
@@ -95,9 +87,8 @@ struct ComparisonMetricChart: View {
             }
 
             if records.count >= 2 {
-                let chartData = downsample(records)
                 Chart {
-                    ForEach(chartData) { record in
+                    ForEach(cachedChartData) { record in
                         if definition.chartStyle == .bar {
                             BarMark(
                                 x: .value("Date", record.timestamp, unit: .day),
@@ -114,36 +105,12 @@ struct ComparisonMetricChart: View {
                         }
                     }
 
-                    if let refMin = definition.referenceMin {
-                        RuleMark(y: .value("Min", refMin))
-                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
-                            .foregroundStyle(.green.opacity(0.4))
-                            .annotation(position: .topLeading, alignment: .leading) {
-                                Text("Normal min: \(definition.formatValue(refMin)) \(definition.unit)")
-                                    .font(.caption2)
-                                    .foregroundStyle(.green)
-                            }
-                    }
-                    if let refMax = definition.referenceMax {
-                        RuleMark(y: .value("Max", refMax))
-                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
-                            .foregroundStyle(.green.opacity(0.4))
-                            .annotation(position: .bottomLeading, alignment: .leading) {
-                                Text("Normal max: \(definition.formatValue(refMax)) \(definition.unit)")
-                                    .font(.caption2)
-                                    .foregroundStyle(.green)
-                            }
-                    }
+                    ReferenceRangeMarks(definition)
                 }
                 .chartXScale(domain: xDomain)
-                .chartXAxis {
-                    AxisMarks(values: .automatic(desiredCount: 5)) { _ in
-                        AxisGridLine()
-                        AxisValueLabel(format: .dateTime.month(.abbreviated).day(), anchor: .top)
-                    }
-                }
+                .chartXAxis { chartDateXAxisContent() }
                 .chartYAxis { AxisMarks(position: .leading) }
-                .frame(height: 180)
+                .frame(height: ChartHeight.card)
                 .clipped()
             } else if records.count == 1 {
                 HStack {
@@ -168,10 +135,8 @@ struct ComparisonMetricChart: View {
 
             // Summary footer
             if records.count >= 2 {
-                let values = records.map(\.primaryValue)
-                let avg = values.reduce(0, +) / Double(values.count)
                 HStack {
-                    Text("Avg: \(definition.formatValue(avg)) \(definition.unit)")
+                    Text("Avg: \(definition.formatValue(cachedAvg)) \(definition.unit)")
                     Spacer()
                     Text("\(records.count) readings")
                 }
@@ -179,9 +144,7 @@ struct ComparisonMetricChart: View {
                 .foregroundStyle(.tertiary)
             }
         }
-        .padding()
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-        .padding(.horizontal)
+        .chartCardStyle()
         .contentShape(Rectangle())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel({
@@ -190,12 +153,13 @@ struct ComparisonMetricChart: View {
                 label += " Latest: \(definition.formatValue(latest.primaryValue)) \(definition.unit)."
             }
             if records.count >= 2 {
-                let avg = records.map(\.primaryValue).reduce(0, +) / Double(records.count)
-                label += " Average: \(definition.formatValue(avg)) \(definition.unit). \(records.count) readings."
+                label += " Average: \(definition.formatValue(cachedAvg)) \(definition.unit). \(records.count) readings."
             }
             return label
         }())
         .accessibilityHint(onTap != nil ? "Tap to view details" : "")
+        .onAppear { recompute() }
+        .onChange(of: records) { _, _ in recompute() }
     }
 }
 
@@ -206,6 +170,15 @@ struct ComparisonBPChart: View {
     let xDomain: ClosedRange<Date>
     var onTap: (() -> Void)? = nil
     var onHide: (() -> Void)? = nil
+    @State private var cachedChartData: [HealthRecord] = []
+    @State private var cachedAvgSys: Int = 0
+    @State private var cachedAvgDia: Int = 0
+
+    private func recompute() {
+        cachedChartData = downsample(records)
+        cachedAvgSys = records.isEmpty ? 0 : records.map(\.systolic).reduce(0, +) / records.count
+        cachedAvgDia = records.isEmpty ? 0 : records.map(\.diastolic).reduce(0, +) / records.count
+    }
 
     var body: some View {
         Button {
@@ -251,9 +224,8 @@ struct ComparisonBPChart: View {
             }
 
             if records.count >= 2 {
-                let chartData = downsample(records)
                 Chart {
-                    ForEach(chartData) { record in
+                    ForEach(cachedChartData) { record in
                         LineMark(
                             x: .value("Date", record.timestamp),
                             y: .value("mmHg", record.systolic),
@@ -271,33 +243,13 @@ struct ComparisonBPChart: View {
                         .interpolationMethod(.monotone)
                     }
 
-                    RuleMark(y: .value("Ref", 120))
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
-                        .foregroundStyle(.red.opacity(0.3))
-                        .annotation(position: .bottomLeading, alignment: .leading) {
-                            Text("Systolic normal: <120 mmHg")
-                                .font(.caption2)
-                                .foregroundStyle(.green)
-                        }
-                    RuleMark(y: .value("Ref", 80))
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
-                        .foregroundStyle(.blue.opacity(0.3))
-                        .annotation(position: .bottomLeading, alignment: .leading) {
-                            Text("Diastolic normal: <80 mmHg")
-                                .font(.caption2)
-                                .foregroundStyle(.green)
-                        }
+                    BPReferenceMarks()
                 }
                 .chartXScale(domain: xDomain)
-                .chartXAxis {
-                    AxisMarks(values: .automatic(desiredCount: 5)) { _ in
-                        AxisGridLine()
-                        AxisValueLabel(format: .dateTime.month(.abbreviated).day(), anchor: .top)
-                    }
-                }
+                .chartXAxis { chartDateXAxisContent() }
                 .chartYAxis { AxisMarks(position: .leading) }
                 .chartLegend(position: .bottom)
-                .frame(height: 180)
+                .frame(height: ChartHeight.card)
                 .clipped()
             } else if records.count == 1 {
                 HStack {
@@ -322,10 +274,8 @@ struct ComparisonBPChart: View {
 
             // Summary footer
             if records.count >= 2 {
-                let avgSys = records.map(\.systolic).reduce(0, +) / records.count
-                let avgDia = records.map(\.diastolic).reduce(0, +) / records.count
                 HStack {
-                    Text("Avg: \(avgSys)/\(avgDia) mmHg")
+                    Text("Avg: \(cachedAvgSys)/\(cachedAvgDia) mmHg")
                     Spacer()
                     Text("\(records.count) readings")
                 }
@@ -333,9 +283,7 @@ struct ComparisonBPChart: View {
                 .foregroundStyle(.tertiary)
             }
         }
-        .padding()
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-        .padding(.horizontal)
+        .chartCardStyle()
         .contentShape(Rectangle())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel({
@@ -344,12 +292,12 @@ struct ComparisonBPChart: View {
                 label += " Latest: \(latest.systolic)/\(latest.diastolic) mmHg."
             }
             if records.count >= 2 {
-                let avgSys = records.map(\.systolic).reduce(0, +) / records.count
-                let avgDia = records.map(\.diastolic).reduce(0, +) / records.count
-                label += " Average: \(avgSys)/\(avgDia) mmHg. \(records.count) readings."
+                label += " Average: \(cachedAvgSys)/\(cachedAvgDia) mmHg. \(records.count) readings."
             }
             return label
         }())
         .accessibilityHint(onTap != nil ? "Tap to view details" : "")
+        .onAppear { recompute() }
+        .onChange(of: records) { _, _ in recompute() }
     }
 }

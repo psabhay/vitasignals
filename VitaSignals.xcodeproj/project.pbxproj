@@ -51,6 +51,8 @@
 		C2D3E4F5A6B7C8D9E0F1A2B3 /* CustomChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3E4F5A6B7C8D9E0F1A2B3C4 /* CustomChart.swift */; };
 		E4F5A6B7C8D9E0F1A2B3C4D5 /* DualAxisChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A6B7C8D9E0F1A2B3C4D5E6 /* DualAxisChartView.swift */; };
 		A6B7C8D9E0F1A2B3C4D5E6F7 /* CreateCustomChartSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C8D9E0F1A2B3C4D5E6F7A8 /* CreateCustomChartSheet.swift */; };
+		1A2B3C4D5E6F7A8B9C0D1E2F /* ChartConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B3C4D5E6F7A8B9C0D1E2F3A /* ChartConstants.swift */; };
+		3C4D5E6F7A8B9C0D1E2F3A4B /* ChartUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D5E6F7A8B9C0D1E2F3A4B5C /* ChartUtilities.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -114,6 +116,8 @@
 		D3E4F5A6B7C8D9E0F1A2B3C4 /* CustomChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomChart.swift; sourceTree = "<group>"; };
 		F5A6B7C8D9E0F1A2B3C4D5E6 /* DualAxisChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DualAxisChartView.swift; sourceTree = "<group>"; };
 		B7C8D9E0F1A2B3C4D5E6F7A8 /* CreateCustomChartSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateCustomChartSheet.swift; sourceTree = "<group>"; };
+		2B3C4D5E6F7A8B9C0D1E2F3A /* ChartConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartConstants.swift; sourceTree = "<group>"; };
+		4D5E6F7A8B9C0D1E2F3A4B5C /* ChartUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartUtilities.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -150,6 +154,7 @@
 		7DE302C931F9CD147C6BDDA5 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				2B3C4D5E6F7A8B9C0D1E2F3A /* ChartConstants.swift */,
 				0EAE27D6BD3DF2F085C39746 /* CustomMetric.swift */,
 				B7D4D9CFE6B453968E8D561A /* DismissedHealthKitRecord.swift */,
 				29B0F6ABD97D1B4653A179AF /* HealthKitCatalog.swift */,
@@ -211,6 +216,7 @@
 		CDE61C30EA36FFEE7EB37A0E /* Helpers */ = {
 			isa = PBXGroup;
 			children = (
+				4D5E6F7A8B9C0D1E2F3A4B5C /* ChartUtilities.swift */,
 				F13BAD08ABAC6886239ADB53 /* HealthDataStore.swift */,
 				454183B3E4AD40D99A7E09E5 /* DashboardEngine.swift */,
 				DD41DBFB8AD04D869E99A061 /* HealthSyncManager.swift */,
@@ -369,6 +375,8 @@
 				C2D3E4F5A6B7C8D9E0F1A2B3 /* CustomChart.swift in Sources */,
 				E4F5A6B7C8D9E0F1A2B3C4D5 /* DualAxisChartView.swift in Sources */,
 				A6B7C8D9E0F1A2B3C4D5E6F7 /* CreateCustomChartSheet.swift in Sources */,
+				1A2B3C4D5E6F7A8B9C0D1E2F /* ChartConstants.swift in Sources */,
+				3C4D5E6F7A8B9C0D1E2F3A4B /* ChartUtilities.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

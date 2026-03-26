@@ -280,7 +280,7 @@ struct DashboardView: View {
                 rightDefinition: rightDef,
                 xDomain: card.xDomain
             )
-        } else if card.metricType == MetricType.bloodPressure {
+        } else if card.definition?.chartStyle == .bpDual {
             ComparisonBPChart(
                 records: card.records,
                 xDomain: card.xDomain,

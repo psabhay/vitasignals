@@ -33,6 +33,8 @@ struct DualAxisChartView: View {
     @State private var cachedRightStats: AxisStats?
     @State private var cachedLeftPoints: [NormalizedPoint] = []
     @State private var cachedRightPoints: [NormalizedPoint] = []
+    @State private var cachedLeftAvg: Double = 0
+    @State private var cachedRightAvg: Double = 0
 
     private static func computeStats(for records: [HealthRecord]) -> AxisStats {
         let values = records.map(\.primaryValue)
@@ -43,7 +45,7 @@ struct DualAxisChartView: View {
     }
 
     private static func computePoints(records: [HealthRecord], stats: AxisStats, seriesName: String) -> [NormalizedPoint] {
-        downsample(records).map { r in
+        downsample(records, maxPoints: ChartResolution.card).map { r in
             NormalizedPoint(
                 id: r.id, date: r.timestamp,
                 normalized: (r.primaryValue - stats.min) / stats.range,
@@ -59,6 +61,8 @@ struct DualAxisChartView: View {
         cachedRightStats = rs
         cachedLeftPoints = Self.computePoints(records: leftRecords, stats: ls, seriesName: leftDefinition.name)
         cachedRightPoints = Self.computePoints(records: rightRecords, stats: rs, seriesName: rightDefinition.name)
+        cachedLeftAvg = leftRecords.map(\.primaryValue).reduce(0, +) / Double(max(leftRecords.count, 1))
+        cachedRightAvg = rightRecords.map(\.primaryValue).reduce(0, +) / Double(max(rightRecords.count, 1))
     }
 
     private var hasEnoughData: Bool {
@@ -88,6 +92,8 @@ struct DualAxisChartView: View {
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
         .padding(.horizontal)
         .onAppear { recomputeCache() }
+        .onChange(of: leftRecords) { recomputeCache() }
+        .onChange(of: rightRecords) { recomputeCache() }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(chartName) comparison chart. \(leftDefinition.name) versus \(rightDefinition.name). \(leftRecords.count) and \(rightRecords.count) readings respectively.")
     }
@@ -148,12 +154,7 @@ struct DualAxisChartView: View {
         }
         .chartXScale(domain: xDomain)
         .chartYScale(domain: -0.05...1.05)
-        .chartXAxis {
-            AxisMarks(values: .automatic(desiredCount: 5)) { _ in
-                AxisGridLine()
-                AxisValueLabel(format: .dateTime.month(.abbreviated).day(), anchor: .top)
-            }
-        }
+        .chartXAxis { chartDateXAxisContent() }
         .chartYAxis {
             AxisMarks(position: .leading, values: tickPositions) { value in
                 let v = value.as(Double.self) ?? 0
@@ -176,7 +177,7 @@ struct DualAxisChartView: View {
             }
         }
         .chartLegend(.hidden)
-        .frame(height: 200)
+        .frame(height: ChartHeight.dual)
         .clipped()
     }
 
@@ -212,13 +213,11 @@ struct DualAxisChartView: View {
     // MARK: - Summary
 
     private var summaryFooter: some View {
-        let lAvg = leftRecords.map(\.primaryValue).reduce(0, +) / Double(max(leftRecords.count, 1))
-        let rAvg = rightRecords.map(\.primaryValue).reduce(0, +) / Double(max(rightRecords.count, 1))
-        return HStack {
-            Text("\(leftDefinition.name) avg: \(leftDefinition.formatValue(lAvg))")
+        HStack {
+            Text("\(leftDefinition.name) avg: \(leftDefinition.formatValue(cachedLeftAvg))")
                 .foregroundStyle(leftDefinition.color)
             Spacer()
-            Text("\(rightDefinition.name) avg: \(rightDefinition.formatValue(rAvg))")
+            Text("\(rightDefinition.name) avg: \(rightDefinition.formatValue(cachedRightAvg))")
                 .foregroundStyle(rightDefinition.color)
         }
         .font(.caption2.monospacedDigit())
