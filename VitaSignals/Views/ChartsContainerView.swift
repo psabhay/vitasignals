@@ -39,24 +39,24 @@ struct ChartsContainerView: View {
     @State private var cachedHasData = false
     @State private var cachedRecords: [String: [HealthRecord]] = [:]
 
-    private var effectiveDateRange: (start: Date, end: Date) {
+    private var effectiveDateRange: ClosedRange<Date> {
         if timeRange == .custom {
-            return (customStartDate, customEndDate)
+            return normalizedDateDomain(customStartDate...customEndDate, minimumSpan: 24 * 60 * 60)
         }
         let end = Date.now
         if let days = timeRange.days {
             let start = Calendar.current.date(byAdding: .day, value: -days, to: end) ?? end
-            return (start, end)
+            return normalizedDateDomain(start...end, minimumSpan: 60)
         }
         // "All Time" — use cached earliest date
         let earliest = cachedEarliestDate ?? end
-        return (earliest, end)
+        return normalizedDateDomain(earliest...end, minimumSpan: 60)
     }
 
     private func filteredRecords(for metricType: String) -> [HealthRecord] {
         let result = dataStore.records(for: metricType)
         let range = effectiveDateRange
-        return result.filter { $0.timestamp >= range.start && $0.timestamp <= range.end }
+        return result.filter { $0.timestamp >= range.lowerBound && $0.timestamp <= range.upperBound }
     }
 
     /// All metric types that have ANY data (independent of date range).
@@ -91,32 +91,47 @@ struct ChartsContainerView: View {
         cachedEarliestDate = dataStore.allRecords.last?.timestamp ?? .now
     }
 
-    private var effectiveZoom: CGFloat { zoomScale * activeZoom }
-    private var effectivePan: CGFloat { panOffset + activePan }
+    private var effectiveZoom: CGFloat {
+        Self.sanitizedZoom(zoomScale * activeZoom)
+    }
+
+    private var effectivePan: CGFloat {
+        clampPan(panOffset + activePan)
+    }
     private var isZoomed: Bool { effectiveZoom > 1.01 }
 
     private var xDomain: ClosedRange<Date> {
         let full = effectiveDateRange
-        guard isZoomed else { return full.start...full.end }
+        guard isZoomed else { return full }
 
-        let zoom = effectiveZoom
-        let total = full.end.timeIntervalSince(full.start)
+        let zoom = Double(effectiveZoom)
+        let total = full.upperBound.timeIntervalSince(full.lowerBound)
+        guard zoom.isFinite, zoom > 0, total.isFinite, total > 0 else { return full }
+
         let visible = total / Double(zoom)
         let center = total * (0.5 + Double(effectivePan))
+        guard visible.isFinite, center.isFinite else { return full }
 
-        var start = full.start.addingTimeInterval(center - visible / 2)
+        var start = full.lowerBound.addingTimeInterval(center - visible / 2)
         var end = start.addingTimeInterval(visible)
 
-        if start < full.start { start = full.start; end = start.addingTimeInterval(visible) }
-        if end > full.end { end = full.end; start = max(full.start, end.addingTimeInterval(-visible)) }
+        if start < full.lowerBound {
+            start = full.lowerBound
+            end = start.addingTimeInterval(visible)
+        }
+        if end > full.upperBound {
+            end = full.upperBound
+            start = max(full.lowerBound, end.addingTimeInterval(-visible))
+        }
 
-        return start...end
+        return normalizedDateDomain(start...end)
     }
 
     private var dateRangeLabel: String {
         if timeRange == .custom {
             let fmt = Date.FormatStyle().month(.abbreviated).day()
-            return "\(customStartDate.formatted(fmt)) – \(customEndDate.formatted(fmt))"
+            let range = effectiveDateRange
+            return "\(range.lowerBound.formatted(fmt)) – \(range.upperBound.formatted(fmt))"
         }
         return timeRange.rawValue
     }
@@ -608,6 +623,20 @@ struct ChartsContainerView: View {
 
     private func clampPan(_ value: CGFloat) -> CGFloat {
         let maxPan: CGFloat = 0.5 - 0.5 / effectiveZoom
+        guard value.isFinite, maxPan.isFinite else { return 0 }
+        return max(-maxPan, min(maxPan, value))
+    }
+
+    private static func sanitizedZoom(_ value: CGFloat) -> CGFloat {
+        guard value.isFinite else { return 1.0 }
+        return max(1.0, min(value, 20.0))
+    }
+
+    private static func sanitizedPan(_ value: CGFloat, zoom: CGFloat) -> CGFloat {
+        guard value.isFinite else { return 0 }
+        let safeZoom = sanitizedZoom(zoom)
+        let maxPan = 0.5 - 0.5 / safeZoom
+        guard maxPan.isFinite else { return 0 }
         return max(-maxPan, min(maxPan, value))
     }
 
@@ -623,14 +652,16 @@ struct ChartsContainerView: View {
     private func saveCurrentView() {
         let name = saveViewName.trimmingCharacters(in: .whitespaces)
         guard !name.isEmpty else { return }
+        let safeZoom = Self.sanitizedZoom(zoomScale)
+        let safePan = Self.sanitizedPan(panOffset, zoom: safeZoom)
         let view = SavedChartView(
             name: name,
             timeRange: timeRange.rawValue,
             customStartDate: customStartDate,
             customEndDate: customEndDate,
             selectedMetrics: Array(selectedMetrics),
-            zoomScale: Double(zoomScale),
-            panOffset: Double(panOffset)
+            zoomScale: Double(safeZoom),
+            panOffset: Double(safePan)
         )
         modelContext.insert(view)
         try? modelContext.save()
@@ -639,12 +670,14 @@ struct ChartsContainerView: View {
     }
 
     private func updateSavedView(_ view: SavedChartView) {
+        let safeZoom = Self.sanitizedZoom(zoomScale)
+        let safePan = Self.sanitizedPan(panOffset, zoom: safeZoom)
         view.timeRangeRaw = timeRange.rawValue
         view.customStartDate = customStartDate
         view.customEndDate = customEndDate
         view.selectedMetrics = Array(selectedMetrics)
-        view.savedZoomScale = Double(zoomScale)
-        view.savedPanOffset = Double(panOffset)
+        view.savedZoomScale = Double(safeZoom)
+        view.savedPanOffset = Double(safePan)
         try? modelContext.save()
     }
 
@@ -660,10 +693,12 @@ struct ChartsContainerView: View {
         activeViewID = view.id
 
         // Restore zoom/pan state
-        zoomScale = CGFloat(view.savedZoomScale)
-        steadyZoom = CGFloat(view.savedZoomScale)
-        panOffset = CGFloat(view.savedPanOffset)
-        steadyPan = CGFloat(view.savedPanOffset)
+        let restoredZoom = Self.sanitizedZoom(CGFloat(view.savedZoomScale))
+        let restoredPan = Self.sanitizedPan(CGFloat(view.savedPanOffset), zoom: restoredZoom)
+        zoomScale = restoredZoom
+        steadyZoom = restoredZoom
+        panOffset = restoredPan
+        steadyPan = restoredPan
         DispatchQueue.main.async { isLoadingView = false }
     }
 

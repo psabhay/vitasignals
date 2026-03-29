@@ -9,6 +9,8 @@ struct ContentView: View {
     @State private var selectedTab = 0
     @State private var hasCompletedOnboarding = false
     @State private var showFirstSyncOverlay = false
+    @State private var showOnboarding = false
+    @State private var shouldRunFirstSyncAfterOnboarding = false
     @StateObject private var syncManager = HealthSyncManager()
     @State private var notificationMetricType: String?
     @State private var pendingNotificationMetricType: String?
@@ -59,17 +61,22 @@ struct ContentView: View {
                 FirstSyncOverlayView(syncManager: syncManager)
             }
         }
-        .fullScreenCover(isPresented: Binding(
-            get: { !hasProfile && !hasCompletedOnboarding },
-            set: { if !$0 { hasCompletedOnboarding = true } }
-        )) {
+        .fullScreenCover(isPresented: $showOnboarding, onDismiss: {
+            guard shouldRunFirstSyncAfterOnboarding else { return }
+            shouldRunFirstSyncAfterOnboarding = false
+            performFirstSync()
+        }) {
             OnboardingView {
                 hasCompletedOnboarding = true
+                showOnboarding = false
                 selectedTab = 0
-                performFirstSync()
+                shouldRunFirstSyncAfterOnboarding = true
             }
         }
         .task {
+            if !hasProfile && !hasCompletedOnboarding {
+                showOnboarding = true
+            }
             guard hasProfile else { return }
             hasCompletedOnboarding = true
             // Only show overlay on first ever sync (no lastSyncDate)
@@ -94,6 +101,11 @@ struct ContentView: View {
                 notificationMetricType = metricType
             }
         }
+        .onChange(of: hasProfile) { _, profileExists in
+            if profileExists {
+                showOnboarding = false
+            }
+        }
         .sheet(item: Binding(
             get: { notificationMetricType.map { MetricTypeWrapper(metricType: $0) } },
             set: { notificationMetricType = $0?.metricType }
@@ -103,8 +115,10 @@ struct ContentView: View {
     }
 
     private func performFirstSync() {
+        guard !showFirstSyncOverlay else { return }
         showFirstSyncOverlay = true
         Task {
+            await Task.yield()
             await syncManager.syncAll(container: modelContext.container, dataStore: dataStore)
             withAnimation(.easeOut(duration: 0.4)) {
                 showFirstSyncOverlay = false
@@ -910,4 +924,3 @@ struct ProfileView: View {
         }
     }
 }
-

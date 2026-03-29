@@ -226,7 +226,7 @@ struct CustomMetricFormView: View {
                             .overlay(
                                 Circle()
                                     .strokeBorder(color.opacity(0.8), lineWidth: selectedColorIndex == index ? 2 : 0)
-                                    .padding(-3)
+                                    .padding(3)
                             )
                     }
                     .buttonStyle(.plain)

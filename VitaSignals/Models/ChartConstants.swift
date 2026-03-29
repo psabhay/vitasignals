@@ -56,11 +56,27 @@ extension View {
     @ViewBuilder
     func conditionalXScale(domain: ClosedRange<Date>?) -> some View {
         if let domain {
-            self.chartXScale(domain: domain)
+            self.chartXScale(domain: normalizedDateDomain(domain))
         } else {
             self
         }
     }
+}
+
+/// Ensure chart date domains are ordered and have a non-zero span.
+func normalizedDateDomain(
+    _ domain: ClosedRange<Date>,
+    minimumSpan: TimeInterval = 60
+) -> ClosedRange<Date> {
+    let lower = min(domain.lowerBound, domain.upperBound)
+    let upper = max(domain.lowerBound, domain.upperBound)
+    let span = upper.timeIntervalSince(lower)
+
+    if !span.isFinite || span < minimumSpan {
+        return lower...lower.addingTimeInterval(minimumSpan)
+    }
+
+    return lower...upper
 }
 
 // MARK: - Reference Range Marks

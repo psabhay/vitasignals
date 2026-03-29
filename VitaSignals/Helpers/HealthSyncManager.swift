@@ -105,19 +105,23 @@ final class HealthSyncManager: ObservableObject {
 
         // Build list of quantity defs to sync
         let quantityDefs = discovered.compactMap { type -> MetricDefinition? in
-            guard type != MetricType.bloodPressure && type != MetricType.sleepDuration else { return nil }
+            guard type != MetricType.bloodPressure,
+                  type != MetricType.sleepDuration,
+                  type != MetricType.workout else { return nil }
             return MetricRegistry.definition(for: type)
         }.filter { $0.hkQuantityType != nil }
 
         let total = quantityDefs.count
             + (discovered.contains(MetricType.bloodPressure) ? 1 : 0)
             + (discovered.contains(MetricType.sleepDuration) ? 1 : 0)
+            + (discovered.contains(MetricType.workout) ? 1 : 0)
 
         syncProgress = "Syncing \(total) metrics..."
 
         // Sync everything in parallel — quantity metrics, BP, and sleep all at once
         let hasBP = discovered.contains(MetricType.bloodPressure)
         let hasSleep = discovered.contains(MetricType.sleepDuration)
+        let hasWorkouts = discovered.contains(MetricType.workout)
 
         await withTaskGroup(of: Void.self) { group in
             group.addTask {
@@ -131,6 +135,11 @@ final class HealthSyncManager: ObservableObject {
             if hasSleep {
                 group.addTask {
                     await self.worker.syncSleep(store: self.store, container: container)
+                }
+            }
+            if hasWorkouts {
+                group.addTask {
+                    await self.worker.syncWorkouts(store: self.store, container: container)
                 }
             }
             await group.waitForAll()
@@ -155,6 +164,7 @@ final class HealthSyncManager: ObservableObject {
 
 private final class SyncWorker: Sendable {
     private let overlapInterval: TimeInterval = 3600
+    private let fullHistoryStartDate = Date(timeIntervalSinceReferenceDate: 0)
 
     // MARK: - Discovery
 
@@ -163,11 +173,12 @@ private final class SyncWorker: Sendable {
         await withTaskGroup(of: String?.self) { group in
             var inFlight = 0
             let maxConcurrency = 10
+            var results = Set<String>()
 
             for entry in HealthKitCatalog.entries {
                 if inFlight >= maxConcurrency {
                     if let type = await group.next() ?? nil {
-                        // collected below
+                        results.insert(type)
                     }
                     inFlight -= 1
                 }
@@ -190,7 +201,11 @@ private final class SyncWorker: Sendable {
                 return has ? MetricType.sleepDuration : nil
             }
 
-            var results = Set<String>()
+            group.addTask {
+                let has = await Self.hasData(store: store, sampleType: HKWorkoutType.workoutType())
+                return has ? MetricType.workout : nil
+            }
+
             for await metricType in group {
                 if let type = metricType { results.insert(type) }
             }
@@ -258,7 +273,7 @@ private final class SyncWorker: Sendable {
 
         let startDate = lastSync.map {
             $0.addingTimeInterval(-overlapInterval)
-        } ?? Calendar.current.date(byAdding: .year, value: -1, to: .now) ?? .now
+        } ?? fullHistoryStartDate
 
         let options: HKStatisticsOptions = def.isCumulative ? .cumulativeSum : .discreteAverage
         let dailyValues = await Self.fetchDailyStatistics(store: store, hkType, unit: hkUnit, from: startDate, to: endDate, options: options)
@@ -316,7 +331,7 @@ private final class SyncWorker: Sendable {
         let isFirstSync = lastSync == nil
         let startDate = lastSync.map {
             $0.addingTimeInterval(-overlapInterval)
-        } ?? Calendar.current.date(byAdding: .year, value: -1, to: .now) ?? .now
+        } ?? fullHistoryStartDate
 
         let bpType = HKCorrelationType(.bloodPressure)
         let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: [])
@@ -409,7 +424,7 @@ private final class SyncWorker: Sendable {
         let syncState = getOrCreateSyncState(for: MetricType.sleepDuration, context: context)
         let startDate = syncState.lastSyncDate.map {
             $0.addingTimeInterval(-overlapInterval)
-        } ?? Calendar.current.date(byAdding: .year, value: -1, to: .now) ?? .now
+        } ?? fullHistoryStartDate
         let endDate = Date.now
 
         let sleepType = HKCategoryType(.sleepAnalysis)
@@ -500,6 +515,90 @@ private final class SyncWorker: Sendable {
         } catch {
             #if DEBUG
             print("⚠️ Save failed for sleep: \(error)")
+            #endif
+        }
+    }
+
+    // MARK: - Workout Sync
+
+    func syncWorkouts(store: HKHealthStore, container: ModelContainer) async {
+        let context = ModelContext(container)
+        context.autosaveEnabled = false
+
+        let syncState = getOrCreateSyncState(for: MetricType.workout, context: context)
+        let endDate = Date.now
+        let startDate = syncState.lastSyncDate.map {
+            $0.addingTimeInterval(-overlapInterval)
+        } ?? fullHistoryStartDate
+
+        let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: [])
+        let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
+
+        let workouts: [HKWorkout] = await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: HKWorkoutType.workoutType(),
+                predicate: predicate,
+                limit: HKObjectQueryNoLimit,
+                sortDescriptors: [sortDescriptor]
+            ) { _, results, _ in
+                continuation.resume(returning: (results as? [HKWorkout]) ?? [])
+            }
+            store.execute(query)
+        }
+
+        guard !workouts.isEmpty else {
+            syncState.lastSyncDate = endDate
+            syncState.isAvailable = true
+            do {
+                try context.save()
+            } catch {
+                #if DEBUG
+                print("⚠️ Save failed for workout sync state: \(error)")
+                #endif
+            }
+            return
+        }
+
+        let existingUUIDs = existingHealthKitUUIDs(
+            for: MetricType.workout,
+            from: startDate,
+            to: endDate,
+            context: context
+        )
+
+        for workout in workouts {
+            let uuid = workout.uuid.uuidString
+            guard !existingUUIDs.contains(uuid) else { continue }
+
+            let source = workout.sourceRevision.source.name
+            var noteParts = ["Imported from Apple Health (via \(source))"]
+            if let distance = workout.totalDistance?.doubleValue(for: .meterUnit(with: .kilo)) {
+                noteParts.append(String(format: "Distance: %.2f km", distance))
+            }
+            if let energy = workout.totalEnergyBurned?.doubleValue(for: .kilocalorie()) {
+                noteParts.append(String(format: "Energy: %.0f kcal", energy))
+            }
+
+            context.insert(HealthRecord(
+                metricType: MetricType.workout,
+                timestamp: workout.startDate,
+                primaryValue: workout.duration / 60,
+                stringValue: workout.workoutActivityType.displayName,
+                durationSeconds: workout.duration,
+                healthKitUUID: uuid,
+                source: source,
+                isManualEntry: false,
+                notes: noteParts.joined(separator: " • ")
+            ))
+        }
+
+        syncState.lastSyncDate = endDate
+        syncState.isAvailable = true
+        do {
+            try context.save()
+        } catch {
+            #if DEBUG
+            print("⚠️ Save failed for workouts: \(error)")
             #endif
         }
     }
@@ -629,5 +728,37 @@ private final class SyncWorker: Sendable {
             }
         )
         return (try? context.fetch(descriptor)) ?? []
+    }
+}
+
+private extension HKWorkoutActivityType {
+    var displayName: String {
+        switch self {
+        case .running: return "Running"
+        case .walking: return "Walking"
+        case .cycling: return "Cycling"
+        case .swimming: return "Swimming"
+        case .hiking: return "Hiking"
+        case .yoga: return "Yoga"
+        case .traditionalStrengthTraining: return "Strength Training"
+        case .functionalStrengthTraining: return "Functional Strength"
+        case .highIntensityIntervalTraining: return "HIIT"
+        case .elliptical: return "Elliptical"
+        case .rowing: return "Rowing"
+        case .stairClimbing: return "Stair Climbing"
+        case .cooldown: return "Cooldown"
+        case .coreTraining: return "Core Training"
+        case .flexibility: return "Flexibility"
+        case .mixedCardio: return "Mixed Cardio"
+        case .pilates: return "Pilates"
+        case .dance: return "Dance"
+        case .tennis: return "Tennis"
+        case .mindAndBody: return "Mind & Body"
+        default:
+            return String(describing: self)
+                .replacingOccurrences(of: "HKWorkoutActivityType", with: "")
+                .replacingOccurrences(of: "_", with: " ")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
     }
 }
