@@ -10,7 +10,10 @@
 		0018365A82017DF7CA684B27 /* RecordDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 454755B6D90C45668AB66500 /* RecordDetailView.swift */; };
 		02AAA5CD6647E2FC5E7AB086 /* StoreManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61240306A5E7AC6BFAD85EE7 /* StoreManager.swift */; };
 		19B6F4A21D1FEB63A6624061 /* ComparisonChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FD6BAA66081D81CB6ACEF9F /* ComparisonChartView.swift */; };
+		1A2B3C4D5E6F7A8B9C0D1E2F /* ChartConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B3C4D5E6F7A8B9C0D1E2F3A /* ChartConstants.swift */; };
+		3C4D5E6F7A8B9C0D1E2F3A4B /* ChartUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D5E6F7A8B9C0D1E2F3A4B5C /* ChartUtilities.swift */; };
 		45E1B8BD3BA8D777C3EEEB03 /* PDFGeneratorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90E7B688762C7F674020D7CD /* PDFGeneratorTests.swift */; };
+		4A0A2F1040B7482EA7BB8530 /* DashboardCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A46EE7EDD2149AF92CBC2E8 /* DashboardCard.swift */; };
 		540254F1927AB996697C2DA1 /* CustomMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EAE27D6BD3DF2F085C39746 /* CustomMetric.swift */; };
 		60F0077C4EC0E8DA032B9A62 /* HealthRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6DAD775757D9EBC87FED039 /* HealthRecord.swift */; };
 		64EDF51A7E22B974CEF08790 /* ReportBuilderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 464EFE9272545D856F49956D /* ReportBuilderView.swift */; };
@@ -24,35 +27,32 @@
 		8F74D97C40470952E817A452 /* HealthSyncManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD41DBFB8AD04D869E99A061 /* HealthSyncManager.swift */; };
 		915A8DFFDF80D88725A56E86 /* ReportTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6872E5491FF1CDAF5451408 /* ReportTemplate.swift */; };
 		9ABDE8DA3815DF0D096257F3 /* ChartsContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7423D69069AC5D9761D1BAA5 /* ChartsContainerView.swift */; };
+		9BADBA63E03740BD83EBB1A6 /* DashboardCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4350C46D24B4BF7917C73A6 /* DashboardCards.swift */; };
 		9C9D43D863C1B332514FCC62 /* AddRecordPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CC6068B927C5D5F1C191CB7 /* AddRecordPickerSheet.swift */; };
 		9F8E677A50582EF1E2BA8AC0 /* UserProfileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F7A02F66FDA9ED71DB27665 /* UserProfileTests.swift */; };
 		A4FA8C700F97935DEDC5CDBB /* MetricDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40DDEBAE896F7EAC3A40FC7F /* MetricDetailView.swift */; };
+		A6B7C8D9E0F1A2B3C4D5E6F7 /* CreateCustomChartSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C8D9E0F1A2B3C4D5E6F7A8 /* CreateCustomChartSheet.swift */; };
+		AEFD7E512F014EABB595A282 /* DashboardChartCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBAFF4F8797D43269E181212 /* DashboardChartCard.swift */; };
+		AFBEFC949A264DEC9261F2CE /* DashboardEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 454183B3E4AD40D99A7E09E5 /* DashboardEngine.swift */; };
 		AFC61E8AD97B45338C4B2C5D /* DismissedHealthKitRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7D4D9CFE6B453968E8D561A /* DismissedHealthKitRecord.swift */; };
+		B1C2D3E4F5A6B7C8D9E0F1A2 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0B1C2D3E4F5A6B7C8D9E0F1 /* NotificationManager.swift */; };
 		C1714F685C57F6DB18BF63B2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA9133A2DDC9EB088CBCF2DE /* ContentView.swift */; };
+		C2D3E4F5A6B7C8D9E0F1A2B3 /* CustomChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3E4F5A6B7C8D9E0F1A2B3C4 /* CustomChart.swift */; };
 		C39A015B8D4DD0194B04E79C /* CustomMetricFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98446B1DF1D8D826831B2E87 /* CustomMetricFormView.swift */; };
 		C9500C4659DA5667EE43B57E /* MetricRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D06FC54383C29A52BF33DB38 /* MetricRegistryTests.swift */; };
+		C9917D3E60FD44319161E0E6 /* MetricGoal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38F219B49153461EAC0A5C52 /* MetricGoal.swift */; };
 		CA859B899594ED67E7AF6490 /* ReportStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2029A1BE29CE1DAD6CB4407 /* ReportStyle.swift */; };
 		CF287322F06D839EACF4F481 /* SyntheticDataGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0BB7E618B6201FF79C0CE93 /* SyntheticDataGenerator.swift */; };
 		D21D7AA57C7928B8D9FE8D85 /* VitaSignalsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0E971ED5EB71432B53E3DC9 /* VitaSignalsApp.swift */; };
 		D56565033ACB3F1A5F94728E /* HealthKitCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29B0F6ABD97D1B4653A179AF /* HealthKitCatalog.swift */; };
 		E2C5FAB2F96442778AF7EE08 /* SyncState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B949F18A10A020DF4DA57DBF /* SyncState.swift */; };
+		E4F5A6B7C8D9E0F1A2B3C4D5 /* DualAxisChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A6B7C8D9E0F1A2B3C4D5E6 /* DualAxisChartView.swift */; };
 		E8B9F008C103CA863A076CDA /* DataBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DC87D7DC488B0CD1A683ACE /* DataBrowserView.swift */; };
 		E9E56F97E2A950D0A20934C7 /* HealthDataStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F13BAD08ABAC6886239ADB53 /* HealthDataStore.swift */; };
 		EDB10CCC70319F8C1DE017CF /* SavedChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ACCAF3D89EC4920FC968A81 /* SavedChartView.swift */; };
 		EE9E8EC513A451026AA1C738 /* HealthRecordTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAB8659A6B2A4456ED4D6C56 /* HealthRecordTests.swift */; };
 		FBF025042B24621D597226AC /* MetricRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E2C221240579153FDB928F7 /* MetricRegistry.swift */; };
 		FBFEB40D61812E69CCEF5F3E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 55A0D1A6FD95AFDF2D4CF508 /* Assets.xcassets */; };
-		4A0A2F1040B7482EA7BB8530 /* DashboardCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A46EE7EDD2149AF92CBC2E8 /* DashboardCard.swift */; };
-		AEFD7E512F014EABB595A282 /* DashboardChartCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBAFF4F8797D43269E181212 /* DashboardChartCard.swift */; };
-		C9917D3E60FD44319161E0E6 /* MetricGoal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38F219B49153461EAC0A5C52 /* MetricGoal.swift */; };
-		AFBEFC949A264DEC9261F2CE /* DashboardEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 454183B3E4AD40D99A7E09E5 /* DashboardEngine.swift */; };
-		9BADBA63E03740BD83EBB1A6 /* DashboardCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4350C46D24B4BF7917C73A6 /* DashboardCards.swift */; };
-		B1C2D3E4F5A6B7C8D9E0F1A2 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0B1C2D3E4F5A6B7C8D9E0F1 /* NotificationManager.swift */; };
-		C2D3E4F5A6B7C8D9E0F1A2B3 /* CustomChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3E4F5A6B7C8D9E0F1A2B3C4 /* CustomChart.swift */; };
-		E4F5A6B7C8D9E0F1A2B3C4D5 /* DualAxisChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A6B7C8D9E0F1A2B3C4D5E6 /* DualAxisChartView.swift */; };
-		A6B7C8D9E0F1A2B3C4D5E6F7 /* CreateCustomChartSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C8D9E0F1A2B3C4D5E6F7A8 /* CreateCustomChartSheet.swift */; };
-		1A2B3C4D5E6F7A8B9C0D1E2F /* ChartConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B3C4D5E6F7A8B9C0D1E2F3A /* ChartConstants.swift */; };
-		3C4D5E6F7A8B9C0D1E2F3A4B /* ChartUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D5E6F7A8B9C0D1E2F3A4B5C /* ChartUtilities.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -72,13 +72,17 @@
 		0FD6BAA66081D81CB6ACEF9F /* ComparisonChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComparisonChartView.swift; sourceTree = "<group>"; };
 		121FC977B86C0C65B31358FD /* HealthRecordFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthRecordFormView.swift; sourceTree = "<group>"; };
 		29B0F6ABD97D1B4653A179AF /* HealthKitCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitCatalog.swift; sourceTree = "<group>"; };
-		2E8E220BD8EBCA6DE58ACE4F /* VitaSignals.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = VitaSignals.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		2B3C4D5E6F7A8B9C0D1E2F3A /* ChartConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartConstants.swift; sourceTree = "<group>"; };
+		2E8E220BD8EBCA6DE58ACE4F /* VitaSignals.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VitaSignals.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		38F219B49153461EAC0A5C52 /* MetricGoal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricGoal.swift; sourceTree = "<group>"; };
 		3ACCAF3D89EC4920FC968A81 /* SavedChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedChartView.swift; sourceTree = "<group>"; };
 		3DC87D7DC488B0CD1A683ACE /* DataBrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataBrowserView.swift; sourceTree = "<group>"; };
 		3F7A02F66FDA9ED71DB27665 /* UserProfileTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfileTests.swift; sourceTree = "<group>"; };
 		40DDEBAE896F7EAC3A40FC7F /* MetricDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricDetailView.swift; sourceTree = "<group>"; };
+		454183B3E4AD40D99A7E09E5 /* DashboardEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardEngine.swift; sourceTree = "<group>"; };
 		454755B6D90C45668AB66500 /* RecordDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordDetailView.swift; sourceTree = "<group>"; };
 		464EFE9272545D856F49956D /* ReportBuilderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportBuilderView.swift; sourceTree = "<group>"; };
+		4D5E6F7A8B9C0D1E2F3A4B5C /* ChartUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartUtilities.swift; sourceTree = "<group>"; };
 		53AAB761CEE172302837C10D /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		55A0D1A6FD95AFDF2D4CF508 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		61240306A5E7AC6BFAD85EE7 /* StoreManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreManager.swift; sourceTree = "<group>"; };
@@ -88,17 +92,21 @@
 		7F8DA2982F71353900178693 /* VitaSignals.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; name = VitaSignals.storekit; path = VitaSignals/VitaSignals.storekit; sourceTree = "<group>"; };
 		838317482C710995251F4539 /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallView.swift; sourceTree = "<group>"; };
 		84E896CD5AE44CF6B411FD95 /* VitaSignals.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = VitaSignals.storekit; sourceTree = "<group>"; };
+		8A46EE7EDD2149AF92CBC2E8 /* DashboardCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardCard.swift; sourceTree = "<group>"; };
 		90E7B688762C7F674020D7CD /* PDFGeneratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFGeneratorTests.swift; sourceTree = "<group>"; };
 		98446B1DF1D8D826831B2E87 /* CustomMetricFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomMetricFormView.swift; sourceTree = "<group>"; };
 		9CC6068B927C5D5F1C191CB7 /* AddRecordPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddRecordPickerSheet.swift; sourceTree = "<group>"; };
+		A0B1C2D3E4F5A6B7C8D9E0F1 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		B0EB46E1158A0192546A827B /* PDFGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFGenerator.swift; sourceTree = "<group>"; };
 		B2029A1BE29CE1DAD6CB4407 /* ReportStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportStyle.swift; sourceTree = "<group>"; };
 		B6DAD775757D9EBC87FED039 /* HealthRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthRecord.swift; sourceTree = "<group>"; };
+		B7C8D9E0F1A2B3C4D5E6F7A8 /* CreateCustomChartSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateCustomChartSheet.swift; sourceTree = "<group>"; };
 		B7D4D9CFE6B453968E8D561A /* DismissedHealthKitRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DismissedHealthKitRecord.swift; sourceTree = "<group>"; };
 		B949F18A10A020DF4DA57DBF /* SyncState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncState.swift; sourceTree = "<group>"; };
 		BE0C68685E1BF9E16E65FFCA /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		C0E971ED5EB71432B53E3DC9 /* VitaSignalsApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VitaSignalsApp.swift; sourceTree = "<group>"; };
 		D06FC54383C29A52BF33DB38 /* MetricRegistryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricRegistryTests.swift; sourceTree = "<group>"; };
+		D3E4F5A6B7C8D9E0F1A2B3C4 /* CustomChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomChart.swift; sourceTree = "<group>"; };
 		DA9C2CBE06CC51831F3DA795 /* MetricCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricCardView.swift; sourceTree = "<group>"; };
 		DD41DBFB8AD04D869E99A061 /* HealthSyncManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthSyncManager.swift; sourceTree = "<group>"; };
 		E0BB7E618B6201FF79C0CE93 /* SyntheticDataGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyntheticDataGenerator.swift; sourceTree = "<group>"; };
@@ -107,17 +115,9 @@
 		EA9133A2DDC9EB088CBCF2DE /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		EAB8659A6B2A4456ED4D6C56 /* HealthRecordTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthRecordTests.swift; sourceTree = "<group>"; };
 		F13BAD08ABAC6886239ADB53 /* HealthDataStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthDataStore.swift; sourceTree = "<group>"; };
-		8A46EE7EDD2149AF92CBC2E8 /* DashboardCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardCard.swift; sourceTree = "<group>"; };
-		FBAFF4F8797D43269E181212 /* DashboardChartCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardChartCard.swift; sourceTree = "<group>"; };
-		38F219B49153461EAC0A5C52 /* MetricGoal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricGoal.swift; sourceTree = "<group>"; };
-		454183B3E4AD40D99A7E09E5 /* DashboardEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardEngine.swift; sourceTree = "<group>"; };
 		F4350C46D24B4BF7917C73A6 /* DashboardCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardCards.swift; sourceTree = "<group>"; };
-		A0B1C2D3E4F5A6B7C8D9E0F1 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
-		D3E4F5A6B7C8D9E0F1A2B3C4 /* CustomChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomChart.swift; sourceTree = "<group>"; };
 		F5A6B7C8D9E0F1A2B3C4D5E6 /* DualAxisChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DualAxisChartView.swift; sourceTree = "<group>"; };
-		B7C8D9E0F1A2B3C4D5E6F7A8 /* CreateCustomChartSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateCustomChartSheet.swift; sourceTree = "<group>"; };
-		2B3C4D5E6F7A8B9C0D1E2F3A /* ChartConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartConstants.swift; sourceTree = "<group>"; };
-		4D5E6F7A8B9C0D1E2F3A4B5C /* ChartUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartUtilities.swift; sourceTree = "<group>"; };
+		FBAFF4F8797D43269E181212 /* DashboardChartCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardChartCard.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -295,7 +295,6 @@
 						DevelopmentTeam = U433W77Z44;
 					};
 					CAD06BB403C8F83A50BF41EC = {
-						DevelopmentTeam = U433W77Z44;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -410,7 +409,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = U433W77Z44;
+				DEVELOPMENT_TEAM = A6DYW2C8K8;
 				INFOPLIST_FILE = VitaSignals/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -513,7 +512,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = U433W77Z44;
+				DEVELOPMENT_TEAM = A6DYW2C8K8;
 				INFOPLIST_FILE = VitaSignals/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
