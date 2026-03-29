@@ -2,6 +2,13 @@ import SwiftUI
 import SwiftData
 import PDFKit
 
+/// Pre-populates the report builder with chart parameters.
+struct ChartExportRequest: Equatable {
+    let metrics: Set<String>
+    let startDate: Date
+    let endDate: Date
+}
+
 // MARK: - PDF Preview View
 
 struct PDFPreviewView: View {
@@ -107,7 +114,6 @@ struct ReportBuilderView: View {
         .onChange(of: exportRequest) { _, _ in applyExportRequestIfNeeded() }
         .onChange(of: selectedTemplate) { _, _ in renderedPDF = nil }
         .navigationTitle("Reports")
-        .withProfileButton()
         .alert("Report Generation Failed", isPresented: $showGenerationError) {
             Button("OK") {}
         } message: {

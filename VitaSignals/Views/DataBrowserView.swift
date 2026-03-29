@@ -124,7 +124,6 @@ struct DataBrowserView: View {
                 }
             }
             .navigationTitle("Data")
-            .withProfileButton()
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {

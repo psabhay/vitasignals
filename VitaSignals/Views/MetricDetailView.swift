@@ -1,12 +1,17 @@
 import SwiftUI
+import SwiftData
 import Charts
 
 struct MetricDetailView: View {
     let metricType: String
     @EnvironmentObject var dataStore: HealthDataStore
+    @Environment(\.modelContext) private var modelContext
     @State private var timeRange: ChartTimeRange = .month
     @State private var cachedFiltered: [HealthRecord] = []
     @State private var cachedChartData: [HealthRecord] = []
+    @State private var showAddForm = false
+    @State private var editingRecord: HealthRecord?
+    @State private var showAllRecords = false
 
     private var definition: MetricDefinition? {
         MetricRegistry.definition(for: metricType)
@@ -45,14 +50,32 @@ struct MetricDetailView: View {
                 } else {
                     summaryCard
                     chartCard
+                    recordsList
                 }
             }
             .padding(.bottom)
         }
         .navigationTitle(definition?.name ?? "Metric")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    showAddForm = true
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.title3)
+                }
+                .accessibilityLabel("Add \(definition?.name ?? "record")")
+            }
+        }
+        .sheet(isPresented: $showAddForm) {
+            HealthRecordFormView(metricType: metricType)
+        }
         .onAppear { recomputeFiltered() }
-        .onChange(of: timeRange) { _, _ in recomputeFiltered() }
+        .onChange(of: timeRange) { _, _ in
+            showAllRecords = false
+            recomputeFiltered()
+        }
         .onChange(of: dataStore.recordCount) { _, _ in recomputeFiltered() }
     }
 
@@ -179,6 +202,112 @@ struct MetricDetailView: View {
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
             .padding(.horizontal)
         }
+    }
+
+    // MARK: - Records List
+
+    @ViewBuilder
+    private var recordsList: some View {
+        if !cachedFiltered.isEmpty {
+            let displayRecords = showAllRecords ? cachedFiltered : Array(cachedFiltered.prefix(10))
+
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("Readings")
+                        .font(.headline)
+                    Spacer()
+                    Text("\(cachedFiltered.count) total")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                ForEach(displayRecords) { record in
+                    Button {
+                        editingRecord = record
+                    } label: {
+                        recordRow(record)
+                    }
+                    .buttonStyle(.plain)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button(role: .destructive) {
+                            deleteRecord(record)
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
+
+                    if record.id != displayRecords.last?.id {
+                        Divider()
+                    }
+                }
+
+                if cachedFiltered.count > 10 && !showAllRecords {
+                    Button {
+                        withAnimation { showAllRecords = true }
+                    } label: {
+                        Text("Show all \(cachedFiltered.count) readings")
+                            .font(.caption.bold())
+                            .foregroundStyle(Color.accentColor)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding()
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+            .padding(.horizontal)
+            .sheet(item: $editingRecord) { record in
+                HealthRecordFormView(metricType: record.metricType, record: record)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func recordRow(_ record: HealthRecord) -> some View {
+        if let def = definition {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    if metricType == MetricType.bloodPressure {
+                        Text(record.formattedPrimaryValue)
+                            .font(.subheadline.bold().monospacedDigit())
+                    } else {
+                        Text("\(def.formatValue(record.primaryValue)) \(def.unit)")
+                            .font(.subheadline.bold().monospacedDigit())
+                    }
+                    if !record.notes.isEmpty {
+                        Text(record.notes)
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                    }
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(record.timestamp.formatted(.dateTime.month(.abbreviated).day()))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(record.timestamp.formatted(.dateTime.hour().minute()))
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+                Image(systemName: "chevron.right")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
+        }
+    }
+
+    private func deleteRecord(_ record: HealthRecord) {
+        if let hkID = record.healthKitUUID {
+            modelContext.insert(DismissedHealthKitRecord(metricType: record.metricType, healthKitUUID: hkID))
+        }
+        modelContext.delete(record)
+        try? modelContext.save()
+        dataStore.refresh()
+        recomputeFiltered()
     }
 
 }

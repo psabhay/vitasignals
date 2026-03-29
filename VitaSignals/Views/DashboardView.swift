@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import Charts
 
 struct DashboardView: View {
     @Environment(\.modelContext) private var modelContext
@@ -10,11 +9,9 @@ struct DashboardView: View {
     @Query(sort: \DashboardCard.sortIndex) private var dashboardCards: [DashboardCard]
     @Query(sort: \CustomMetric.createdAt) private var customMetrics: [CustomMetric]
     @Query private var goals: [MetricGoal]
-    @Query(sort: \CustomChart.createdAt) private var customCharts: [CustomChart]
     @StateObject private var engine = DashboardEngine()
     @State private var activeSheet: DashboardSheet?
     @State private var addMetricType: String = MetricType.bloodPressure
-    @AppStorage("dashboardChartDays") private var chartRangeDays: Int = 7
     @State private var dashboardNavMetric: String?
     #if DEBUG
     @State private var isGeneratingData = false
@@ -24,13 +21,11 @@ struct DashboardView: View {
         case metricPicker
         case addForm(String)
         case setGoal
-        case manageDashboard
         var id: String {
             switch self {
             case .metricPicker: return "picker"
             case .addForm(let type): return "add-\(type)"
             case .setGoal: return "setGoal"
-            case .manageDashboard: return "manage"
             }
         }
     }
@@ -46,9 +41,8 @@ struct DashboardView: View {
             userName: userName,
             goals: goals,
             customMetrics: customMetrics,
-            customCharts: customCharts,
             cards: dashboardCards,
-            chartRangeDays: chartRangeDays,
+            chartRangeDays: 7,
             modelContext: modelContext
         )
     }
@@ -102,26 +96,17 @@ struct DashboardView: View {
                         goalSection
                     }
 
-                    // 8. My Charts
-                    if dataStore.recordCount > 0 {
-                        dashboardChartsHeader
-
-                        ForEach(engine.dashboardCards) { card in
-                            dashboardChartView(for: card)
-                        }
+                    // 8. Recent Activity
+                    if !dataStore.allRecords.isEmpty {
+                        recentActivitySection
                     }
 
-                    // 9. Moving Averages
-                    if !engine.movingAverages.isEmpty {
-                        MovingAveragesCardView(rows: engine.movingAverages)
-                    }
-
-                    // 10. Weekly Recap
+                    // 9. Weekly Recap
                     if let recap = engine.weeklyRecap {
                         WeeklyRecapCardView(data: recap)
                     }
 
-                    // 11. Add Goal entry point
+                    // 10. Add Goal entry point
                     if dataStore.recordCount > 0 && goals.filter(\.isActive).count < 3 {
                         Button {
                             activeSheet = .setGoal
@@ -136,15 +121,14 @@ struct DashboardView: View {
                         .buttonStyle(.plain)
                     }
 
-                    // 12. Empty state
+                    // 11. Empty state
                     if dataStore.recordCount == 0 {
                         emptyStateView
                     }
                 }
                 .padding()
             }
-            .navigationTitle("Dashboard")
-            .withProfileButton()
+            .navigationTitle("Home")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
@@ -167,9 +151,6 @@ struct DashboardView: View {
                     HealthRecordFormView(metricType: type)
                 case .setGoal:
                     SetGoalSheet()
-                case .manageDashboard:
-                    ManageDashboardSheet()
-                        .onDisappear { recompute() }
                 }
             }
             .navigationDestination(item: $dashboardNavMetric) { metricType in
@@ -177,7 +158,6 @@ struct DashboardView: View {
             }
             .onChange(of: dataStore.recordCount) { _, _ in recompute() }
             .onChange(of: goals.count) { _, _ in recompute() }
-            .onChange(of: chartRangeDays) { _, _ in recompute() }
             .onAppear { recompute() }
         }
     }
@@ -216,84 +196,51 @@ struct DashboardView: View {
         }
     }
 
-    // MARK: - Dashboard Charts
+    // MARK: - Recent Activity
 
-    private static let chartRangeOptions: [(label: String, days: Int)] = [
-        ("7D", 7), ("14D", 14), ("30D", 30), ("90D", 90),
-    ]
-
-    private var dashboardChartsHeader: some View {
-        VStack(spacing: 10) {
+    private var recentActivitySection: some View {
+        VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("My Charts")
+                Text("Recent Activity")
                     .font(.subheadline.bold())
                     .foregroundStyle(.secondary)
                 Spacer()
-                Button {
-                    activeSheet = .manageDashboard
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "slider.horizontal.3")
-                            .font(.caption)
-                        Text("Manage")
-                            .font(.caption)
-                    }
-                    .foregroundStyle(Color.accentColor)
-                }
-                .buttonStyle(.plain)
             }
-            HStack(spacing: 6) {
-                ForEach(Self.chartRangeOptions, id: \.days) { option in
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            chartRangeDays = option.days
-                        }
-                    } label: {
-                        Text(option.label)
-                            .font(.caption.bold())
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(
-                                chartRangeDays == option.days
-                                    ? Color.accentColor
-                                    : Color(.systemGray5),
-                                in: Capsule()
-                            )
-                            .foregroundStyle(chartRangeDays == option.days ? .white : .secondary)
-                    }
-                    .buttonStyle(.plain)
-                }
-                Spacer()
-            }
-        }
-    }
 
-    @ViewBuilder
-    private func dashboardChartView(for card: ResolvedDashboardCard) -> some View {
-        if card.isDualAxis, let name = card.customChartName,
-           let leftDef = card.definition, let rightDef = card.rightDefinition {
-            DualAxisChartView(
-                chartName: name,
-                leftRecords: card.records,
-                rightRecords: card.rightRecords ?? [],
-                leftDefinition: leftDef,
-                rightDefinition: rightDef,
-                xDomain: card.xDomain
-            )
-        } else if card.definition?.chartStyle == .bpDual {
-            ComparisonBPChart(
-                records: card.records,
-                xDomain: card.xDomain,
-                onTap: { dashboardNavMetric = card.metricType }
-            )
-        } else if let def = card.definition {
-            ComparisonMetricChart(
-                records: card.records,
-                definition: def,
-                xDomain: card.xDomain,
-                onTap: { dashboardNavMetric = card.metricType }
-            )
+            let recent = Array(dataStore.allRecords.prefix(5))
+            ForEach(recent) { record in
+                let def = MetricRegistry.definition(for: record.metricType)
+                HStack(spacing: 12) {
+                    Image(systemName: def?.icon ?? "chart.xyaxis.line")
+                        .font(.subheadline)
+                        .foregroundStyle(def?.color ?? .gray)
+                        .frame(width: 28)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(def?.name ?? record.metricType)
+                            .font(.subheadline)
+                        Text(record.timestamp.formatted(.dateTime.month(.abbreviated).day().hour().minute()))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    Text(record.formattedPrimaryValue)
+                        .font(.subheadline.bold().monospacedDigit())
+                    Text(def?.unit ?? "")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 4)
+
+                if record.id != recent.last?.id {
+                    Divider()
+                }
+            }
         }
+        .padding()
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
     }
 
     // MARK: - Permission Warning

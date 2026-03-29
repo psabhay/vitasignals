@@ -7,9 +7,7 @@ struct ContentView: View {
     @EnvironmentObject var storeManager: StoreManager
     @Query private var profiles: [UserProfile]
     @State private var selectedTab = 0
-    @State private var showProfile = false
     @State private var hasCompletedOnboarding = false
-    @State private var chartExportRequest: ChartExportRequest?
     @State private var showFirstSyncOverlay = false
     @StateObject private var syncManager = HealthSyncManager()
     @State private var notificationMetricType: String?
@@ -39,32 +37,22 @@ struct ContentView: View {
     private var mainContent: some View {
         TabView(selection: $selectedTab) {
             DashboardView(syncManager: syncManager)
-                .tabItem { Label("Dashboard", systemImage: "heart.text.square") }
+                .tabItem { Label("Home", systemImage: "heart.text.square") }
                 .tag(0)
 
-            DataBrowserView()
-                .tabItem { Label("Data", systemImage: "list.bullet.clipboard") }
+            ChartsContainerView()
+                .tabItem { Label("Metrics", systemImage: "chart.xyaxis.line") }
                 .tag(1)
 
-            ChartsContainerView(onExport: { request in
-                    chartExportRequest = request
-                    selectedTab = 3
-                })
-                .tabItem { Label("Charts", systemImage: "chart.xyaxis.line") }
+            ProfileView(syncManager: syncManager)
+                .tabItem { Label("Profile", systemImage: "person.crop.circle") }
                 .tag(2)
-
-            ReportsTab(exportRequest: $chartExportRequest)
-                .tabItem { Label("Reports", systemImage: "doc.text") }
-                .tag(3)
         }
         .tint(Color.accentColor)
         .toolbar {
             ToolbarItem(placement: .bottomBar) {
                 EmptyView()
             }
-        }
-        .sheet(isPresented: $showProfile) {
-            ProfileSheet(syncManager: syncManager)
         }
         .overlay {
             if showFirstSyncOverlay {
@@ -92,10 +80,9 @@ struct ContentView: View {
                 await syncManager.syncAll(container: modelContext.container, dataStore: dataStore)
             }
         }
-        .environment(\.showProfile, $showProfile)
         .onReceive(NotificationCenter.default.publisher(for: NotificationManager.openMetricFormNotification)) { notification in
             if let metricType = notification.userInfo?["metricType"] as? String {
-                // Switch to dashboard tab; the form will open once the tab switch settles
+                // Switch to Home tab; the form will open once the tab switch settles
                 selectedTab = 0
                 pendingNotificationMetricType = metricType
             }
@@ -175,66 +162,6 @@ struct FirstSyncOverlayView: View {
             }
         }
         .transition(.opacity)
-    }
-}
-
-// MARK: - Environment key to share showProfile binding across tabs
-
-private struct ShowProfileKey: EnvironmentKey {
-    static let defaultValue: Binding<Bool> = .constant(false)
-}
-
-extension EnvironmentValues {
-    var showProfile: Binding<Bool> {
-        get { self[ShowProfileKey.self] }
-        set { self[ShowProfileKey.self] = newValue }
-    }
-}
-
-// MARK: - Profile toolbar button modifier (used by each tab's NavigationStack)
-
-struct ProfileToolbarModifier: ViewModifier {
-    @Environment(\.showProfile) private var showProfile
-
-    func body(content: Content) -> some View {
-        content.toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button {
-                    showProfile.wrappedValue = true
-                } label: {
-                    Image(systemName: "person.crop.circle")
-                }
-                .accessibilityLabel("Profile")
-            }
-        }
-    }
-}
-
-extension View {
-    func withProfileButton() -> some View {
-        modifier(ProfileToolbarModifier())
-    }
-}
-
-// MARK: - Profile Sheet
-
-struct ProfileSheet: View {
-    @ObservedObject var syncManager: HealthSyncManager
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            List {
-                ProfileSection(syncManager: syncManager)
-            }
-            .navigationTitle("Profile")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
-        }
     }
 }
 
@@ -940,25 +867,47 @@ struct ProfileSection: View {
     }
 }
 
-// MARK: - Reports Tab
+// MARK: - Profile View (Tab)
 
-struct ReportsTab: View {
+struct ProfileView: View {
+    @ObservedObject var syncManager: HealthSyncManager
     @EnvironmentObject var dataStore: HealthDataStore
-    @Binding var exportRequest: ChartExportRequest?
+    @State private var exportRequest: ChartExportRequest?
 
     var body: some View {
         NavigationStack {
-            if dataStore.recordCount == 0 {
-                ContentUnavailableView(
-                    "No Health Data",
-                    systemImage: "doc.text",
-                    description: Text("Once you have health records, you can generate PDF reports here. Sync from Apple Health or add records manually.")
-                )
-                .navigationTitle("Reports")
-                .withProfileButton()
-            } else {
-                ReportBuilderView(exportRequest: $exportRequest)
+            List {
+                ProfileSection(syncManager: syncManager)
+
+                // Reports section
+                Section {
+                    NavigationLink {
+                        ReportBuilderView(exportRequest: $exportRequest)
+                    } label: {
+                        Label {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Generate PDF Report")
+                                    .font(.subheadline)
+                                Text("Create reports for your doctor or personal records")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        } icon: {
+                            Image(systemName: "doc.text.fill")
+                                .foregroundStyle(.blue)
+                        }
+                    }
+                    .disabled(dataStore.recordCount == 0)
+                } header: {
+                    Text("Reports")
+                } footer: {
+                    if dataStore.recordCount == 0 {
+                        Text("Add health records to generate reports.")
+                    }
+                }
             }
+            .navigationTitle("Profile")
         }
     }
 }
+
